@@ -19,17 +19,11 @@ module BAMR_tree
   integer, public, parameter :: MaxDim = 3   ! This has to be 3 all the time
   integer, public, parameter :: nDim   = 3   ! This can be 1, 2 or 3
 
-  ! Local variables
+  integer, public, parameter :: nChild = 2**nDim
 
-  character(len=*), parameter:: NameMod = "BAMR_tree"
+  integer, public, allocatable :: iTree_IA(:,:)
 
-  integer, parameter :: UnitTmp_ = 9 ! same as used in SWMF
-
-  integer, parameter :: nChild = 2**nDim
-
-  integer, allocatable :: iTree_IA(:,:)
-
-  integer, parameter :: &
+  integer, public, parameter :: &
        Status_   = 1, &
        Level_    = 2, &
        LevelMin_ = 3, &
@@ -44,6 +38,23 @@ module BAMR_tree
        Coord1_   = Coord0_ + 1,      &
        CoordLast_= Coord0_ + nDim
 
+  ! Deepest AMR level relative to root blocks (limited by 32 bit integers)
+  integer, public, parameter :: MaxLevel = 30
+
+  ! The maximum integer coordinate for a given level below root blocks
+  ! The loop variable has to be declared to work-around NAG f95 bug
+  integer :: L__
+  integer, public, parameter :: MaxCoord_I(0:MaxLevel) = (/ (2**L__, L__=0,MaxLevel) /)
+
+  ! The number of root blocks in all dimensions, and altogether
+  integer, public :: nRoot_D(MaxDim) = 0, nRoot = 0
+
+  ! Local variables
+
+  character(len=*), parameter:: NameMod = "BAMR_tree"
+
+  integer, parameter :: UnitTmp_ = 9 ! same as used in SWMF
+
   ! Number of items stored in iTree_IA
   integer, parameter :: nInfo = CoordLast_
 
@@ -56,14 +67,6 @@ module BAMR_tree
   ! Neighbor information
   integer, allocatable :: DiLevelNei_IIIB(:,:,:,:), iBlockNei_IIIB(:,:,:,:)
 
-  ! Deepest AMR level relative to root blocks (limited by 32 bit integers)
-  integer, parameter :: MaxLevel = 30
-
-  ! The maximum integer coordinate for a given level below root blocks
-  ! The loop variable has to be declared to work-around NAG f95 bug
-  integer :: L__
-  integer, parameter :: MaxCoord_I(0:MaxLevel) = (/ (2**L__, L__=0,MaxLevel) /)
-
   ! Maximum number of blocks including unused and skipped ones
   integer :: MaxBlockAll = 0
 
@@ -72,9 +75,6 @@ module BAMR_tree
 
   ! Number of levels below root in level (that has occured at any time)
   integer :: nLevel = 0
-
-  ! The number of root blocks in all dimensions, and altogether
-  integer :: nRoot_D(MaxDim) = 0, nRoot = 0
 
   ! Periodicity of the domain per dimension
   logical :: IsPeriodic_D(MaxDim) = .false.
@@ -271,24 +271,24 @@ contains
   end subroutine coarsen_block
 
   !==========================================================================
-  subroutine find_point(XyzIn_D, iBlock)
+  subroutine find_point(CoordIn_D, iBlock)
 
     ! Find the block that contains a point. The point coordinates should
     ! be given in generalized coordinates normalized to the domain size:
-    ! XyzIn_D = (XyzOrig_D - XyzMin_D)/(XyzMax_D-XyzMin_D)
+    ! CoordIn_D = (CoordOrig_D - CoordMin_D)/(CoordMax_D-CoordMin_D)
 
-    real, intent(in):: XyzIn_D(MaxDim)
+    real, intent(in):: CoordIn_D(MaxDim)
     integer, intent(out):: iBlock
 
-    real :: Xyz_D(MaxDim)
+    real :: Coord_D(MaxDim)
     integer :: iLevel, iChild
     integer :: Ijk_D(MaxDim), iCoord_D(nDim), iBit_D(nDim)
     !----------------------------------------------------------------------
-    ! Scale coordinates so that 1 <= Xyz_D <= nRoot_D+1
-    Xyz_D = 1.0 + nRoot_D*max(0.0, min(1.0, XyzIn_D))
+    ! Scale coordinates so that 1 <= Coord_D <= nRoot_D+1
+    Coord_D = 1.0 + nRoot_D*max(0.0, min(1.0, CoordIn_D))
 
     ! Get root block index
-    Ijk_D = min(int(Xyz_D), nRoot_D)
+    Ijk_D = min(int(Coord_D), nRoot_D)
 
     ! Root block indexes are ordered
     iBlock = Ijk_D(1) + nRoot_D(1)*((Ijk_D(2)-1) + nRoot_D(2)*(Ijk_D(3)-1))
@@ -297,7 +297,7 @@ contains
 
     ! Get normalized coordinates within root block and scale it up
     ! to the largest resolution
-    iCoord_D = (Xyz_D(1:nDim) - Ijk_D(1:nDim))*MaxCoord_I(nLevel)
+    iCoord_D = (Coord_D(1:nDim) - Ijk_D(1:nDim))*MaxCoord_I(nLevel)
 
     ! Go down the tree using bit information
     do iLevel = nLevel-1,0,-1
@@ -312,28 +312,28 @@ contains
   end subroutine find_point
 
   !==========================================================================
-  logical function is_point_inside_block(Xyz_D, iBlock)
+  logical function is_point_inside_block(Coord_D, iBlock)
 
-    real,    intent(in):: Xyz_D(nDim)
+    real,    intent(in):: Coord_D(nDim)
     integer, intent(in):: iBlock
 
     integer :: iLevel
-    real    :: XyzStart_D(nDim), XyzEnd_D(nDim)
+    real    :: CoordStart_D(nDim), CoordEnd_D(nDim)
     !-------------------------------------------------------------------------
     iLevel = iTree_IA(Level_, iBlock)
-    XyzStart_D = (iTree_IA(Coord1_:CoordLast_,iBlock)-1.0) &
+    CoordStart_D = (iTree_IA(Coord1_:CoordLast_,iBlock)-1.0) &
          /MaxCoord_I(iLevel)/nRoot_D(1:nDim)
-    XyzEnd_D   = (iTree_IA(Coord1_:CoordLast_,iBlock)+0.0) &
+    CoordEnd_D   = (iTree_IA(Coord1_:CoordLast_,iBlock)+0.0) &
          /MaxCoord_I(iLevel)/nRoot_D(1:nDim)
 
-    is_point_inside_block= all(Xyz_D >= XyzStart_D) .and. all(Xyz_D < XyzEnd_D)
+    is_point_inside_block= all(Coord_D >= CoordStart_D) .and. all(Coord_D < CoordEnd_D)
 
-    if(  any(Xyz_D > XyzEnd_D) .or. any(Xyz_D < XyzStart_D) ) then
+    if(  any(Coord_D > CoordEnd_D) .or. any(Coord_D < CoordStart_D) ) then
        write(*,*)'Error in is_point_inside_block'
        write(*,*)'iBlock, iLevel=',iBlock, iLevel
-       write(*,*)'Block start coord=',XyzStart_D
-       write(*,*)'Block end   coord=',XyzEnd_D
-       write(*,*)'Point coordinates=',Xyz_D
+       write(*,*)'Block start coord=',CoordStart_D
+       write(*,*)'Block end   coord=',CoordEnd_D
+       write(*,*)'Point coordinates=',Coord_D
     end if
 
   end function is_point_inside_block
@@ -591,7 +591,7 @@ contains
   subroutine test_tree
 
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
-    real:: XyzTest_D(MaxDim)
+    real:: CoordTest_D(MaxDim)
  
     character(len=*), parameter :: NameSub = 'test_tree'
     !-----------------------------------------------------------------------
@@ -625,20 +625,20 @@ contains
          iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDim)
 
     write(*,*)'Testing find_point'
-    XyzTest_D = (/0.99,0.99,0.9/)
-    call find_point(XyzTest_D, iBlock)
+    CoordTest_D = (/0.99,0.99,0.9/)
+    call find_point(CoordTest_D, iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: Test find point failed, iBlock=',&
          iBlock,' instead of',nRoot
 
-    if(.not.is_point_inside_block(XyzTest_D(1:nDim), iBlock)) &
+    if(.not.is_point_inside_block(CoordTest_D(1:nDim), iBlock)) &
          write(*,*)'ERROR: Test find point failed'
     
     write(*,*)'Testing refine_block'
     ! Refine the block where the point was found and find it again
     call refine_block(iBlock)
 
-    call find_point(XyzTest_D,iBlock)
-    if(.not.is_point_inside_block(XyzTest_D(1:nDim), iBlock)) &
+    call find_point(CoordTest_D,iBlock)
+    if(.not.is_point_inside_block(CoordTest_D(1:nDim), iBlock)) &
          write(*,*)'ERROR: Test find point failed'
 
     ! Refine another block
@@ -658,10 +658,10 @@ contains
 
     ! Coarsen back the last root block and find point again
     call coarsen_block(nRoot)
-    call find_point(XyzTest_D,iBlock)
+    call find_point(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: coarsen_block faild, iBlock=',&
          iBlock,' instead of',nRoot
-    if(.not.is_point_inside_block(XyzTest_D(1:nDim), iBlock)) &
+    if(.not.is_point_inside_block(CoordTest_D(1:nDim), iBlock)) &
          write(*,*)'ERROR: is_point_inside_block failed'
 
 
@@ -680,10 +680,10 @@ contains
          write(*,*)'ERROR: compact_tree faild, nBlockAll=', nBlockAll, &
          ' but iTree_IA(Status_, 1:nBlockAll)=', &
          iTree_IA(Status_, 1:nBlockAll),' contains skipped=',Skipped_
-    call find_point(XyzTest_D,iBlock)
+    call find_point(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
          iBlock,' instead of',nRoot
-    if(.not.is_point_inside_block(XyzTest_D(1:nDim), iBlock)) &
+    if(.not.is_point_inside_block(CoordTest_D(1:nDim), iBlock)) &
          write(*,*)'ERROR: is_point_inside_block failed'
 
     write(*,*)'Testing order_tree 3rd'
@@ -698,7 +698,7 @@ contains
     nRoot_D = 0
     call read_tree_file('tree.rst')
 
-    call find_point(XyzTest_D,iBlock)
+    call find_point(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
          iBlock,' instead of',nRoot
 
