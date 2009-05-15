@@ -1,0 +1,9 @@
+# Local Makefile.def
+
+localdefault: help # default target
+
+SCRIPTDIR = ${DIR}/share/Scripts
+LIBDIR    = ${DIR}/src
+BINDIR    = ${DIR}/src
+SHAREDIR  = ${DIR}/share/Library/src
+
