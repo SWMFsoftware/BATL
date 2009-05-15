@@ -2,8 +2,6 @@ module BAMR_tree
 
   use BAMR_size, ONLY: MaxBlock
 
-  use ModIoUnit, ONLY: UnitTmp_
-
   implicit none
   save
 
@@ -24,6 +22,8 @@ module BAMR_tree
   ! Local variables
 
   character(len=*), parameter:: NameMod = "BAMR_tree"
+
+  integer, parameter :: UnitTmp_ = 9 ! same as used in SWMF
 
   integer, parameter :: nChild = 2**nDim
 
