@@ -1,6 +1,6 @@
-module BAMR_tree
+module BATL_tree
 
-  use BAMR_size, ONLY: MaxBlock
+  use BATL_size, ONLY: MaxBlock
 
   implicit none
   save
@@ -53,7 +53,7 @@ module BAMR_tree
 
   ! Local variables
 
-  character(len=*), parameter:: NameMod = "BAMR_tree"
+  character(len=*), parameter:: NameMod = "BATL_tree"
 
   integer, parameter :: UnitTmp_ = 9 ! same as used in SWMF
 
@@ -724,4 +724,4 @@ contains
     
   end subroutine test_tree
 
-end module BAMR_tree
+end module BATL_tree

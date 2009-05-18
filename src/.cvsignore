@@ -1,0 +1,5 @@
+*.diff
+*.log
+*.rst
+*.mod
+Makefile.DEPEND

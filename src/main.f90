@@ -1,6 +1,6 @@
 program test_octree
 
-  use BAMR_tree, ONLY: test => test_tree
+  use BATL_tree, ONLY: test => test_tree
   implicit none
   call test
 

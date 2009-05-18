@@ -14,24 +14,22 @@ DEPEND:
 	@perl ${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
 
 OBJECTS = \
-	test_bamr.o \
-	BAMR_size.o \
-	BAMR_tree.o \
-	BAMR_grid.o
+	main.o \
+	BATL_size.o \
+	BATL_tree.o \
+	BATL_grid.o
 
 EXE:
 	make DEPEND
-	make test_bamr.exe
+	make BATL.exe
 
-test_bamr.exe: ${OBJECTS}
-	${LINK.f90} -o test_bamr.exe ${OBJECTS} ${Lflag2}
+BATL.exe: ${OBJECTS}
+	${LINK.f90} -o BATL.exe ${OBJECTS} ${Lflag2}
 
 test: EXE
-	@echo './test_bamr.exe'
-	@./test_bamr.exe > test_bamr.log
-	-@diff test_bamr.log test_bamr.ref > test_bamr.diff
-	ls -l test_bamr.diff
-	@echo test_bamr done
+	BATL.exe > test.log
+	-@diff test.log test.ref > test.diff
+	ls -l test.diff
 
 distclean: clean
 	rm -f *.log *.diff *.rst Makefile.DEPEND

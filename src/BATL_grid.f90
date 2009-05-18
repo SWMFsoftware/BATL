@@ -1,7 +1,7 @@
-module BAMR_grid
+module BATL_grid
 
-  use BAMR_size
-  use BAMR_tree
+  use BATL_size
+  use BATL_tree
 
   private ! except
 
@@ -45,4 +45,4 @@ contains
 
   end subroutine create_grid_block
 
-end module BAMR_grid
+end module BATL_grid

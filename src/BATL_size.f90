@@ -1,4 +1,4 @@
-module BAMR_size
+module BATL_size
 
   implicit none
 
@@ -18,5 +18,5 @@ module BAMR_size
        MinJ = 1 - nG, MaxJ = nJ + nG, &
        MinK = 1 - nG, MaxK = nK + nG
 
-end module BAMR_size
+end module BATL_size
 
