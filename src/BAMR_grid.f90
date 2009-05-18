@@ -35,26 +35,13 @@ contains
 
     integer, intent(in):: iBlock
 
-    integer :: iLevel, iDim
+    real :: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
     !----------------------------------------------------------------------
+    call get_block_position(iBlock, PositionMin_D, PositionMax_D)
 
-    iLevel = iTree_IA(Level_, iBlock)
+    CoordMin_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMin_D
+    CoordMax_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMax_D
 
-    CoordMin_DB(1:nDim,iBlock) = CoordMin_D(1:nDim) + &
-         (CoordMax_D(1:nDim) - CoordMin_D(1:nDim))* &
-         (iTree_IA(Coord1_:CoordLast_,iBlock)-1.0) &
-         /MaxCoord_I(iLevel)/nRoot_D(1:nDim)
-
-    CoordMax_DB(1:nDim,iBlock) = CoordMin_D(1:nDim) + &
-         (CoordMax_D(1:nDim) - CoordMin_D(1:nDim))* &
-         (iTree_IA(Coord1_:CoordLast_,iBlock)+0.0) &
-         /MaxCoord_I(iLevel)/nRoot_D(1:nDim)
-
-    ! Only one root block in the ignored direction
-    do iDim = nDim+1, MaxDim
-       CoordMin_DB(iDim,iBlock) =  CoordMin_D(iDim)
-       CoordMax_DB(iDim,iBlock) =  CoordMax_D(iDim)
-    end do
 
   end subroutine create_grid_block
 
