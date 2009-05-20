@@ -17,7 +17,8 @@ OBJECTS = \
 	main.o \
 	BATL_size.o \
 	BATL_tree.o \
-	BATL_grid.o
+	BATL_grid.o \
+	BATL_geometry.o 
 
 EXE:
 	make DEPEND

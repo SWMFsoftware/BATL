@@ -1,6 +1,6 @@
 module BATL_tree
 
-  use BATL_size, ONLY: MaxBlock
+  use BATL_size, ONLY: MaxBlock, MaxDim, nDimTree
 
   implicit none
   save
@@ -17,10 +17,8 @@ module BATL_tree
   public:: read_tree_file
   public:: test_tree
 
-  integer, public, parameter :: MaxDim = 3   ! This has to be 3 all the time
-  integer, public, parameter :: nDim   = 3   ! This can be 1, 2 or 3
 
-  integer, public, parameter :: nChild = 2**nDim
+  integer, public, parameter :: nChild = 2**nDimTree
 
   integer, public, allocatable :: iTree_IA(:,:)
 
@@ -186,7 +184,8 @@ contains
 
     integer, intent(in) :: iBlock
 
-    integer :: iChild, DiChild, iLevelChild, iProc, iBlockProc, iCoord_D(nDim)
+    integer :: iChild, DiChild, iLevelChild, iProc, iBlockProc
+    integer :: iCoord_D(nDimTree)
     integer :: iDim, iBlockChild
     !----------------------------------------------------------------------
 
@@ -201,7 +200,7 @@ contains
     if(nLevel > MaxLevel) &
          call CON_stop('Error in refine_block: too many levels')
 
-    iCoord_D = 2*iTree_IA(Coord1_:Coord0_+nDim, iBlock) - 1
+    iCoord_D = 2*iTree_IA(Coord1_:Coord0_+nDimTree, iBlock) - 1
 
     do iChild = Child1_, ChildLast_
 
@@ -222,7 +221,7 @@ contains
 
        ! Calculate the coordinates of the child block
        DiChild = iChild - Child1_
-       do iDim = 1, nDim
+       do iDim = 1, nDimTree
           iTree_IA(Coord0_+iDim, iBlockChild) = &
                iCoord_D(iDim) + ibits(DiChild, iDim-1, 1)
        end do
@@ -305,7 +304,7 @@ contains
 
     real :: Coord_D(MaxDim)
     integer :: iLevel, iChild
-    integer :: Ijk_D(MaxDim), iCoord_D(nDim), iBit_D(nDim)
+    integer :: Ijk_D(MaxDim), iCoord_D(nDimTree), iBit_D(nDimTree)
     !----------------------------------------------------------------------
     ! Scale coordinates so that 1 <= Coord_D <= nRoot_D+1
     Coord_D = 1.0 + nRoot_D*max(0.0, min(1.0, CoordIn_D))
@@ -320,12 +319,12 @@ contains
 
     ! Get normalized coordinates within root block and scale it up
     ! to the largest resolution
-    iCoord_D = (Coord_D(1:nDim) - Ijk_D(1:nDim))*MaxCoord_I(nLevel)
+    iCoord_D = (Coord_D(1:nDimTree) - Ijk_D(1:nDimTree))*MaxCoord_I(nLevel)
 
     ! Go down the tree using bit information
     do iLevel = nLevel-1,0,-1
        iBit_D = ibits(iCoord_D, iLevel, 1)
-       iChild = sum(iBit_D*MaxCoord_I(0:nDim-1)) + Child1_
+       iChild = sum(iBit_D*MaxCoord_I(0:nDimTree-1)) + Child1_
        iBlock = iTree_IA(iChild, iBlock)
 
        if(iTree_IA(Status_, iBlock) == Used_) RETURN
@@ -369,7 +368,7 @@ contains
     Scale_D = (1.0/MaxCoord_I(iLevel))/nRoot_D
     do k=0,3
        Dk = nint((k - 1.5)/1.5)
-       if(nDim < 3)then
+       if(nDimTree < 3)then
           if(k/=1) CYCLE
           z = 0.3
        else
@@ -386,7 +385,7 @@ contains
        end if
        do j=0,3
           Dj = nint((j - 1.5)/1.5)
-          if(nDim < 2)then
+          if(nDimTree < 2)then
              if(j/=1) CYCLE
              y = 0.3
           else
@@ -524,7 +523,7 @@ contains
     open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
     write(UnitTmp_) nBlockAll, nInfo
-    write(UnitTmp_) nDim, nRoot_D
+    write(UnitTmp_) nDimTree, nRoot_D
     write(UnitTmp_) iTree_IA(:,1:nBlockAll)
 
     close(UnitTmp_)
@@ -536,7 +535,7 @@ contains
   subroutine read_tree_file(NameFile)
 
     character(len=*), intent(in):: NameFile
-    integer :: nInfoIn, nBlockIn, nDimIn, nRootIn_D(MaxDim)
+    integer :: nInfoIn, nBlockIn, nDimTreeIn, nRootIn_D(MaxDim)
     character(len=*), parameter :: NameSub = 'read_tree_file'
     !----------------------------------------------------------------------
 
@@ -547,10 +546,10 @@ contains
        write(*,*) NameSub,' nBlockIn, MaxBlock=',nBlockIn, MaxBlock 
        call CON_stop(NameSub//' too many blocks in tree file!')
     end if
-    read(UnitTmp_) nDimIn, nRootIn_D
-    if(nDimIn /= nDim)then
-       write(*,*) NameSub,' nDimIn, nDim=',nDimIn, nDim
-       call CON_stop(NameSub//' nDim is different in tree file!')
+    read(UnitTmp_) nDimTreeIn, nRootIn_D
+    if(nDimTreeIn /= nDimTree)then
+       write(*,*) NameSub,' nDimTreeIn, nDimTree=',nDimTreeIn, nDimTree
+       call CON_stop(NameSub//' nDimTree is different in tree file!')
     end if
     call set_root_block(nRootIn_D, IsPeriodic_D)
     read(UnitTmp_) iTree_IA(:,1:nBlockIn)
@@ -635,9 +634,9 @@ contains
 
     Int_D = (/1,2,2/)
 
-    if(any( iTree_IA(Coord1_:CoordLast_,4) /= Int_D(1:nDim) )) &
+    if(any( iTree_IA(Coord1_:CoordLast_,4) /= Int_D )) &
          write(*,*) 'set_root_block failed, coordinates of block four=',&
-         iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDim)
+         iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDimTree)
 
     write(*,*)'Testing find_point'
     CoordTest_D = (/0.99,0.99,0.9/)
