@@ -3,3 +3,4 @@
 *.rst
 *.mod
 Makefile.DEPEND
+BATL_size.f90
