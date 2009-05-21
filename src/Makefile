@@ -33,5 +33,5 @@ test: EXE
 	ls -l test.diff
 
 distclean: clean
-	rm -f *.log *.diff *.rst Makefile.DEPEND
+	rm -f *.log *.diff *.rst BATL_size.f90 Makefile.DEPEND
 
