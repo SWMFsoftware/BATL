@@ -4,9 +4,11 @@ install:
 	touch src/Makefile.DEPEND
 	cp -f src/BATL_size_orig.f90 src/BATL_size.f90
 
-test: test1 test2 test3
+test:	test1 test2 test3
+	ls -l src/*.diff
 
 test1:
+	make clean
 	Config.pl -g=1,8,1,1
 	cd src; make EXE; 
 	cd src; BATL.exe > test1.log
@@ -14,6 +16,7 @@ test1:
 	cd src; ls -l test1.diff
 
 test2:
+	make clean
 	Config.pl -g=2,8,8,1
 	cd src; make EXE; 
 	cd src; BATL.exe > test2.log
@@ -21,6 +24,7 @@ test2:
 	cd src; ls -l test2.diff
 
 test3:
+	make clean
 	Config.pl -g=3,8,8,8
 	cd src; make EXE; 
 	cd src; BATL.exe > test3.log
