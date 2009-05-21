@@ -10,15 +10,15 @@ include Makefile.DEPEND
 install:
 	touch Makefile.DEPEND
 
-DEPEND:
-	@perl ${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
-
 OBJECTS = \
 	main.o \
 	BATL_size.o \
 	BATL_tree.o \
 	BATL_grid.o \
 	BATL_geometry.o 
+
+DEPEND:
+	@perl ${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
 
 EXE:
 	make DEPEND
