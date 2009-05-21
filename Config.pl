@@ -19,7 +19,7 @@ my $Src         = 'src';
 # Grid size variables
 my $NameGridFile = "$Src/BATL_size.f90";
 my $GridSize;
-my ($nDim, $nI, $nJ, $nK, $MaxBlock);
+my ($nDim, $nI, $nJ, $nK);
 
 &print_help if $Help;
 
@@ -29,8 +29,7 @@ my ($nDim, $nI, $nJ, $nK, $MaxBlock);
 # Read previous grid size, equation and user module
 &set_grid_size if $NewGridSize and $NewGridSize ne $GridSize;
 
-print "Config.pl -g=$nDim,$nI,$nJ,$nK,$MaxBlock\n" 
-    if $ShowGridSize or $Show;
+print "Config.pl -g=$nDim,$nI,$nJ,$nK\n" if $ShowGridSize or $Show;
 
 exit;
 
@@ -46,7 +45,6 @@ sub get_settings{
         $nI=$1           if /\bnI\s*=\s*(\d+)/i;
         $nJ=$1           if /\bnJ\s*=\s*(\d+)/i;
         $nK=$1           if /\bnK\s*=\s*(\d+)/i;
-        $MaxBlock=$1     if /\bMaxBlock\s*=\s*(\d+)/i;
     }
     close MODSIZE;
 
@@ -55,10 +53,8 @@ sub get_settings{
     die "$ERROR could not read nI from $NameGridFile\n" unless length($nI);
     die "$ERROR could not read nJ from $NameGridFile\n" unless length($nJ);
     die "$ERROR could not read nK from $NameGridFile\n" unless length($nK);
-    die "$ERROR could not read MaxBlock from $NameGridFile\n"
-        unless length($MaxBlock);
 
-    $GridSize = "$nDim,$nI,$nJ,$nK,$MaxBlock";
+    $GridSize = "$nDim,$nI,$nJ,$nK";
 }
 
 #############################################################################
@@ -67,10 +63,10 @@ sub set_grid_size{
 
     $GridSize = $NewGridSize;
 
-    if($GridSize=~/^\d+,\d+,\d+,\d+,\d+$/){
-	($nDim,$nI,$nJ,$nK,$MaxBlock)= split(',', $GridSize);
+    if($GridSize=~/^\d+,\d+,\d+,\d+$/){
+	($nDim,$nI,$nJ,$nK)= split(',', $GridSize);
     }elsif($GridSize){
-	die "$ERROR -g=$GridSize should be 5 integers separated with commas\n";
+	die "$ERROR -g=$GridSize should be 4 integers separated with commas\n";
     }
 
     # Check the grid size (to be set)
@@ -85,9 +81,6 @@ sub set_grid_size{
     die "$ERROR nJ=$nJ must be an even integer\n" if $nJ%2!=0 and $nDim > 1;
     die "$ERROR nK=$nK must be an even integer\n" if $nK%2!=0 and $nDim > 2;
 
-    die "$ERROR MaxBlock=$MaxBlock must be a positive integer\n" 
-	if $MaxBlock<1 or $MaxBlock != int($MaxBlock);
-
     print "Writing new grid size $GridSize into $NameGridFile...\n";
 
     @ARGV = ($NameGridFile);
@@ -98,7 +91,6 @@ sub set_grid_size{
 	s/\b(nI\s*=[^0-9]*)(\d+)/$1$nI/i;
 	s/\b(nJ\s*=[^0-9]*)(\d+)/$1$nJ/i;
 	s/\b(nK\s*=[^0-9]*)(\d+)/$1$nK/i;
-	s/\b(MaxBlock\s*=[^0-9]*)(\d+)/$1$MaxBlock/i;
 	print;
     }
 
