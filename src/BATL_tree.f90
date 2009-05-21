@@ -59,10 +59,11 @@ module BATL_tree
   integer, parameter :: nInfo = CoordLast_
 
   ! Possible values for the status variable
-  integer, parameter :: Skipped_=0, Unused_=1, Used_=2, Refine_=3, Coarsen_=4
+  integer, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
+  integer, parameter :: Skipped_ = -100
 
   ! Index for non-existing block and level differences
-  integer, parameter :: NoBlock_ = -100
+  integer, parameter :: NoBlock_ = Skipped_
 
   ! Neighbor information
   integer, allocatable :: DiLevelNei_IIIB(:,:,:,:), iBlockNei_IIIB(:,:,:,:)
@@ -72,6 +73,9 @@ module BATL_tree
 
   ! Number of used blocks (leaves of the block tree)
   integer :: nBlockUsed = 0
+
+  ! Number of blocks in the tree (some may not be used)
+  integer :: nBlockTree = 0
 
   ! Number of levels below root in level (that has occured at any time)
   integer :: nLevel = 0
@@ -171,6 +175,7 @@ contains
     end do
 
     nBlockUsed = nRoot
+    nBlockTree = nRoot
 
     ! Set neighbor info
     !do iBlock = 1, nRoot
@@ -224,6 +229,11 @@ contains
        do iDim = 1, nDimTree
           iTree_IA(Coord0_+iDim, iBlockChild) = &
                iCoord_D(iDim) + ibits(DiChild, iDim-1, 1)
+       end do
+
+       ! The non-AMR coordinates remain the same as for the parent block
+       do iDim = nDimTree+1, MaxDim
+          iTree_IA(Coord0_+iDim, iBlockChild) = iTree_IA(Coord0_+iDim, iBlock)
        end do
 
     end do
@@ -281,14 +291,16 @@ contains
     ! Zero is at the minimum boundary of the grid, one is at the max boundary
 
     integer :: iLevel
+    integer :: MaxIndex_D(MaxDim)
     !------------------------------------------------------------------------
     iLevel = iTree_IA(Level_, iBlock)
 
+    MaxIndex_D = nRoot_D
+    MaxIndex_D(1:nDimTree) = MaxCoord_I(iLevel)*MaxIndex_D(1:nDimTree)
+
     ! Convert to real by adding -1.0 or 0.0 for the two edges, respectively
-    PositionMin_D = (iTree_IA(Coord1_:CoordLast_,iBlock) - 1.0) &
-         /MaxCoord_I(iLevel)/nRoot_D
-    PositionMax_D = (iTree_IA(Coord1_:CoordLast_,iBlock) + 0.0) &
-         /MaxCoord_I(iLevel)/nRoot_D
+    PositionMin_D = (iTree_IA(Coord1_:CoordLast_,iBlock) - 1.0)/MaxIndex_D
+    PositionMax_D = (iTree_IA(Coord1_:CoordLast_,iBlock) + 0.0)/MaxIndex_D
 
   end subroutine get_block_position
 
@@ -492,7 +504,6 @@ contains
     do iBlock = 1, MaxBlockAll
 
        if(iTree_IA(Status_, iBlock) == Skipped_) EXIT
-       write(*,*)'iBlock, Status=',iBlock,iTree_IA(:, iBlock)
        do i = Parent_, ChildLast_
           iBlockOld = iTree_IA(i, iBlock)
           if(iBlockOld /= NoBlock_) &
@@ -563,6 +574,10 @@ contains
 
   subroutine order_tree
 
+    ! Set iBlockPeano_I indirect index array according to 
+    ! 1. root block order
+    ! 2. Morton ordering for each root block
+
     integer :: iBlock, iRoot, jRoot, kRoot
     !-----------------------------------------------------------------------
     iBlock = 0
@@ -602,6 +617,29 @@ contains
   end subroutine order_children
   !==========================================================================
 
+  subroutine show_tree(String)
+
+    character(len=*), intent(in):: String
+
+    character(len=200):: Header
+    integer:: iChild, iBlock
+    !-----------------------------------------------------------------------
+    Header = 'iBlock Status  Level  LevMin LevMax  Parent '
+    do iChild = 1, nChild
+       write(Header,'(a,i1)') trim(Header)//' Child', iChild
+    end do
+    Header = trim(Header) // ' Pos1   Pos2   Pos3'
+
+    write(*,*) String
+    write(*,*) trim(Header)
+    do iBlock = 1, MaxBlockAll
+       if(iTree_IA(Status_, iBlock) == Skipped_) CYCLE
+       write(*,'(100i7)') iBlock, iTree_IA(:, iBlock)
+    end do
+
+  end subroutine show_tree
+  !==========================================================================
+
   subroutine test_tree
 
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
@@ -628,6 +666,8 @@ contains
     write(*,*)'Testing set_root_block'
     call set_root_block( (/1,2,3/), (/.true., .true., .false./) )
 
+    call show_tree('after set_root_block')
+
     if(any( nRoot_D /= (/1,2,3/) )) &
          write(*,*) 'set_root_block failed, nRoot_D=',nRoot_D,&
          ' should be 1,2,3'
@@ -651,13 +691,17 @@ contains
     ! Refine the block where the point was found and find it again
     call refine_block(iBlock)
 
+    call show_tree('after refine_block')
+
     call find_point(CoordTest_D,iBlock)
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
-         write(*,*)'ERROR: Test find point failed'
+         write(*,*)'ERROR: Test find point failed for iBlock=',iBlock
 
     ! Refine another block
     write(*,*)'nRoot=',nRoot
     call refine_block(nRoot-2)
+
+    call show_tree('after another refine_block')
 
     write(*,*)'Testing find_neighbors'
     call find_neighbors(5)
@@ -672,6 +716,8 @@ contains
 
     ! Coarsen back the last root block and find point again
     call coarsen_block(nRoot)
+    call show_tree('after coarsen_block')
+
     call find_point(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: coarsen_block faild, iBlock=',&
          iBlock,' instead of',nRoot
@@ -686,6 +732,8 @@ contains
 
     write(*,*)'Testing compact_tree'
     call compact_tree(nBlockAll)
+    call show_tree('after compact_tree')
+
     if(iTree_IA(Status_, nBlockAll+1) /= Skipped_) &
          write(*,*)'ERROR: compact_tree faild, nBlockAll=', nBlockAll, &
          ' but status of next block is', iTree_IA(Status_, nBlockAll+1), &
@@ -711,6 +759,7 @@ contains
     iTree_IA = NoBlock_
     nRoot_D = 0
     call read_tree_file('tree.rst')
+    call show_tree('after read_tree')
 
     call find_point(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
