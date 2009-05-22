@@ -9,11 +9,12 @@ module BATL_tree
 
   public:: init_tree
   public:: clean_tree
-  public:: set_root_block
+  public:: set_tree_root
   public:: refine_tree_block
   public:: coarsen_tree_block
-  public:: get_block_position
-  public:: find_point
+  public:: get_tree_position
+  public:: find_tree_block
+  public:: distribute_tree
   public:: write_tree_file
   public:: read_tree_file
   public:: test_tree
@@ -161,7 +162,7 @@ contains
     do iBlock = 1, MaxBlockAll
        if(iTree_IA(Status_, iBlock) == Skipped_)then
           i_block_new = iBlock
-          return
+          RETURN
        end if
     end do
     ! Could not find any skipped block
@@ -171,7 +172,7 @@ contains
 
   !==========================================================================
 
-  subroutine set_root_block(nRootIn_D, IsPeriodicIn_D)
+  subroutine set_tree_root(nRootIn_D, IsPeriodicIn_D)
 
     integer, intent(in) :: nRootIn_D(MaxDim)
     logical, intent(in) :: IsPeriodicIn_D(MaxDim)
@@ -210,7 +211,7 @@ contains
     !   call find_neighbors(iBlock)
     !end do
 
-  end subroutine set_root_block
+  end subroutine set_tree_root
 
   !==========================================================================
   subroutine refine_tree_block(iBlock)
@@ -308,7 +309,7 @@ contains
   end subroutine coarsen_tree_block
 
   !==========================================================================
-  subroutine get_block_position(iBlock, PositionMin_D, PositionMax_D)
+  subroutine get_tree_position(iBlock, PositionMin_D, PositionMax_D)
 
     integer, intent(in) :: iBlock
     real,    intent(out):: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
@@ -328,10 +329,10 @@ contains
     PositionMin_D = (iTree_IA(Coord1_:CoordLast_,iBlock) - 1.0)/MaxIndex_D
     PositionMax_D = (iTree_IA(Coord1_:CoordLast_,iBlock) + 0.0)/MaxIndex_D
 
-  end subroutine get_block_position
+  end subroutine get_tree_position
 
   !==========================================================================
-  subroutine find_point(CoordIn_D, iBlock)
+  subroutine find_tree_block(CoordIn_D, iBlock)
 
     ! Find the block that contains a point. The point coordinates should
     ! be given in generalized coordinates normalized to the domain size:
@@ -369,7 +370,7 @@ contains
     end do
 
 
-  end subroutine find_point
+  end subroutine find_tree_block
 
   !==========================================================================
   logical function is_point_inside_block(Position_D, iBlock)
@@ -381,7 +382,7 @@ contains
 
     real    :: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
     !-------------------------------------------------------------------------
-    call get_block_position(iBlock, PositionMin_D, PositionMax_D)
+    call get_tree_position(iBlock, PositionMin_D, PositionMax_D)
 
     ! Include min edge but exclude max edge for sake of uniqueness
     is_point_inside_block = &
@@ -479,7 +480,7 @@ contains
                 end if
              end if
 
-             call find_point( (/x, y, z/), jBlock)
+             call find_tree_block( (/x, y, z/), jBlock)
              iBlockNei_IIIB(i,j,k,iBlock) = jBlock
              DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = &
                   iLevel - iTree_IA(Level_, jBlock)
@@ -552,10 +553,14 @@ contains
 
   subroutine write_tree_file(NameFile)
 
+    use BATL_mpi, ONLY: iProc
+
     character(len=*), intent(in):: NameFile
     integer :: nBlockAll
 
     !-------------------------------------------------------------------------
+    if(iProc /= 0) RETURN
+
     call compact_tree(nBlockAll)
     open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
@@ -588,7 +593,7 @@ contains
        write(*,*) NameSub,' nDimTreeIn, nDimTree=',nDimTreeIn, nDimTree
        call CON_stop(NameSub//' nDimTree is different in tree file!')
     end if
-    call set_root_block(nRootIn_D, IsPeriodic_D)
+    call set_tree_root(nRootIn_D, IsPeriodic_D)
     read(UnitTmp_) iTree_IA(:,1:nBlockIn)
     close(UnitTmp_)
 
@@ -596,6 +601,25 @@ contains
 
   end subroutine read_tree_file
   
+  !==========================================================================
+  subroutine distribute_tree
+
+    use BATL_mpi, ONLY: nProc
+    ! Assign tree blocks to separate processors
+
+    integer :: nBlockPerProc, iPeano, iBlock
+    !------------------------------------------------------------------------
+
+    nBlockPerProc = nBlockUsed/nProc
+
+    do iPeano = 1, nBlockUsed
+       iBlock = iBlockPeano_I(iPeano)
+       
+       iTree_IA(ProcNew_, iBlock) = (iPeano-1)/nBlockPerProc
+       iTree_IA(BlockNew_,iBlock) = modulo(iPeano, nBlockPerProc) + 1
+    end do
+
+  end subroutine distribute_tree
   !==========================================================================
 
   subroutine order_tree
@@ -669,13 +693,19 @@ contains
 
   subroutine test_tree
 
+    use BATL_mpi, ONLY: iProc
+
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
     real:: CoordTest_D(MaxDim)
+
+    logical :: DoTestMe
  
     character(len=*), parameter :: NameSub = 'test_tree'
     !-----------------------------------------------------------------------
 
-    write(*,*)'Testing init_tree'
+    DoTestMe = iProc == 0
+
+    if(DoTestMe)write(*,*)'Testing init_tree'
     call init_tree(50, 100)
     if(MaxBlock /= 50) &
          write(*,*)'init_mod_octtree faild, MaxBlock=',&
@@ -685,81 +715,81 @@ contains
          write(*,*)'init_mod_octtree faild, MaxBlockAll=',&
          MaxBlockAll, ' should be 100'
 
-    write(*,*)'Testing i_block_new()'
+    if(DoTestMe)write(*,*)'Testing i_block_new()'
     iBlock = i_block_new()
     if(iBlock /= 1) &
          write(*,*)'i_block_new() failed, iBlock=',iBlock,' should be 1'
 
-    write(*,*)'Testing set_root_block'
-    call set_root_block( (/1,2,3/), (/.true., .true., .false./) )
+    if(DoTestMe)write(*,*)'Testing set_tree_root'
+    call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
 
-    call show_tree('after set_root_block')
+    if(DoTestMe)call show_tree('after set_tree_root')
 
     if(any( nRoot_D /= (/1,2,3/) )) &
-         write(*,*) 'set_root_block failed, nRoot_D=',nRoot_D,&
+         write(*,*) 'set_tree_root failed, nRoot_D=',nRoot_D,&
          ' should be 1,2,3'
 
     Int_D = (/1,2,2/)
 
     if(any( iTree_IA(Coord1_:CoordLast_,4) /= Int_D )) &
-         write(*,*) 'set_root_block failed, coordinates of block four=',&
+         write(*,*) 'set_tree_root failed, coordinates of block four=',&
          iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDimTree)
 
-    write(*,*)'Testing find_point'
+    if(DoTestMe)write(*,*)'Testing find_tree_block'
     CoordTest_D = (/0.99,0.99,0.9/)
-    call find_point(CoordTest_D, iBlock)
+    call find_tree_block(CoordTest_D, iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: Test find point failed, iBlock=',&
          iBlock,' instead of',nRoot
 
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
          write(*,*)'ERROR: Test find point failed'
     
-    write(*,*)'Testing refine_tree_block'
+    if(DoTestMe)write(*,*)'Testing refine_tree_block'
     ! Refine the block where the point was found and find it again
     call refine_tree_block(iBlock)
 
-    call show_tree('after refine_tree_block')
+    if(DoTestMe)call show_tree('after refine_tree_block')
 
-    call find_point(CoordTest_D,iBlock)
+    call find_tree_block(CoordTest_D,iBlock)
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
          write(*,*)'ERROR: Test find point failed for iBlock=',iBlock
 
     ! Refine another block
-    write(*,*)'nRoot=',nRoot
+    if(DoTestMe)write(*,*)'nRoot=',nRoot
     call refine_tree_block(nRoot-2)
 
-    call show_tree('after another refine_tree_block')
+    if(DoTestMe)call show_tree('after another refine_tree_block')
 
-    write(*,*)'Testing find_neighbors'
+    if(DoTestMe)write(*,*)'Testing find_neighbors'
     call find_neighbors(5)
-    write(*,*)'DiLevelNei_IIIB(:,:,:,5)=',DiLevelNei_IIIB(:,:,:,5)
-    write(*,*)'iBlockNei_IIIB(:,:,:,5)=',iBlockNei_IIIB(:,:,:,5)
+    if(DoTestMe)write(*,*)'DiLevelNei_IIIB(:,:,:,5)=',DiLevelNei_IIIB(:,:,:,5)
+    if(DoTestMe)write(*,*)'iBlockNei_IIIB(:,:,:,5)=',iBlockNei_IIIB(:,:,:,5)
 
-    write(*,*)'Testing order_tree 1st'
+    if(DoTestMe)write(*,*)'Testing order_tree 1st'
     call order_tree
-    write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
-    write(*,*)'Testing coarsen_tree_block'
+    if(DoTestMe)write(*,*)'Testing coarsen_tree_block'
 
     ! Coarsen back the last root block and find point again
     call coarsen_tree_block(nRoot)
-    call show_tree('after coarsen_tree_block')
+    if(DoTestMe)call show_tree('after coarsen_tree_block')
 
-    call find_point(CoordTest_D,iBlock)
+    call find_tree_block(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: coarsen_tree_block faild, iBlock=',&
          iBlock,' instead of',nRoot
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
          write(*,*)'ERROR: is_point_inside_block failed'
 
 
-    write(*,*)'Testing order_tree 2nd'
+    if(DoTestMe)write(*,*)'Testing order_tree 2nd'
     call order_tree
-    write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
 
-    write(*,*)'Testing compact_tree'
+    if(DoTestMe)write(*,*)'Testing compact_tree'
     call compact_tree(nBlockAll)
-    call show_tree('after compact_tree')
+    if(DoTestMe)call show_tree('after compact_tree')
 
     if(iTree_IA(Status_, nBlockAll+1) /= Skipped_) &
          write(*,*)'ERROR: compact_tree faild, nBlockAll=', nBlockAll, &
@@ -769,36 +799,36 @@ contains
          write(*,*)'ERROR: compact_tree faild, nBlockAll=', nBlockAll, &
          ' but iTree_IA(Status_, 1:nBlockAll)=', &
          iTree_IA(Status_, 1:nBlockAll),' contains skipped=',Skipped_
-    call find_point(CoordTest_D,iBlock)
+    call find_tree_block(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
          iBlock,' instead of',nRoot
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
          write(*,*)'ERROR: is_point_inside_block failed'
 
-    write(*,*)'Testing order_tree 3rd'
+    if(DoTestMe)write(*,*)'Testing order_tree 3rd'
     call order_tree
-    write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
-    write(*,*)'Testing write_tree_file'
+    if(DoTestMe)write(*,*)'Testing write_tree_file'
     call write_tree_file('tree.rst')
 
-    write(*,*)'Testing read_tree_file'
+    if(DoTestMe)write(*,*)'Testing read_tree_file'
     iTree_IA = NoBlock_
     nRoot_D = 0
     call read_tree_file('tree.rst')
-    call show_tree('after read_tree')
+    if(DoTestMe)call show_tree('after read_tree')
 
-    call find_point(CoordTest_D,iBlock)
+    call find_tree_block(CoordTest_D,iBlock)
     if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
          iBlock,' instead of',nRoot
 
-    write(*,*)'Testing order_tree 4th'
+    if(DoTestMe)write(*,*)'Testing order_tree 4th'
     call order_tree
-    write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
-    write(*,*)'Testing clean_tree'
+    if(DoTestMe)write(*,*)'Testing clean_tree'
     call clean_tree
-    write(*,*)'MaxBlock=', MaxBlock
+    if(DoTestMe)write(*,*)'MaxBlock=', MaxBlock
 
   end subroutine test_tree
 

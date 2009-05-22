@@ -12,6 +12,7 @@ install:
 
 OBJECTS = \
 	main.o \
+	BATL_mpi.o  \
 	BATL_size.o \
 	BATL_tree.o \
 	BATL_grid.o \
@@ -25,7 +26,7 @@ EXE:
 	make BATL.exe
 
 BATL.exe: ${OBJECTS}
-	${LINK.f90} -o BATL.exe ${OBJECTS} ${Lflag2}
+	${LINK.f90} -o BATL.exe ${OBJECTS} -L${LIBDIR} -lSHARE ${Lflag1}
 
 test: EXE
 	BATL.exe > test.log

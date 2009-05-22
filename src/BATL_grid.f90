@@ -79,7 +79,7 @@ contains
     real :: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
     integer :: i, j, k
     !----------------------------------------------------------------------
-    call get_block_position(iBlock, PositionMin_D, PositionMax_D)
+    call get_tree_position(iBlock, PositionMin_D, PositionMax_D)
 
     CoordMin_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMin_D
     CoordMax_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMax_D
@@ -140,7 +140,7 @@ contains
     write(*,*)'nDimTree, nIJK_D=', nDimTree, nIJK_D
     call init_tree(50, 100)
     call init_grid( DomainMin_D, DomainMax_D )
-    call set_root_block( (/1,2,3/), (/.true., .true., .false./) )
+    call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
 
     call refine_tree_block(6)
 
