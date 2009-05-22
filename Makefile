@@ -9,7 +9,7 @@ test:	test1 test2 test3
 
 test1:
 	make clean
-	Config.pl -g=1,8,1,1
+	Config.pl -g=1,8,4,2
 	cd src; make EXE; 
 	cd src; BATL.exe > test1.log
 	-@(cd src; diff test1.log test1.ref > test1.diff)
@@ -17,7 +17,7 @@ test1:
 
 test2:
 	make clean
-	Config.pl -g=2,8,8,1
+	Config.pl -g=2,8,4,2
 	cd src; make EXE; 
 	cd src; BATL.exe > test2.log
 	-@(cd src; diff test2.log test2.ref > test2.diff)
@@ -25,7 +25,7 @@ test2:
 
 test3:
 	make clean
-	Config.pl -g=3,8,8,8
+	Config.pl -g=3,8,4,2
 	cd src; make EXE; 
 	cd src; BATL.exe > test3.log
 	-@(cd src; diff test3.log test3.ref > test3.diff)
