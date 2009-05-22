@@ -7,35 +7,58 @@ module BATL_tree
 
   private ! except
 
-  public:: init_mod_tree
+  public:: init_tree
+  public:: clean_tree
   public:: set_root_block
-  public:: refine_block
-  public:: coarsen_block
+  public:: refine_tree_block
+  public:: coarsen_tree_block
   public:: get_block_position
   public:: find_point
   public:: write_tree_file
   public:: read_tree_file
   public:: test_tree
 
-
   integer, public, parameter :: nChild = 2**nDimTree
 
   integer, public, allocatable :: iTree_IA(:,:)
 
   integer, public, parameter :: &
-       Status_   = 1, &
-       Level_    = 2, &
-       LevelMin_ = 3, &
-       LevelMax_ = 4, &
-       Parent_   = 5, & ! Parent must be just before the first child!
-       Child0_   = 5, &
+       Status_   =  1, &
+       Level_    =  2, &
+       Proc_     =  3, &
+       Block_    =  4, &
+       ProcNew_  =  5, &
+       BlockNew_ =  6, &
+       Coord0_   =  6, &
+       Coord1_   =  7, &
+       CoordLast_=  9, &
+       Parent_   = 10, & ! Parent must be just before the first child!
+       Child0_   = 10, &
        Child1_   = Child0_ + 1,      &
-       ChildLast_= Child0_ + nChild, &
-       Proc_     = Child0_ + 1,      & ! Overlaps with child 1
-       Block_    = Child0_ + 2,      & ! Overlaps with child 2
-       Coord0_   = ChildLast_,       &
-       Coord1_   = Coord0_ + 1,      &
-       CoordLast_= Coord0_ + MaxDim
+       ChildLast_= Child0_ + nChild
+
+  ! Number of items stored in iTree_IA
+  integer, parameter :: nInfo = ChildLast_
+
+  character(len=10), parameter:: NameTreeInfo_I(Child0_+8) = (/ &
+       'Status   ', &
+       'Level    ', &
+       'Proc     ', &
+       'Block    ', &
+       'ProcNew  ', &
+       'BlockNew ', &
+       'Coord1   ', &
+       'Coord2   ', &
+       'Coord3   ', &
+       'Parent   ', &
+       'Child1   ', &
+       'Child2   ', &
+       'Child3   ', &
+       'Child4   ', &
+       'Child5   ', &
+       'Child6   ', &
+       'Child7   ', &
+       'Child8   ' /)
 
   ! Deepest AMR level relative to root blocks (limited by 32 bit integers)
   integer, public, parameter :: MaxLevel = 30
@@ -54,9 +77,6 @@ module BATL_tree
   character(len=*), parameter:: NameMod = "BATL_tree"
 
   integer, parameter :: UnitTmp_ = 9 ! same as used in SWMF
-
-  ! Number of items stored in iTree_IA
-  integer, parameter :: nInfo = CoordLast_
 
   ! Possible values for the status variable
   integer, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
@@ -95,7 +115,7 @@ module BATL_tree
 
 contains
 
-  subroutine init_mod_tree(nBlockProc, nBlockAll)
+  subroutine init_tree(nBlockProc, nBlockAll)
 
     ! Initialize the tree array with nBlock blocks
 
@@ -120,8 +140,16 @@ contains
     DiLevelNei_IIIB = NoBlock_
     iBlockPeano_I   = NoBlock_
 
-  end subroutine init_mod_tree
+  end subroutine init_tree
 
+  !==========================================================================
+  subroutine clean_tree
+
+    if(.not.allocated(iTree_IA)) RETURN
+    deallocate(iTree_IA, iBlockNei_IIIB, DiLevelNei_IIIB, iBlockPeano_I)
+    MaxBlock = 0
+
+  end subroutine clean_tree
   !==========================================================================
 
   integer function i_block_new()
@@ -185,7 +213,7 @@ contains
   end subroutine set_root_block
 
   !==========================================================================
-  subroutine refine_block(iBlock)
+  subroutine refine_tree_block(iBlock)
 
     integer, intent(in) :: iBlock
 
@@ -203,7 +231,7 @@ contains
     ! Keep track of number of levels
     nLevel = max(nLevel, iLevelChild)
     if(nLevel > MaxLevel) &
-         call CON_stop('Error in refine_block: too many levels')
+         call CON_stop('Error in refine_tree_block: too many levels')
 
     iCoord_D = 2*iTree_IA(Coord1_:Coord0_+nDimTree, iBlock) - 1
 
@@ -215,8 +243,6 @@ contains
 
        iTree_IA(Status_,   iBlockChild) = Used_
        iTree_IA(Level_,    iBlockChild) = iLevelChild
-       iTree_IA(LevelMin_, iBlockChild) = iTree_IA(LevelMin_, iBlock)
-       iTree_IA(LevelMax_, iBlockChild) = iTree_IA(LevelMax_, iBlock)
        iTree_IA(Parent_,   iBlockChild) = iBlock
        iTree_IA(Child1_:ChildLast_, iBlockChild) = NoBlock_
 
@@ -250,10 +276,10 @@ contains
 
     ! Should also redo neighbors of the parent block
 
-  end subroutine refine_block
+  end subroutine refine_tree_block
 
   !==========================================================================
-  subroutine coarsen_block(iBlock)
+  subroutine coarsen_tree_block(iBlock)
 
     integer, intent(in) :: iBlock
 
@@ -279,7 +305,7 @@ contains
 
     nBlockUsed = nBlockUsed - nChild + 1
 
-  end subroutine coarsen_block
+  end subroutine coarsen_tree_block
 
   !==========================================================================
   subroutine get_block_position(iBlock, PositionMin_D, PositionMax_D)
@@ -621,14 +647,15 @@ contains
 
     character(len=*), intent(in):: String
 
+    character(len=10) :: Name
     character(len=200):: Header
-    integer:: iChild, iBlock
+    integer:: iInfo, iBlock
     !-----------------------------------------------------------------------
-    Header = 'iBlock Status  Level  LevMin LevMax  Parent '
-    do iChild = 1, nChild
-       write(Header,'(a,i1)') trim(Header)//' Child', iChild
+    Header = 'iBlock'
+    do iInfo = 1, nInfo
+       Name = NameTreeInfo_I(iInfo)
+       Header(7*iInfo+1:7*(iInfo+1)-1) = Name(1:6)
     end do
-    Header = trim(Header) // ' Pos1   Pos2   Pos3'
 
     write(*,*) String
     write(*,*) trim(Header)
@@ -648,8 +675,8 @@ contains
     character(len=*), parameter :: NameSub = 'test_tree'
     !-----------------------------------------------------------------------
 
-    write(*,*)'Testing init_mod_tree'
-    call init_mod_tree(50, 100)
+    write(*,*)'Testing init_tree'
+    call init_tree(50, 100)
     if(MaxBlock /= 50) &
          write(*,*)'init_mod_octtree faild, MaxBlock=',&
          MaxBlock, ' should be 50'
@@ -687,11 +714,11 @@ contains
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
          write(*,*)'ERROR: Test find point failed'
     
-    write(*,*)'Testing refine_block'
+    write(*,*)'Testing refine_tree_block'
     ! Refine the block where the point was found and find it again
-    call refine_block(iBlock)
+    call refine_tree_block(iBlock)
 
-    call show_tree('after refine_block')
+    call show_tree('after refine_tree_block')
 
     call find_point(CoordTest_D,iBlock)
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
@@ -699,9 +726,9 @@ contains
 
     ! Refine another block
     write(*,*)'nRoot=',nRoot
-    call refine_block(nRoot-2)
+    call refine_tree_block(nRoot-2)
 
-    call show_tree('after another refine_block')
+    call show_tree('after another refine_tree_block')
 
     write(*,*)'Testing find_neighbors'
     call find_neighbors(5)
@@ -712,14 +739,14 @@ contains
     call order_tree
     write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
-    write(*,*)'Testing coarsen_block'
+    write(*,*)'Testing coarsen_tree_block'
 
     ! Coarsen back the last root block and find point again
-    call coarsen_block(nRoot)
-    call show_tree('after coarsen_block')
+    call coarsen_tree_block(nRoot)
+    call show_tree('after coarsen_tree_block')
 
     call find_point(CoordTest_D,iBlock)
-    if(iBlock /= nRoot)write(*,*)'ERROR: coarsen_block faild, iBlock=',&
+    if(iBlock /= nRoot)write(*,*)'ERROR: coarsen_tree_block faild, iBlock=',&
          iBlock,' instead of',nRoot
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
          write(*,*)'ERROR: is_point_inside_block failed'
@@ -769,7 +796,10 @@ contains
     call order_tree
     write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
-    
+    write(*,*)'Testing clean_tree'
+    call clean_tree
+    write(*,*)'MaxBlock=', MaxBlock
+
   end subroutine test_tree
 
 end module BATL_tree
