@@ -21,5 +21,13 @@ contains
     call MPI_COMM_SIZE (iComm, nProc, iError)
 
   end subroutine init_mpi
+  !==========================================================================
+  subroutine barrier_mpi
+
+    integer:: iError
+    !-----------------------------------------------------------------------
+    call MPI_barrier(iComm, iError)
+
+  end subroutine barrier_mpi
 
 end module BATL_mpi
