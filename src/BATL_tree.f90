@@ -553,22 +553,24 @@ contains
 
   subroutine write_tree_file(NameFile)
 
-    use BATL_mpi, ONLY: iProc
+    use BATL_mpi, ONLY: iProc, barrier_mpi
 
     character(len=*), intent(in):: NameFile
     integer :: nBlockAll
 
     !-------------------------------------------------------------------------
-    if(iProc /= 0) RETURN
-
     call compact_tree(nBlockAll)
-    open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
-    write(UnitTmp_) nBlockAll, nInfo
-    write(UnitTmp_) nDimTree, nRoot_D
-    write(UnitTmp_) iTree_IA(:,1:nBlockAll)
+    if(iProc == 0)then
+       open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
-    close(UnitTmp_)
+       write(UnitTmp_) nBlockAll, nInfo
+       write(UnitTmp_) nDimTree, nRoot_D
+       write(UnitTmp_) iTree_IA(:,1:nBlockAll)
+
+       close(UnitTmp_)
+    end if
+    call barrier_mpi
 
   end subroutine write_tree_file
   
