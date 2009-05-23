@@ -14,7 +14,7 @@ test:	test1 test2 test3
 MPIRUN = mpirun -np 2
 
 test1:
-	make clean
+	cd src; make clean
 	Config.pl -g=1,8,4,2
 	make BATL
 	cd src; ${MPIRUN} BATL.exe > test1.log
@@ -22,7 +22,7 @@ test1:
 	cd src; ls -l test1.diff
 
 test2:
-	make clean
+	cd src; make clean
 	Config.pl -g=2,8,4,2
 	make BATL
 	cd src; ${MPIRUN} BATL.exe > test2.log
@@ -30,7 +30,7 @@ test2:
 	cd src; ls -l test2.diff
 
 test3:
-	make clean
+	cd src; make clean
 	Config.pl -g=3,8,4,2
 	make BATL
 	cd src; ${MPIRUN} BATL.exe > test3.log
