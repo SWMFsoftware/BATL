@@ -143,6 +143,7 @@ contains
     call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
 
     call refine_tree_block(6)
+    call distribute_tree(.true.)
 
     write(*,*)'Testing create_grid_block'
     do iBlock = 1, 6 + 2**nDimTree

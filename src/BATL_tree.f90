@@ -61,19 +61,22 @@ module BATL_tree
        'Child7   ', &
        'Child8   ' /)
 
+  ! Mapping from local block and processor index to global node index
+  integer, public, allocatable :: iNode_BP(:,:)
+
+  ! Local variables -----------------------------------------------
+
   ! Deepest AMR level relative to root blocks (limited by 32 bit integers)
-  integer, public, parameter :: MaxLevel = 30
+  integer, parameter :: MaxLevel = 30
 
   ! The maximum integer coordinate for a given level below root blocks
   ! The loop variable has to be declared to work-around NAG f95 bug
   integer :: L__
-  integer, public, parameter :: &
+  integer, parameter :: &
        MaxCoord_I(0:MaxLevel) = (/ (2**L__, L__=0,MaxLevel) /)
 
   ! The number of root blocks in all dimensions, and altogether
-  integer, public :: nRoot_D(MaxDim) = 0, nRoot = 0
-
-  ! Local variables
+  integer :: nRoot_D(MaxDim) = 0, nRoot = 0
 
   character(len=*), parameter:: NameMod = "BATL_tree"
 
@@ -118,6 +121,8 @@ contains
 
   subroutine init_tree(nBlockProc, nBlockAll)
 
+    use BATL_mpi, ONLY: nProc
+
     ! Initialize the tree array with nBlock blocks
 
     integer, intent(in) :: nBlockProc ! Max number of blocks per processor
@@ -132,9 +137,10 @@ contains
     iTree_IA = Skipped_
 
     MaxBlock = nBlockProc
+    allocate(iBlockPeano_I(MaxBlock))
+    allocate(iNode_BP(MaxBlock, 0:nProc-1))
     allocate(iBlockNei_IIIB(0:3,0:3,0:3,MaxBlock))
     allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock))
-    allocate(iBlockPeano_I(MaxBlock))
 
     ! Initialize all elements and make neighbors unknown
     iBlockNei_IIIB  = NoBlock_
@@ -147,7 +153,9 @@ contains
   subroutine clean_tree
 
     if(.not.allocated(iTree_IA)) RETURN
-    deallocate(iTree_IA, iBlockNei_IIIB, DiLevelNei_IIIB, iBlockPeano_I)
+    deallocate(iTree_IA, iBlockPeano_I, iNode_BP, &
+         iBlockNei_IIIB, DiLevelNei_IIIB)
+
     MaxBlock = 0
 
   end subroutine clean_tree
@@ -604,22 +612,43 @@ contains
   end subroutine read_tree_file
   
   !==========================================================================
-  subroutine distribute_tree
+  subroutine distribute_tree(DoMove)
 
-    use BATL_mpi, ONLY: nProc
     ! Assign tree blocks to separate processors
 
-    integer :: nBlockPerProc, iPeano, iBlock
+    use BATL_mpi, ONLY: nProc
+
+    ! Are nodes moved immediatly or just assigned new processor/block
+    logical, intent(in):: DoMove
+
+    integer :: nBlockPerProc, iPeano, iNode, iBlockTo, iProcTo
     !------------------------------------------------------------------------
 
-    nBlockPerProc = nBlockUsed/nProc
+    ! Create iBlockPeano_I
+    call order_tree
+
+    ! An upper estimate on the number of blocks per processor
+    nBlockPerProc = (nBlockUsed-1)/nProc + 1
 
     do iPeano = 1, nBlockUsed
-       iBlock = iBlockPeano_I(iPeano)
-       
-       iTree_IA(ProcNew_, iBlock) = (iPeano-1)/nBlockPerProc
-       iTree_IA(BlockNew_,iBlock) = modulo(iPeano, nBlockPerProc) + 1
+       iNode = iBlockPeano_I(iPeano)
+
+       iProcTo  = (iPeano-1)/nBlockPerProc
+       iBlockTo = modulo(iPeano-1, nBlockPerProc) + 1
+
+       ! Assign new processor and block
+       iTree_IA(ProcNew_, iNode) = iProcTo
+       iTree_IA(BlockNew_,iNode) = iBlockTo
+
+       if(.not.DoMove) CYCLE
+
+       ! Move the node to new processor/block
+       iTree_IA(Proc_:Block_, iNode) = iTree_IA(ProcNew_:BlockNew_, iNode)
+       iNode_BP(iBlockTo, iProcTo)   = iNode
+
     end do
+
+    
 
   end subroutine distribute_tree
   !==========================================================================
@@ -767,9 +796,10 @@ contains
     if(DoTestMe)write(*,*)'DiLevelNei_IIIB(:,:,:,5)=',DiLevelNei_IIIB(:,:,:,5)
     if(DoTestMe)write(*,*)'iBlockNei_IIIB(:,:,:,5)=',iBlockNei_IIIB(:,:,:,5)
 
-    if(DoTestMe)write(*,*)'Testing order_tree 1st'
-    call order_tree
+    if(DoTestMe)write(*,*)'Testing distribute_tree 1st'
+    call distribute_tree(.false.)
     if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)call show_tree('after distribute_tree 1st')
 
     if(DoTestMe)write(*,*)'Testing coarsen_tree_block'
 
@@ -784,10 +814,9 @@ contains
          write(*,*)'ERROR: is_point_inside_block failed'
 
 
-    if(DoTestMe)write(*,*)'Testing order_tree 2nd'
-    call order_tree
+    if(DoTestMe)write(*,*)'Testing distribute_tree 2nd'
+    call distribute_tree(.true.)
     if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
-
 
     if(DoTestMe)write(*,*)'Testing compact_tree'
     call compact_tree(nBlockAll)
@@ -807,8 +836,8 @@ contains
     if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
          write(*,*)'ERROR: is_point_inside_block failed'
 
-    if(DoTestMe)write(*,*)'Testing order_tree 3rd'
-    call order_tree
+    if(DoTestMe)write(*,*)'Testing distribute_tree 3rd'
+    call distribute_tree(.true.)
     if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
     if(DoTestMe)write(*,*)'Testing write_tree_file'
@@ -824,8 +853,8 @@ contains
     if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
          iBlock,' instead of',nRoot
 
-    if(DoTestMe)write(*,*)'Testing order_tree 4th'
-    call order_tree
+    if(DoTestMe)write(*,*)'Testing distribute_tree 4th'
+    call distribute_tree(.true.)
     if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
 
     if(DoTestMe)write(*,*)'Testing clean_tree'
