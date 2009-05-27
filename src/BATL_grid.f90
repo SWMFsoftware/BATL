@@ -74,12 +74,15 @@ contains
 
   subroutine create_grid_block(iBlock)
 
+    use BATL_mpi, ONLY: iProc
+
     integer, intent(in):: iBlock
 
     real :: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
-    integer :: i, j, k
+    integer :: iNode, i, j, k
     !----------------------------------------------------------------------
-    call get_tree_position(iBlock, PositionMin_D, PositionMax_D)
+    iNode = iNode_BP(iBlock, iProc)
+    call get_tree_position(iNode, PositionMin_D, PositionMax_D)
 
     CoordMin_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMin_D
     CoordMax_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMax_D
@@ -129,12 +132,16 @@ contains
 
   subroutine test_grid
 
+    use BATL_mpi, ONLY: iProc
+
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
     real:: DomainMin_D(MaxDim) = (/ 1.0, 2.0, 3.0 /)
     real:: DomainMax_D(MaxDim) = (/ 4.0, 6.0, 9.0 /)
 
+    logical:: DoTestMe
     character(len=*), parameter :: NameSub = 'test_grid'
     !-----------------------------------------------------------------------
+    DoTestMe = iProc == 0
 
     write(*,*)'Testing init_grid'
     write(*,*)'nDimTree, nIJK_D=', nDimTree, nIJK_D
@@ -142,11 +149,13 @@ contains
     call init_grid( DomainMin_D, DomainMax_D )
     call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
 
-    call refine_tree_block(6)
+    call refine_tree_node(6)
     call distribute_tree(.true.)
+    if(DoTestMe) call show_tree('After distribute_tree')
 
     write(*,*)'Testing create_grid_block'
-    do iBlock = 1, 6 + 2**nDimTree
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock))CYCLE
        call create_grid_block(iBlock)
        call show_grid_block(iBlock)
     end do

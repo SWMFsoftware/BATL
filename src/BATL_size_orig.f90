@@ -11,6 +11,9 @@ module BATL_size
   ! Maximum number of blocks per processor
   integer :: MaxBlock = 0
 
+  ! Largest block index
+  integer :: nBlock = 0
+
   ! Number of cells per block in each direction
   integer, parameter :: nI = 8, nJ = 8, nK = 1
 

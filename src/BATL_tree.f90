@@ -1,6 +1,6 @@
 module BATL_tree
 
-  use BATL_size, ONLY: MaxBlock, MaxDim, nDimTree
+  use BATL_size, ONLY: MaxBlock, nBlock, MaxDim, nDimTree
 
   implicit none
   save
@@ -10,13 +10,14 @@ module BATL_tree
   public:: init_tree
   public:: clean_tree
   public:: set_tree_root
-  public:: refine_tree_block
-  public:: coarsen_tree_block
+  public:: refine_tree_node
+  public:: coarsen_tree_node
   public:: get_tree_position
-  public:: find_tree_block
+  public:: find_tree_node
   public:: distribute_tree
   public:: write_tree_file
   public:: read_tree_file
+  public:: show_tree
   public:: test_tree
 
   integer, public, parameter :: nChild = 2**nDimTree
@@ -64,18 +65,21 @@ module BATL_tree
   ! Mapping from local block and processor index to global node index
   integer, public, allocatable :: iNode_BP(:,:)
 
+  ! Unused blocks
+  logical, public, allocatable :: Unused_B(:)
+
   ! Local variables -----------------------------------------------
 
-  ! Deepest AMR level relative to root blocks (limited by 32 bit integers)
+  ! Deepest AMR level relative to root nodes (limited by 32 bit integers)
   integer, parameter :: MaxLevel = 30
 
-  ! The maximum integer coordinate for a given level below root blocks
+  ! The maximum integer coordinate for a given level below root nodes
   ! The loop variable has to be declared to work-around NAG f95 bug
   integer :: L__
   integer, parameter :: &
        MaxCoord_I(0:MaxLevel) = (/ (2**L__, L__=0,MaxLevel) /)
 
-  ! The number of root blocks in all dimensions, and altogether
+  ! The number of root nodes in all dimensions, and altogether
   integer :: nRoot_D(MaxDim) = 0, nRoot = 0
 
   character(len=*), parameter:: NameMod = "BATL_tree"
@@ -84,22 +88,21 @@ module BATL_tree
 
   ! Possible values for the status variable
   integer, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
-  integer, parameter :: Skipped_ = -100
 
-  ! Index for non-existing block and level differences
-  integer, parameter :: NoBlock_ = Skipped_
+  ! Index for unset values (that are otherwise larger)
+  integer, parameter :: Unset_ = -100
 
   ! Neighbor information
-  integer, allocatable :: DiLevelNei_IIIB(:,:,:,:), iBlockNei_IIIB(:,:,:,:)
+  integer, allocatable :: DiLevelNei_IIIB(:,:,:,:), iNodeNei_IIIB(:,:,:,:)
 
-  ! Maximum number of blocks including unused and skipped ones
-  integer :: MaxBlockAll = 0
+  ! Maximum number of nodes including unused and skipped ones
+  integer :: MaxNode = 0
 
-  ! Number of used blocks (leaves of the block tree)
-  integer :: nBlockUsed = 0
+  ! Number of used nodes (leaves of the node tree)
+  integer :: nNodeUsed = 0
 
-  ! Number of blocks in the tree (some may not be used)
-  integer :: nBlockTree = 0
+  ! Number of nodes in the tree (some may not be used)
+  integer :: nNode = 0
 
   ! Number of levels below root in level (that has occured at any time)
   integer :: nLevel = 0
@@ -111,7 +114,7 @@ module BATL_tree
   logical :: IsSpherical = .false., IsCylindrical = .false.
 
   ! Ordering along the Peano-Hilbert space filling curve
-  integer, allocatable :: iBlockPeano_I(:)
+  integer, allocatable :: iNodePeano_I(:)
 
   ! The index along the Peano curve is global so that it can be used by the 
   ! recursive subroutine order_children 
@@ -119,33 +122,28 @@ module BATL_tree
 
 contains
 
-  subroutine init_tree(nBlockProc, nBlockAll)
+  subroutine init_tree(MaxBlockIn, MaxNodeIn)
 
     use BATL_mpi, ONLY: nProc
 
-    ! Initialize the tree array with nBlock blocks
+    ! Initialize the tree array with nNode nodes
 
-    integer, intent(in) :: nBlockProc ! Max number of blocks per processor
-    integer, intent(in) :: nBlockAll  ! Max number of blocks altogether
+    integer, intent(in) :: MaxBlockIn ! Max number of blocks per processor
+    integer, intent(in) :: MaxNodeIn  ! Max number of nodes altogether
     !----------------------------------------------------------------------
     if(allocated(iTree_IA)) RETURN
 
-    MaxBlockAll = nBlockAll
-    allocate(iTree_IA(nInfo, MaxBlockAll))
+    ! Store tree size and maximum number of blocks/processor
+    MaxNode = MaxNodeIn
+    MaxBlock = MaxBlockIn
 
-    ! Initialize all elements and make blocks skipped
-    iTree_IA = Skipped_
-
-    MaxBlock = nBlockProc
-    allocate(iBlockPeano_I(MaxBlock))
-    allocate(iNode_BP(MaxBlock, 0:nProc-1))
-    allocate(iBlockNei_IIIB(0:3,0:3,0:3,MaxBlock))
-    allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock))
-
-    ! Initialize all elements and make neighbors unknown
-    iBlockNei_IIIB  = NoBlock_
-    DiLevelNei_IIIB = NoBlock_
-    iBlockPeano_I   = NoBlock_
+    ! Allocate and initialize all elements of tree as unset
+    allocate(iTree_IA(nInfo, MaxNode));                iTree_IA        = Unset_
+    allocate(iNodePeano_I(MaxNode));                   iNodePeano_I    = Unset_
+    allocate(iNode_BP(MaxBlock,0:nProc-1));            iNode_BP        = Unset_
+    allocate(Unused_B(MaxBlock));                      Unused_B        =.true.
+    allocate(iNodeNei_IIIB(0:3,0:3,0:3,MaxBlock));     iNodeNei_IIIB   = Unset_
+    allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock));DiLevelNei_IIIB = Unset_
 
   end subroutine init_tree
 
@@ -153,30 +151,30 @@ contains
   subroutine clean_tree
 
     if(.not.allocated(iTree_IA)) RETURN
-    deallocate(iTree_IA, iBlockPeano_I, iNode_BP, &
-         iBlockNei_IIIB, DiLevelNei_IIIB)
+    deallocate(iTree_IA, iNodePeano_I, iNode_BP, Unused_B, &
+         iNodeNei_IIIB, DiLevelNei_IIIB)
 
-    MaxBlock = 0
+    MaxNode = 0
 
   end subroutine clean_tree
   !==========================================================================
 
-  integer function i_block_new()
+  integer function i_node_new()
 
     ! Find a skipped element in the iTree_IA array
 
-    integer :: iBlock
+    integer :: iNode
 
-    do iBlock = 1, MaxBlockAll
-       if(iTree_IA(Status_, iBlock) == Skipped_)then
-          i_block_new = iBlock
+    do iNode = 1, MaxNode
+       if(iTree_IA(Status_, iNode) == Unset_)then
+          i_node_new = iNode
           RETURN
        end if
     end do
-    ! Could not find any skipped block
-    i_block_new = -1
+    ! Could not find any skipped node
+    i_node_new = -1
 
-  end function i_block_new
+  end function i_node_new
 
   !==========================================================================
 
@@ -185,169 +183,169 @@ contains
     integer, intent(in) :: nRootIn_D(MaxDim)
     logical, intent(in) :: IsPeriodicIn_D(MaxDim)
 
-    integer :: iRoot, jRoot, kRoot, iBlock, Ijk_D(MaxDim)
+    integer :: iRoot, jRoot, kRoot, iNode, Ijk_D(MaxDim)
     !-----------------------------------------------------------------------
 
     nRoot_D      = nRootIn_D
     nRoot        = product(nRoot_D)
     IsPeriodic_D = IsPeriodicIn_D
 
-    ! Use the first product(nRoot_D) blocks as root blocks in the tree
-    iBlock = 0
+    ! Use the first product(nRoot_D) nodes as root nodes in the tree
+    iNode = 0
     do kRoot = 1, nRoot_D(3)
        do jRoot = 1, nRoot_D(2)
           do iRoot = 1, nRoot_D(1)
 
              Ijk_D = (/ iRoot, jRoot, kRoot /)
 
-             iBlock = iBlock + 1
-             iTree_IA(Status_, iBlock)            = Used_
-             iTree_IA(Parent_, iBlock)            = NoBlock_
-             iTree_IA(Child1_:ChildLast_, iBlock) = NoBlock_
-             iTree_IA(Level_ , iBlock)            = 0
-             iTree_IA(Coord1_:CoordLast_, iBlock) = Ijk_D
+             iNode = iNode + 1
+             iTree_IA(Status_, iNode)            = Used_
+             iTree_IA(Parent_, iNode)            = Unset_
+             iTree_IA(Child1_:ChildLast_, iNode) = Unset_
+             iTree_IA(Level_ , iNode)            = 0
+             iTree_IA(Coord1_:CoordLast_, iNode) = Ijk_D
 
           end do
        end do
     end do
 
-    nBlockUsed = nRoot
-    nBlockTree = nRoot
+    nNodeUsed = nRoot
+    nNode     = nRoot
 
     ! Set neighbor info
-    !do iBlock = 1, nRoot
-    !   call find_neighbors(iBlock)
+    !do iNode = 1, nRoot
+    !   call find_neighbors(iNode)
     !end do
 
   end subroutine set_tree_root
 
   !==========================================================================
-  subroutine refine_tree_block(iBlock)
+  subroutine refine_tree_node(iNode)
 
-    integer, intent(in) :: iBlock
+    integer, intent(in) :: iNode
 
-    integer :: iChild, DiChild, iLevelChild, iProc, iBlockProc
+    integer :: iChild, DiChild, iLevelChild, iProc, iBlock
     integer :: iCoord_D(nDimTree)
-    integer :: iDim, iBlockChild
+    integer :: iDim, iNodeChild
     !----------------------------------------------------------------------
 
-    iTree_IA(Status_, iBlock) = Unused_
+    iTree_IA(Status_, iNode) = Unused_
 
-    iLevelChild = iTree_IA(Level_, iBlock) + 1
-    iProc       = iTree_IA(Proc_,  iBlock)
-    iBlockProc  = iTree_IA(Block_, iBlock)
+    iLevelChild = iTree_IA(Level_, iNode) + 1
+    iProc       = iTree_IA(Proc_,  iNode)
+    iBlock      = iTree_IA(Block_, iNode)
 
     ! Keep track of number of levels
     nLevel = max(nLevel, iLevelChild)
     if(nLevel > MaxLevel) &
-         call CON_stop('Error in refine_tree_block: too many levels')
+         call CON_stop('Error in refine_tree_node: too many levels')
 
-    iCoord_D = 2*iTree_IA(Coord1_:Coord0_+nDimTree, iBlock) - 1
+    iCoord_D = 2*iTree_IA(Coord1_:Coord0_+nDimTree, iNode) - 1
 
     do iChild = Child1_, ChildLast_
 
-       iBlockChild = i_block_new()
+       iNodeChild = i_node_new()
 
-       iTree_IA(iChild, iBlock) = iBlockChild
+       iTree_IA(iChild, iNode) = iNodeChild
 
-       iTree_IA(Status_,   iBlockChild) = Used_
-       iTree_IA(Level_,    iBlockChild) = iLevelChild
-       iTree_IA(Parent_,   iBlockChild) = iBlock
-       iTree_IA(Child1_:ChildLast_, iBlockChild) = NoBlock_
+       iTree_IA(Status_,   iNodeChild) = Used_
+       iTree_IA(Level_,    iNodeChild) = iLevelChild
+       iTree_IA(Parent_,   iNodeChild) = iNode
+       iTree_IA(Child1_:ChildLast_, iNodeChild) = Unset_
 
        ! This overwrites the two first children (saves memory)
-       iTree_IA(Proc_,     iBlockChild) = iProc
-       iTree_IA(Block_,    iBlockChild) = iBlockProc
+       iTree_IA(Proc_,     iNodeChild) = iProc
+       iTree_IA(Block_,    iNodeChild) = iBlock
 
-       ! Calculate the coordinates of the child block
+       ! Calculate the coordinates of the child node
        DiChild = iChild - Child1_
        do iDim = 1, nDimTree
-          iTree_IA(Coord0_+iDim, iBlockChild) = &
+          iTree_IA(Coord0_+iDim, iNodeChild) = &
                iCoord_D(iDim) + ibits(DiChild, iDim-1, 1)
        end do
 
-       ! The non-AMR coordinates remain the same as for the parent block
+       ! The non-AMR coordinates remain the same as for the parent node
        do iDim = nDimTree+1, MaxDim
-          iTree_IA(Coord0_+iDim, iBlockChild) = iTree_IA(Coord0_+iDim, iBlock)
+          iTree_IA(Coord0_+iDim, iNodeChild) = iTree_IA(Coord0_+iDim, iNode)
        end do
 
     end do
 
-    nBlockUsed = nBlockUsed + nChild - 1
+    nNodeUsed = nNodeUsed + nChild - 1
 
     ! Find neighbors of children
     !do iChild = Child1_, ChildLast_
     !
-    !   iBlockChild = iTree_IA(iChild, iBlock)
-    !   call find_neighbors(iBlockChild)
+    !   iNodeChild = iTree_IA(iChild, iNode)
+    !   call find_neighbors(iNodeChild)
     !
     !end do
 
-    ! Should also redo neighbors of the parent block
+    ! Should also redo neighbors of the parent node
 
-  end subroutine refine_tree_block
+  end subroutine refine_tree_node
 
   !==========================================================================
-  subroutine coarsen_tree_block(iBlock)
+  subroutine coarsen_tree_node(iNode)
 
-    integer, intent(in) :: iBlock
+    integer, intent(in) :: iNode
 
-    integer :: iChild, iBlockChild1, iBlockChild
+    integer :: iChild, iNodeChild1, iNodeChild
     !-----------------------------------------------------------------------
 
     do iChild = Child1_, ChildLast_
-       iBlockChild = iTree_IA(iChild, iBlock)
+       iNodeChild = iTree_IA(iChild, iNode)
 
-       ! Wipe out the child block
-       iTree_IA(Status_, iBlockChild) = Skipped_
+       ! Wipe out the child node
+       iTree_IA(Status_, iNodeChild) = Unset_
     end do
 
-    ! Make this block used with no children
-    iTree_IA(Status_, iBlock) = Used_
+    ! Make this node used with no children
+    iTree_IA(Status_, iNode) = Used_
 
-    iBlockChild1 = iTree_IA(Child1_, iBlock)
-    iTree_IA(Child1_:ChildLast_, iBlock) = NoBlock_
+    iNodeChild1 = iTree_IA(Child1_, iNode)
+    iTree_IA(Child1_:ChildLast_, iNode) = Unset_
 
-    ! set proc and block info from child1
-    iTree_IA(Proc_,  iBlock) = iTree_IA(Proc_,  iBlockChild1)
-    iTree_IA(Block_, iBlock) = iTree_IA(Block_, iBlockChild1)
+    ! set proc and node info from child1
+    iTree_IA(Proc_,  iNode) = iTree_IA(Proc_,  iNodeChild1)
+    iTree_IA(Block_, iNode) = iTree_IA(Block_, iNodeChild1)
 
-    nBlockUsed = nBlockUsed - nChild + 1
+    nNodeUsed = nNodeUsed - nChild + 1
 
-  end subroutine coarsen_tree_block
+  end subroutine coarsen_tree_node
 
   !==========================================================================
-  subroutine get_tree_position(iBlock, PositionMin_D, PositionMax_D)
+  subroutine get_tree_position(iNode, PositionMin_D, PositionMax_D)
 
-    integer, intent(in) :: iBlock
+    integer, intent(in) :: iNode
     real,    intent(out):: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
 
-    ! Calculate normalized position of the edges of block iblock.
+    ! Calculate normalized position of the edges of node inode.
     ! Zero is at the minimum boundary of the grid, one is at the max boundary
 
     integer :: iLevel
     integer :: MaxIndex_D(MaxDim)
     !------------------------------------------------------------------------
-    iLevel = iTree_IA(Level_, iBlock)
+    iLevel = iTree_IA(Level_, iNode)
 
     MaxIndex_D = nRoot_D
     MaxIndex_D(1:nDimTree) = MaxCoord_I(iLevel)*MaxIndex_D(1:nDimTree)
 
     ! Convert to real by adding -1.0 or 0.0 for the two edges, respectively
-    PositionMin_D = (iTree_IA(Coord1_:CoordLast_,iBlock) - 1.0)/MaxIndex_D
-    PositionMax_D = (iTree_IA(Coord1_:CoordLast_,iBlock) + 0.0)/MaxIndex_D
+    PositionMin_D = (iTree_IA(Coord1_:CoordLast_,iNode) - 1.0)/MaxIndex_D
+    PositionMax_D = (iTree_IA(Coord1_:CoordLast_,iNode) + 0.0)/MaxIndex_D
 
   end subroutine get_tree_position
 
   !==========================================================================
-  subroutine find_tree_block(CoordIn_D, iBlock)
+  subroutine find_tree_node(CoordIn_D, iNode)
 
-    ! Find the block that contains a point. The point coordinates should
+    ! Find the node that contains a point. The point coordinates should
     ! be given in generalized coordinates normalized to the domain size:
     ! CoordIn_D = (CoordOrig_D - CoordMin_D)/(CoordMax_D-CoordMin_D)
 
     real, intent(in):: CoordIn_D(MaxDim)
-    integer, intent(out):: iBlock
+    integer, intent(out):: iNode
 
     real :: Coord_D(MaxDim)
     integer :: iLevel, iChild
@@ -356,15 +354,15 @@ contains
     ! Scale coordinates so that 1 <= Coord_D <= nRoot_D+1
     Coord_D = 1.0 + nRoot_D*max(0.0, min(1.0, CoordIn_D))
 
-    ! Get root block index
+    ! Get root node index
     Ijk_D = min(int(Coord_D), nRoot_D)
 
-    ! Root block indexes are ordered
-    iBlock = Ijk_D(1) + nRoot_D(1)*((Ijk_D(2)-1) + nRoot_D(2)*(Ijk_D(3)-1))
+    ! Root node indexes are ordered
+    iNode = Ijk_D(1) + nRoot_D(1)*((Ijk_D(2)-1) + nRoot_D(2)*(Ijk_D(3)-1))
 
-    if(iTree_IA(Status_, iBlock) == Used_) RETURN
+    if(iTree_IA(Status_, iNode) == Used_) RETURN
 
-    ! Get normalized coordinates within root block and scale it up
+    ! Get normalized coordinates within root node and scale it up
     ! to the largest resolution
     iCoord_D = (Coord_D(1:nDimTree) - Ijk_D(1:nDimTree))*MaxCoord_I(nLevel)
 
@@ -372,46 +370,46 @@ contains
     do iLevel = nLevel-1,0,-1
        iBit_D = ibits(iCoord_D, iLevel, 1)
        iChild = sum(iBit_D*MaxCoord_I(0:nDimTree-1)) + Child1_
-       iBlock = iTree_IA(iChild, iBlock)
+       iNode = iTree_IA(iChild, iNode)
 
-       if(iTree_IA(Status_, iBlock) == Used_) RETURN
+       if(iTree_IA(Status_, iNode) == Used_) RETURN
     end do
 
 
-  end subroutine find_tree_block
+  end subroutine find_tree_node
 
   !==========================================================================
-  logical function is_point_inside_block(Position_D, iBlock)
+  logical function is_point_inside_node(Position_D, iNode)
 
-    ! Check if position is inside block or not
+    ! Check if position is inside node or not
 
     real,    intent(in):: Position_D(MaxDim)
-    integer, intent(in):: iBlock
+    integer, intent(in):: iNode
 
     real    :: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
     !-------------------------------------------------------------------------
-    call get_tree_position(iBlock, PositionMin_D, PositionMax_D)
+    call get_tree_position(iNode, PositionMin_D, PositionMax_D)
 
     ! Include min edge but exclude max edge for sake of uniqueness
-    is_point_inside_block = &
+    is_point_inside_node = &
          all(Position_D >= PositionMin_D) .and. &
          all(Position_D <  PositionMax_D)
 
-  end function is_point_inside_block
+  end function is_point_inside_node
 
   !===========================================================================
 
-  subroutine find_neighbors(iBlock)
+  subroutine find_neighbors(iNode)
 
-    integer, intent(in):: iBlock
+    integer, intent(in):: iNode
 
-    integer :: iLevel, i, j, k, Di, Dj, Dk, jBlock
+    integer :: iLevel, i, j, k, Di, Dj, Dk, jNode
     real :: Scale_D(MaxDim), x, y, z
     !-----------------------------------------------------------------------
 
-    ! We should convert local block into global block index or vice-versa
+    ! We should convert local node into global node index or vice-versa
 
-    iLevel  = iTree_IA(Level_, iBlock)
+    iLevel  = iTree_IA(Level_, iNode)
     Scale_D = (1.0/MaxCoord_I(iLevel))/nRoot_D
     do k=0,3
        Dk = nint((k - 1.5)/1.5)
@@ -419,13 +417,13 @@ contains
           if(k/=1) CYCLE
           z = 0.3
        else
-          z = (iTree_IA(CoordLast_, iBlock) + 0.4*k - 1.1)*Scale_D(3)
+          z = (iTree_IA(CoordLast_, iNode) + 0.4*k - 1.1)*Scale_D(3)
           if(z > 1.0 .or. z < 0.0)then
              if(IsPeriodic_D(3))then
                 z = modulo(z, 1.0)
              else
-                iBlockNei_IIIB(:,:,k,iBlock) = NoBlock_
-                DiLevelNei_IIIB(:,:,Dk,iBlock) = NoBlock_
+                iNodeNei_IIIB(:,:,k,iNode) = Unset_
+                DiLevelNei_IIIB(:,:,Dk,iNode) = Unset_
                 CYCLE
              end if
           end if
@@ -436,7 +434,7 @@ contains
              if(j/=1) CYCLE
              y = 0.3
           else
-             y = (iTree_IA(Coord0_+2, iBlock) + 0.4*j - 1.1)*Scale_D(2)
+             y = (iTree_IA(Coord0_+2, iNode) + 0.4*j - 1.1)*Scale_D(2)
              if(y > 1.0 .or. y < 0.0)then
                 if(IsPeriodic_D(2))then
                    y = modulo(y, 1.0)
@@ -445,8 +443,8 @@ contains
                    y = max(0.0, min(1.0, y))
                    z = modulo( z+0.5, 1.0)
                 else
-                   iBlockNei_IIIB(:,j,k,iBlock) = NoBlock_
-                   DiLevelNei_IIIB(:,Dj,Dk,iBlock) = NoBlock_
+                   iNodeNei_IIIB(:,j,k,iNode) = Unset_
+                   DiLevelNei_IIIB(:,Dj,Dk,iNode) = Unset_
                    CYCLE
                 end if
              end if
@@ -458,22 +456,22 @@ contains
              Di = nint((i - 1.5)/1.5)
 
              ! If neighbor is not finer, fill in the i=2 or j=2 or k=2 elements
-             if(DiLevelNei_IIIB(Di,Dj,Dk,iBlock) >= 0)then
+             if(DiLevelNei_IIIB(Di,Dj,Dk,iNode) >= 0)then
                 if(i==2)then
-                   iBlockNei_IIIB(i,j,k,iBlock) = iBlockNei_IIIB(1,j,k,iBlock)
+                   iNodeNei_IIIB(i,j,k,iNode) = iNodeNei_IIIB(1,j,k,iNode)
                    CYCLE
                 end if
                 if(j==2)then
-                   iBlockNei_IIIB(i,j,k,iBlock) = iBlockNei_IIIB(i,1,k,iBlock)
+                   iNodeNei_IIIB(i,j,k,iNode) = iNodeNei_IIIB(i,1,k,iNode)
                    CYCLE
                 end if
                 if(k==2)then
-                   iBlockNei_IIIB(i,j,k,iBlock) = iBlockNei_IIIB(i,j,1,iBlock)
+                   iNodeNei_IIIB(i,j,k,iNode) = iNodeNei_IIIB(i,j,1,iNode)
                    CYCLE
                 end if
              end if
 
-             x = (iTree_IA(Coord1_, iBlock) + 0.4*i - 1.1)*Scale_D(1)
+             x = (iTree_IA(Coord1_, iNode) + 0.4*i - 1.1)*Scale_D(1)
              if(x > 1.0 .or. x < 0.0)then
                 if(IsPeriodic_D(1))then
                    x = modulo(x, 1.0)
@@ -482,16 +480,16 @@ contains
                    x = 0.0
                    z = modulo( z+0.5, 1.0)
                 else
-                   iBlockNei_IIIB(i,j,k,iBlock) = NoBlock_
-                   DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = NoBlock_
+                   iNodeNei_IIIB(i,j,k,iNode) = Unset_
+                   DiLevelNei_IIIB(Di,Dj,Dk,iNode) = Unset_
                    CYCLE
                 end if
              end if
 
-             call find_tree_block( (/x, y, z/), jBlock)
-             iBlockNei_IIIB(i,j,k,iBlock) = jBlock
-             DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = &
-                  iLevel - iTree_IA(Level_, jBlock)
+             call find_tree_node( (/x, y, z/), jNode)
+             iNodeNei_IIIB(i,j,k,iNode) = jNode
+             DiLevelNei_IIIB(Di,Dj,Dk,iNode) = &
+                  iLevel - iTree_IA(Level_, jNode)
           end do
        end do
     end do
@@ -500,60 +498,60 @@ contains
 
   !==========================================================================
 
-  subroutine compact_tree(nBlockAll)
+  subroutine compact_tree(nNodeAll)
 
     ! Eliminate holes from the tree
 
-    integer, intent(out), optional:: nBlockAll
+    integer, intent(out), optional:: nNodeAll
 
-    ! Amount of shift for each block
-    integer, allocatable:: iBlockNew_A(:)
-    integer :: iBlock, iBlockSkipped, iBlockOld, i
+    ! Amount of shift for each node
+    integer, allocatable:: iNodeNew_A(:)
+    integer :: iNode, iNodeSkipped, iNodeOld, i
     !-------------------------------------------------------------------------
-    allocate(iBlockNew_A(MaxBlockAll))
+    allocate(iNodeNew_A(MaxNode))
 
     ! Set impossible initial values
-    iBlockNew_A = NoBlock_
-    iBlockSkipped = MaxBlockAll + 1
+    iNodeNew_A = Unset_
+    iNodeSkipped = MaxNode + 1
 
-    do iBlock = 1, MaxBlockAll
+    do iNode = 1, MaxNode
 
-       if(iTree_IA(Status_, iBlock) == Skipped_)then
+       if(iTree_IA(Status_, iNode) == Unset_)then
           ! Store the first skipped position
-          iBlockSkipped = min(iBlockSkipped, iBlock)
-       elseif(iBlockSkipped < iBlock)then
-          ! Move block to the first skipped position
-          iTree_IA(:,iBlockSkipped) = iTree_IA(:,iBlock)
-          iTree_IA(Status_, iBlock) = Skipped_
-          ! Store new block index
-          iBlockNew_A(iBlock) = iBlockSkipped
-          ! Advance iBlockSkipped
-          iBlockSkipped = iBlockSkipped + 1
+          iNodeSkipped = min(iNodeSkipped, iNode)
+       elseif(iNodeSkipped < iNode)then
+          ! Move node to the first skipped position
+          iTree_IA(:,iNodeSkipped) = iTree_IA(:,iNode)
+          iTree_IA(Status_, iNode) = Unset_
+          ! Store new node index
+          iNodeNew_A(iNode) = iNodeSkipped
+          ! Advance iNodeSkipped
+          iNodeSkipped = iNodeSkipped + 1
        else
-          ! The block did not move
-          iBlockNew_A(iBlock) = iBlock
+          ! The node did not move
+          iNodeNew_A(iNode) = iNode
        endif
     end do
 
     ! Apply shifts
-    do iBlock = 1, MaxBlockAll
+    do iNode = 1, MaxNode
 
-       if(iTree_IA(Status_, iBlock) == Skipped_) EXIT
+       if(iTree_IA(Status_, iNode) == Unset_) EXIT
        do i = Parent_, ChildLast_
-          iBlockOld = iTree_IA(i, iBlock)
-          if(iBlockOld /= NoBlock_) &
-               iTree_IA(i, iBlock) = iBlockNew_A(iBlockOld)
+          iNodeOld = iTree_IA(i, iNode)
+          if(iNodeOld /= Unset_) &
+               iTree_IA(i, iNode) = iNodeNew_A(iNodeOld)
        end do
 
     end do
 
-    ! Fix the block indexes along the Peano curve
-    do iPeano = 1, nBlockUsed
-       iBlockOld = iBlockPeano_I(iPeano)
-       iBlockPeano_I(iPeano) = iBlockNew_A(iBlockOld)
+    ! Fix the node indexes along the Peano curve
+    do iPeano = 1, nNodeUsed
+       iNodeOld = iNodePeano_I(iPeano)
+       iNodePeano_I(iPeano) = iNodeNew_A(iNodeOld)
     end do
 
-    if(present(nBlockAll)) nBlockAll = iBlock - 1
+    if(present(nNodeAll)) nNodeAll = iNode - 1
 
   end subroutine compact_tree
 
@@ -564,17 +562,17 @@ contains
     use BATL_mpi, ONLY: iProc, barrier_mpi
 
     character(len=*), intent(in):: NameFile
-    integer :: nBlockAll
+    integer :: nNodeAll
 
     !-------------------------------------------------------------------------
-    call compact_tree(nBlockAll)
+    call compact_tree(nNodeAll)
 
     if(iProc == 0)then
        open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
-       write(UnitTmp_) nBlockAll, nInfo
+       write(UnitTmp_) nNodeAll, nInfo
        write(UnitTmp_) nDimTree, nRoot_D
-       write(UnitTmp_) iTree_IA(:,1:nBlockAll)
+       write(UnitTmp_) iTree_IA(:,1:nNodeAll)
 
        close(UnitTmp_)
     end if
@@ -587,16 +585,16 @@ contains
   subroutine read_tree_file(NameFile)
 
     character(len=*), intent(in):: NameFile
-    integer :: nInfoIn, nBlockIn, nDimTreeIn, nRootIn_D(MaxDim)
+    integer :: nInfoIn, nNodeIn, nDimTreeIn, nRootIn_D(MaxDim)
     character(len=*), parameter :: NameSub = 'read_tree_file'
     !----------------------------------------------------------------------
 
     open(UnitTmp_, file=NameFile, status='old', form='unformatted')
 
-    read(UnitTmp_) nBlockIn, nInfoIn
-    if(nBlockIn > MaxBlock)then
-       write(*,*) NameSub,' nBlockIn, MaxBlock=',nBlockIn, MaxBlock 
-       call CON_stop(NameSub//' too many blocks in tree file!')
+    read(UnitTmp_) nNodeIn, nInfoIn
+    if(nNodeIn > MaxNode)then
+       write(*,*) NameSub,' nNodeIn, MaxNode=',nNodeIn, MaxNode 
+       call CON_stop(NameSub//' too many nodes in tree file!')
     end if
     read(UnitTmp_) nDimTreeIn, nRootIn_D
     if(nDimTreeIn /= nDimTree)then
@@ -604,7 +602,7 @@ contains
        call CON_stop(NameSub//' nDimTree is different in tree file!')
     end if
     call set_tree_root(nRootIn_D, IsPeriodic_D)
-    read(UnitTmp_) iTree_IA(:,1:nBlockIn)
+    read(UnitTmp_) iTree_IA(:,1:nNodeIn)
     close(UnitTmp_)
 
     call order_tree
@@ -614,84 +612,93 @@ contains
   !==========================================================================
   subroutine distribute_tree(DoMove)
 
-    ! Assign tree blocks to separate processors
+    ! Assign tree nodes to separate processors
 
-    use BATL_mpi, ONLY: nProc
+    use BATL_mpi, ONLY: iProc, nProc
 
-    ! Are nodes moved immediatly or just assigned new processor/block
+    ! Are nodes moved immediatly or just assigned new processor/node
     logical, intent(in):: DoMove
 
-    integer :: nBlockPerProc, iPeano, iNode, iBlockTo, iProcTo
+    integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo
     !------------------------------------------------------------------------
 
-    ! Create iBlockPeano_I
+    ! Initialize processor and block indexes
+    iTree_IA(ProcNew_:BlockNew_,:) = Unset_
+    if(DoMove)then
+       iTree_IA(Proc_:Block_,:) = Unset_
+       Unused_B                 = .true.
+    end if
+
+    ! Create iNodePeano_I
     call order_tree
 
-    ! An upper estimate on the number of blocks per processor
-    nBlockPerProc = (nBlockUsed-1)/nProc + 1
+    ! An upper estimate on the number of nodes per processor
+    nNodePerProc = (nNodeUsed-1)/nProc + 1
 
-    do iPeano = 1, nBlockUsed
-       iNode = iBlockPeano_I(iPeano)
+    do iPeano = 1, nNodeUsed
+       iNode = iNodePeano_I(iPeano)
 
-       iProcTo  = (iPeano-1)/nBlockPerProc
-       iBlockTo = modulo(iPeano-1, nBlockPerProc) + 1
+       iProcTo  = (iPeano-1)/nNodePerProc
+       iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
 
-       ! Assign new processor and block
+       ! Assign new processor and node
        iTree_IA(ProcNew_, iNode) = iProcTo
        iTree_IA(BlockNew_,iNode) = iBlockTo
 
        if(.not.DoMove) CYCLE
 
-       ! Move the node to new processor/block
-       iTree_IA(Proc_:Block_, iNode) = iTree_IA(ProcNew_:BlockNew_, iNode)
-       iNode_BP(iBlockTo, iProcTo)   = iNode
+       ! Move the node to new processor/node
+       iTree_IA(Proc_:Block_,iNode) = iTree_IA(ProcNew_:BlockNew_,iNode)
+       iNode_BP(iBlockTo,iProcTo)   = iNode
+       if(iProc == iProcTo) Unused_B(iBlockTo) = &
+            iTree_IA(Status_,iNode) <= Unused_
 
     end do
 
-    
+    if(DoMove) nBlock = maxval(iTree_IA(Block_, :))
 
   end subroutine distribute_tree
   !==========================================================================
 
   subroutine order_tree
 
-    ! Set iBlockPeano_I indirect index array according to 
-    ! 1. root block order
-    ! 2. Morton ordering for each root block
+    ! Set iNodePeano_I indirect index array according to 
+    ! 1. root node order
+    ! 2. Morton ordering for each root node
 
-    integer :: iBlock, iRoot, jRoot, kRoot
+    integer :: iNode, iRoot, jRoot, kRoot
     !-----------------------------------------------------------------------
-    iBlock = 0
+    iNode = 0
     iPeano = 0
-    iBlockPeano_I = NoBlock_
+    iNodePeano_I = Unset_
     do kRoot = 1, nRoot_D(3)
        do jRoot = 1, nRoot_D(2)
           do iRoot = 1, nRoot_D(1)
-             ! Root blocks are the first ones
-             iBlock = iBlock + 1
+             ! Root nodes are the first ones
+             iNode = iNode + 1
 
-             ! All root blocks are handled as if they were first child
-             call order_children(iBlock, Child1_)
+             ! All root nodes are handled as if they were first child
+             call order_children(iNode, Child1_)
           end do
        end do
     end do
 
-    nBlockUsed = iPeano
+    nNodeUsed = iPeano
 
   end subroutine order_tree
   !==========================================================================
-  recursive subroutine order_children(iBlock, iChildMe)
+  recursive subroutine order_children(iNode, iChildMe)
 
-    integer, intent(in) :: iBlock, iChildMe
+    integer, intent(in) :: iNode, iChildMe
     integer :: iChild
     !-----------------------------------------------------------------------
-    if(iTree_IA(Status_, iBlock) == Used_)then
+    if(iTree_IA(Status_, iNode) == Used_)then
        iPeano = iPeano + 1
-       iBlockPeano_I(iPeano) = iBlock
+       iNodePeano_I(iPeano) = iNode
     else
        do iChild = Child1_, ChildLast_
           ! iChild = iChildOrder_II(i, iChildMe)
-          call order_children(iTree_IA(iChild, iBlock), iChild)
+          call order_children(iTree_IA(iChild, iNode), iChild)
        end do
     end if
 
@@ -704,9 +711,9 @@ contains
 
     character(len=10) :: Name
     character(len=200):: Header
-    integer:: iInfo, iBlock
+    integer:: iInfo, iNode
     !-----------------------------------------------------------------------
-    Header = 'iBlock'
+    Header = 'iNode'
     do iInfo = 1, nInfo
        Name = NameTreeInfo_I(iInfo)
        Header(7*iInfo+1:7*(iInfo+1)-1) = Name(1:6)
@@ -714,9 +721,9 @@ contains
 
     write(*,*) String
     write(*,*) trim(Header)
-    do iBlock = 1, MaxBlockAll
-       if(iTree_IA(Status_, iBlock) == Skipped_) CYCLE
-       write(*,'(100i7)') iBlock, iTree_IA(:, iBlock)
+    do iNode = 1, MaxNode
+       if(iTree_IA(Status_, iNode) == Unset_) CYCLE
+       write(*,'(100i7)') iNode, iTree_IA(:, iNode)
     end do
 
   end subroutine show_tree
@@ -726,7 +733,7 @@ contains
 
     use BATL_mpi, ONLY: iProc
 
-    integer :: iBlock, nBlockAll, Int_D(MaxDim)
+    integer :: iNode, nNodeAll, Int_D(MaxDim)
     real:: CoordTest_D(MaxDim)
 
     logical :: DoTestMe
@@ -742,14 +749,14 @@ contains
          write(*,*)'init_mod_octtree faild, MaxBlock=',&
          MaxBlock, ' should be 50'
 
-    if(MaxBlockAll /= 100) &
-         write(*,*)'init_mod_octtree faild, MaxBlockAll=',&
-         MaxBlockAll, ' should be 100'
+    if(MaxNode /= 100) &
+         write(*,*)'init_mod_octtree faild, MaxNode=',&
+         MaxNode, ' should be 100'
 
-    if(DoTestMe)write(*,*)'Testing i_block_new()'
-    iBlock = i_block_new()
-    if(iBlock /= 1) &
-         write(*,*)'i_block_new() failed, iBlock=',iBlock,' should be 1'
+    if(DoTestMe)write(*,*)'Testing i_node_new()'
+    iNode = i_node_new()
+    if(iNode /= 1) &
+         write(*,*)'i_node_new() failed, iNode=',iNode,' should be 1'
 
     if(DoTestMe)write(*,*)'Testing set_tree_root'
     call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
@@ -763,103 +770,103 @@ contains
     Int_D = (/1,2,2/)
 
     if(any( iTree_IA(Coord1_:CoordLast_,4) /= Int_D )) &
-         write(*,*) 'set_tree_root failed, coordinates of block four=',&
+         write(*,*) 'set_tree_root failed, coordinates of node four=',&
          iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDimTree)
 
-    if(DoTestMe)write(*,*)'Testing find_tree_block'
+    if(DoTestMe)write(*,*)'Testing find_tree_node'
     CoordTest_D = (/0.99,0.99,0.9/)
-    call find_tree_block(CoordTest_D, iBlock)
-    if(iBlock /= nRoot)write(*,*)'ERROR: Test find point failed, iBlock=',&
-         iBlock,' instead of',nRoot
+    call find_tree_node(CoordTest_D, iNode)
+    if(iNode /= nRoot)write(*,*)'ERROR: Test find point failed, iNode=',&
+         iNode,' instead of',nRoot
 
-    if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
+    if(.not.is_point_inside_node(CoordTest_D, iNode)) &
          write(*,*)'ERROR: Test find point failed'
     
-    if(DoTestMe)write(*,*)'Testing refine_tree_block'
-    ! Refine the block where the point was found and find it again
-    call refine_tree_block(iBlock)
+    if(DoTestMe)write(*,*)'Testing refine_tree_node'
+    ! Refine the node where the point was found and find it again
+    call refine_tree_node(iNode)
 
-    if(DoTestMe)call show_tree('after refine_tree_block')
+    if(DoTestMe)call show_tree('after refine_tree_node')
 
-    call find_tree_block(CoordTest_D,iBlock)
-    if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
-         write(*,*)'ERROR: Test find point failed for iBlock=',iBlock
+    call find_tree_node(CoordTest_D,iNode)
+    if(.not.is_point_inside_node(CoordTest_D, iNode)) &
+         write(*,*)'ERROR: Test find point failed for iNode=',iNode
 
-    ! Refine another block
+    ! Refine another node
     if(DoTestMe)write(*,*)'nRoot=',nRoot
-    call refine_tree_block(nRoot-2)
+    call refine_tree_node(nRoot-2)
 
-    if(DoTestMe)call show_tree('after another refine_tree_block')
+    if(DoTestMe)call show_tree('after another refine_tree_node')
 
     if(DoTestMe)write(*,*)'Testing find_neighbors'
     call find_neighbors(5)
-    if(DoTestMe)write(*,*)'DiLevelNei_IIIB(:,:,:,5)=',DiLevelNei_IIIB(:,:,:,5)
-    if(DoTestMe)write(*,*)'iBlockNei_IIIB(:,:,:,5)=',iBlockNei_IIIB(:,:,:,5)
+    if(DoTestMe)write(*,*)'DiLevelNei_IIIB(:,:,:,5)=', DiLevelNei_IIIB(:,:,:,5)
+    if(DoTestMe)write(*,*)'iNodeNei_IIIB(:,:,:,5)=', iNodeNei_IIIB(:,:,:,5)
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 1st'
     call distribute_tree(.false.)
-    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iNodePeano_I =', iNodePeano_I(1:22)
     if(DoTestMe)call show_tree('after distribute_tree 1st')
 
-    if(DoTestMe)write(*,*)'Testing coarsen_tree_block'
+    if(DoTestMe)write(*,*)'Testing coarsen_tree_node'
 
-    ! Coarsen back the last root block and find point again
-    call coarsen_tree_block(nRoot)
-    if(DoTestMe)call show_tree('after coarsen_tree_block')
+    ! Coarsen back the last root node and find point again
+    call coarsen_tree_node(nRoot)
+    if(DoTestMe)call show_tree('after coarsen_tree_node')
 
-    call find_tree_block(CoordTest_D,iBlock)
-    if(iBlock /= nRoot)write(*,*)'ERROR: coarsen_tree_block faild, iBlock=',&
-         iBlock,' instead of',nRoot
-    if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
-         write(*,*)'ERROR: is_point_inside_block failed'
+    call find_tree_node(CoordTest_D,iNode)
+    if(iNode /= nRoot)write(*,*)'ERROR: coarsen_tree_node faild, iNode=',&
+         iNode,' instead of',nRoot
+    if(.not.is_point_inside_node(CoordTest_D, iNode)) &
+         write(*,*)'ERROR: is_point_inside_node failed'
 
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 2nd'
     call distribute_tree(.true.)
-    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
 
     if(DoTestMe)write(*,*)'Testing compact_tree'
-    call compact_tree(nBlockAll)
+    call compact_tree(nNodeAll)
     if(DoTestMe)call show_tree('after compact_tree')
 
-    if(iTree_IA(Status_, nBlockAll+1) /= Skipped_) &
-         write(*,*)'ERROR: compact_tree faild, nBlockAll=', nBlockAll, &
-         ' but status of next block is', iTree_IA(Status_, nBlockAll+1), &
-         ' instead of ',Skipped_
-    if(any(iTree_IA(Status_, 1:nBlockAll) == Skipped_)) &
-         write(*,*)'ERROR: compact_tree faild, nBlockAll=', nBlockAll, &
-         ' but iTree_IA(Status_, 1:nBlockAll)=', &
-         iTree_IA(Status_, 1:nBlockAll),' contains skipped=',Skipped_
-    call find_tree_block(CoordTest_D,iBlock)
-    if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
-         iBlock,' instead of',nRoot
-    if(.not.is_point_inside_block(CoordTest_D, iBlock)) &
-         write(*,*)'ERROR: is_point_inside_block failed'
+    if(iTree_IA(Status_, nNodeAll+1) /= Unset_) &
+         write(*,*)'ERROR: compact_tree faild, nNodeAll=', nNodeAll, &
+         ' but status of next node is', iTree_IA(Status_, nNodeAll+1), &
+         ' instead of ',Unset_
+    if(any(iTree_IA(Status_, 1:nNodeAll) == Unset_)) &
+         write(*,*)'ERROR: compact_tree faild, nNodeAll=', nNodeAll, &
+         ' but iTree_IA(Status_, 1:nNodeAll)=', &
+         iTree_IA(Status_, 1:nNodeAll),' contains unset=',Unset_
+    call find_tree_node(CoordTest_D,iNode)
+    if(iNode /= nRoot)write(*,*)'ERROR: compact_tree faild, iNode=',&
+         iNode,' instead of',nRoot
+    if(.not.is_point_inside_node(CoordTest_D, iNode)) &
+         write(*,*)'ERROR: is_point_inside_node failed'
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 3rd'
     call distribute_tree(.true.)
-    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
 
     if(DoTestMe)write(*,*)'Testing write_tree_file'
     call write_tree_file('tree.rst')
 
     if(DoTestMe)write(*,*)'Testing read_tree_file'
-    iTree_IA = NoBlock_
+    iTree_IA = Unset_
     nRoot_D = 0
     call read_tree_file('tree.rst')
     if(DoTestMe)call show_tree('after read_tree')
 
-    call find_tree_block(CoordTest_D,iBlock)
-    if(iBlock /= nRoot)write(*,*)'ERROR: compact_tree faild, iBlock=',&
-         iBlock,' instead of',nRoot
+    call find_tree_node(CoordTest_D,iNode)
+    if(iNode /= nRoot)write(*,*)'ERROR: compact_tree faild, iNode=',&
+         iNode,' instead of',nRoot
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 4th'
     call distribute_tree(.true.)
-    if(DoTestMe)write(*,*)'iBlockPeano_I =',iBlockPeano_I(1:22)
+    if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
 
     if(DoTestMe)write(*,*)'Testing clean_tree'
     call clean_tree
-    if(DoTestMe)write(*,*)'MaxBlock=', MaxBlock
+    if(DoTestMe)write(*,*)'MaxNode=', MaxNode
 
   end subroutine test_tree
 
