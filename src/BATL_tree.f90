@@ -27,15 +27,17 @@ module BATL_tree
   integer, public, parameter :: &
        Status_   =  1, &
        Level_    =  2, &
-       Proc_     =  3, &
-       Block_    =  4, &
-       ProcNew_  =  5, &
-       BlockNew_ =  6, &
+       Proc_     =  3, & ! Proc_ must be
+       Block_    =  4, & ! just before Block_
+       ProcNew_  =  5, & ! ProcNew_ must be
+       BlockNew_ =  6, & ! just before BlockNew_
        Coord0_   =  6, &
        Coord1_   =  7, &
+       Coord2_   =  8, &
+       Coord3_   =  9, &
        CoordLast_=  9, &
-       Parent_   = 10, & ! Parent must be just before the first child!
-       Child0_   = 10, &
+       Parent_   = 10, & ! Parent_ must be 
+       Child0_   = 10, & ! equal to Child0_
        Child1_   = Child0_ + 1,      &
        ChildLast_= Child0_ + nChild
 
@@ -62,13 +64,14 @@ module BATL_tree
        'Child7   ', &
        'Child8   ' /)
 
-  ! Mapping from local block and processor index to global node index
-  integer, public, allocatable :: iNode_BP(:,:)
+  ! Mapping from local block index to global node index
+  integer, public, allocatable :: iNode_B(:)
 
-  ! Unused blocks
+  ! Unused blocks on the local processor
   logical, public, allocatable :: Unused_B(:)
 
   ! Local variables -----------------------------------------------
+  character(len=*), parameter:: NameMod = "BATL_tree"
 
   ! Deepest AMR level relative to root nodes (limited by 32 bit integers)
   integer, parameter :: MaxLevel = 30
@@ -81,10 +84,6 @@ module BATL_tree
 
   ! The number of root nodes in all dimensions, and altogether
   integer :: nRoot_D(MaxDim) = 0, nRoot = 0
-
-  character(len=*), parameter:: NameMod = "BATL_tree"
-
-  integer, parameter :: UnitTmp_ = 9 ! same as used in SWMF
 
   ! Possible values for the status variable
   integer, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
@@ -124,8 +123,6 @@ contains
 
   subroutine init_tree(MaxBlockIn, MaxNodeIn)
 
-    use BATL_mpi, ONLY: nProc
-
     ! Initialize the tree array with nNode nodes
 
     integer, intent(in) :: MaxBlockIn ! Max number of blocks per processor
@@ -140,7 +137,7 @@ contains
     ! Allocate and initialize all elements of tree as unset
     allocate(iTree_IA(nInfo, MaxNode));                iTree_IA        = Unset_
     allocate(iNodePeano_I(MaxNode));                   iNodePeano_I    = Unset_
-    allocate(iNode_BP(MaxBlock,0:nProc-1));            iNode_BP        = Unset_
+    allocate(iNode_B(MaxBlock));                       iNode_B         = Unset_
     allocate(Unused_B(MaxBlock));                      Unused_B        =.true.
     allocate(iNodeNei_IIIB(0:3,0:3,0:3,MaxBlock));     iNodeNei_IIIB   = Unset_
     allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock));DiLevelNei_IIIB = Unset_
@@ -151,7 +148,7 @@ contains
   subroutine clean_tree
 
     if(.not.allocated(iTree_IA)) RETURN
-    deallocate(iTree_IA, iNodePeano_I, iNode_BP, Unused_B, &
+    deallocate(iTree_IA, iNodePeano_I, iNode_B, Unused_B, &
          iNodeNei_IIIB, DiLevelNei_IIIB)
 
     MaxNode = 0
@@ -498,11 +495,9 @@ contains
 
   !==========================================================================
 
-  subroutine compact_tree(nNodeAll)
+  subroutine compact_tree
 
     ! Eliminate holes from the tree
-
-    integer, intent(out), optional:: nNodeAll
 
     ! Amount of shift for each node
     integer, allocatable:: iNodeNew_A(:)
@@ -545,13 +540,14 @@ contains
 
     end do
 
+    ! Set number of nodes in the tree (note the EXIT above)
+    nNode = iNode - 1
+
     ! Fix the node indexes along the Peano curve
     do iPeano = 1, nNodeUsed
        iNodeOld = iNodePeano_I(iPeano)
        iNodePeano_I(iPeano) = iNodeNew_A(iNodeOld)
     end do
-
-    if(present(nNodeAll)) nNodeAll = iNode - 1
 
   end subroutine compact_tree
 
@@ -559,20 +555,21 @@ contains
 
   subroutine write_tree_file(NameFile)
 
+    use ModIoUnit, ONLY: UnitTmp_
     use BATL_mpi, ONLY: iProc, barrier_mpi
 
     character(len=*), intent(in):: NameFile
-    integer :: nNodeAll
 
+    ! Write tree information into a file
     !-------------------------------------------------------------------------
-    call compact_tree(nNodeAll)
+    call compact_tree
 
     if(iProc == 0)then
        open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
-       write(UnitTmp_) nNodeAll, nInfo
+       write(UnitTmp_) nNode, nInfo
        write(UnitTmp_) nDimTree, nRoot_D
-       write(UnitTmp_) iTree_IA(:,1:nNodeAll)
+       write(UnitTmp_) iTree_IA(:,1:nNode)
 
        close(UnitTmp_)
     end if
@@ -584,7 +581,12 @@ contains
 
   subroutine read_tree_file(NameFile)
 
+    use ModIoUnit, ONLY: UnitTmp_
+
     character(len=*), intent(in):: NameFile
+
+    ! Read tree information from a file
+
     integer :: nInfoIn, nNodeIn, nDimTreeIn, nRootIn_D(MaxDim)
     character(len=*), parameter :: NameSub = 'read_tree_file'
     !----------------------------------------------------------------------
@@ -649,9 +651,10 @@ contains
 
        ! Move the node to new processor/node
        iTree_IA(Proc_:Block_,iNode) = iTree_IA(ProcNew_:BlockNew_,iNode)
-       iNode_BP(iBlockTo,iProcTo)   = iNode
-       if(iProc == iProcTo) Unused_B(iBlockTo) = &
-            iTree_IA(Status_,iNode) <= Unused_
+       if(iProc == iProcTo)then
+          iNode_B(iBlockTo)  = iNode
+          Unused_B(iBlockTo) = iTree_IA(Status_,iNode) <= Unused_
+       end if
 
     end do
 
@@ -689,6 +692,9 @@ contains
   !==========================================================================
   recursive subroutine order_children(iNode, iChildMe)
 
+    ! Recursively apply Morton ordering for nodes below a root block.
+    ! Store result into iNodePeano_I using the global iPeano index.
+
     integer, intent(in) :: iNode, iChildMe
     integer :: iChild
     !-----------------------------------------------------------------------
@@ -697,7 +703,6 @@ contains
        iNodePeano_I(iPeano) = iNode
     else
        do iChild = Child1_, ChildLast_
-          ! iChild = iChildOrder_II(i, iChildMe)
           call order_children(iTree_IA(iChild, iNode), iChild)
        end do
     end if
@@ -708,6 +713,8 @@ contains
   subroutine show_tree(String)
 
     character(len=*), intent(in):: String
+
+    ! Show complete tree information. Also write out string as an identifier.
 
     character(len=10) :: Name
     character(len=200):: Header
@@ -727,13 +734,14 @@ contains
     end do
 
   end subroutine show_tree
+
   !==========================================================================
 
   subroutine test_tree
 
     use BATL_mpi, ONLY: iProc
 
-    integer :: iNode, nNodeAll, Int_D(MaxDim)
+    integer :: iNode, Int_D(MaxDim)
     real:: CoordTest_D(MaxDim)
 
     logical :: DoTestMe
@@ -826,17 +834,17 @@ contains
     if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
 
     if(DoTestMe)write(*,*)'Testing compact_tree'
-    call compact_tree(nNodeAll)
+    call compact_tree
     if(DoTestMe)call show_tree('after compact_tree')
 
-    if(iTree_IA(Status_, nNodeAll+1) /= Unset_) &
-         write(*,*)'ERROR: compact_tree faild, nNodeAll=', nNodeAll, &
-         ' but status of next node is', iTree_IA(Status_, nNodeAll+1), &
-         ' instead of ',Unset_
-    if(any(iTree_IA(Status_, 1:nNodeAll) == Unset_)) &
-         write(*,*)'ERROR: compact_tree faild, nNodeAll=', nNodeAll, &
-         ' but iTree_IA(Status_, 1:nNodeAll)=', &
-         iTree_IA(Status_, 1:nNodeAll),' contains unset=',Unset_
+    if(iTree_IA(Status_, nNode+1) /= Unset_) &
+         write(*,*)'ERROR: compact_tree failed, nNode=', nNode, &
+         ' but status of next node is', iTree_IA(Status_, nNode+1), &
+         ' instead of ', Unset_
+    if(any(iTree_IA(Status_, 1:nNode) == Unset_)) &
+         write(*,*)'ERROR: compact_tree faild, nNode=', nNode, &
+         ' but iTree_IA(Status_, 1:nNode)=', &
+         iTree_IA(Status_, 1:nNode),' contains unset=', Unset_
     call find_tree_node(CoordTest_D,iNode)
     if(iNode /= nRoot)write(*,*)'ERROR: compact_tree faild, iNode=',&
          iNode,' instead of',nRoot

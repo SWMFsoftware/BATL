@@ -74,14 +74,16 @@ contains
 
   subroutine create_grid_block(iBlock)
 
-    use BATL_mpi, ONLY: iProc
+    ! Create geometrical information for block iBlock on the local PE
 
     integer, intent(in):: iBlock
+
+    character(len=*), parameter:: NameSub = 'create_grid_block'
 
     real :: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
     integer :: iNode, i, j, k
     !----------------------------------------------------------------------
-    iNode = iNode_BP(iBlock, iProc)
+    iNode = iNode_B(iBlock)
     call get_tree_position(iNode, PositionMin_D, PositionMax_D)
 
     CoordMin_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMin_D
@@ -103,7 +105,7 @@ contains
                ( (/i, j, k/) - 0.5 ) * CellSize_DB(:,iBlock)
        end do; end do; end do
     else
-       stop
+       call CON_stop(NameSub//' non-Cartesian is not yet implemented')
     end if
 
   end subroutine create_grid_block
@@ -112,9 +114,19 @@ contains
 
   subroutine show_grid_block(iBlock)
 
+    use BATL_mpi, ONLY: iProc
+
     integer, intent(in):: iBlock
+
+    ! Show grid information for block iBlock
+
+    character(len=*), parameter:: NameSub = 'show_grid_block'
     !------------------------------------------------------------------------
-    write(*,*)'show_grid_block for iBlock=',iBlock
+    if(Unused_B(iBlock))then
+       write(*,*) NameSub//' WARNING unused block ',iBlock,' on proc',iProc
+       RETURN
+    end if
+    write(*,*)'show_grid_block for iProc, iBlock=',iProc, iBlock
     write(*,*)'CoordMin  =', CoordMin_DB(:,iBlock)
     write(*,*)'CoordMax  =', CoordMax_DB(:,iBlock)
     write(*,*)'CellSize  =', CellSize_DB(:,iBlock)
@@ -127,6 +139,32 @@ contains
     write(*,*)'Xyz(nI,nJ,nK)=', Xyz_DGB(:,nI,nJ,nK,iBlock)
 
   end subroutine show_grid_block
+
+  !===========================================================================
+
+  subroutine show_grid
+
+    use ModUtilities, ONLY: flush_unit
+    use ModIoUnit,    ONLY: STDOUT_
+    use BATL_mpi, ONLY: iProc, nProc, barrier_mpi
+
+    ! Show all blocks sequentially on all processors, ie. show_grid 
+    ! must be called from all processors of the MPI communicator iComm!
+
+    integer:: iBlock, iPe
+    !------------------------------------------------------------------------
+
+    do iPe = 0, nProc - 1
+       if(iPe == iProc) then
+          do iBlock = 1, nBlock
+             if(Unused_B(iBlock)) CYCLE
+             call show_grid_block(iBlock)
+          end do
+       end if
+       call flush_unit(STDOUT_)
+       call barrier_mpi
+    end do
+  end subroutine show_grid
 
   !===========================================================================
 
@@ -143,8 +181,8 @@ contains
     !-----------------------------------------------------------------------
     DoTestMe = iProc == 0
 
-    write(*,*)'Testing init_grid'
-    write(*,*)'nDimTree, nIJK_D=', nDimTree, nIJK_D
+    if(DoTestMe) write(*,*)'Testing init_grid'
+    if(DoTestMe) write(*,*)'nDimTree, nIJK_D=', nDimTree, nIJK_D
     call init_tree(50, 100)
     call init_grid( DomainMin_D, DomainMax_D )
     call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
@@ -153,14 +191,15 @@ contains
     call distribute_tree(.true.)
     if(DoTestMe) call show_tree('After distribute_tree')
 
-    write(*,*)'Testing create_grid_block'
+    if(DoTestMe) write(*,*)'Testing create_grid_block'
     do iBlock = 1, nBlock
        if(Unused_B(iBlock))CYCLE
        call create_grid_block(iBlock)
-       call show_grid_block(iBlock)
     end do
 
-    write(*,*)'Testing clean_grid'
+    call show_grid
+
+    if(DoTestMe) write(*,*)'Testing clean_grid'
     call clean_grid
     
   end subroutine test_grid
