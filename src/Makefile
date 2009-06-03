@@ -11,27 +11,34 @@ install:
 	touch Makefile.DEPEND
 
 OBJECTS = \
-	main.o \
 	BATL_mpi.o  \
 	BATL_size.o \
 	BATL_tree.o \
 	BATL_grid.o \
 	BATL_geometry.o 
 
-DEPEND:
-	@perl ${SCRIPTDIR}/depend.pl ${SEARCH} ${OBJECTS}
+ALLOBJECTS = \
+	${OBJECTS} \
+	main.o \
+	advect_main.o
 
-EXE:
+DEPEND:
+	@perl ${SCRIPTDIR}/depend.pl ${SEARCH} ${ALLOBJECTS}
+
+BATL:
 	make DEPEND
 	make BATL.exe
 
-BATL.exe: ${OBJECTS}
-	${LINK.f90} -o BATL.exe ${OBJECTS} -L${LIBDIR} -lSHARE ${Lflag1}
+BATL.exe: main.o ${OBJECTS}
+	${LINK.f90} -o BATL.exe main.o ${OBJECTS} -L${LIBDIR} -lSHARE ${Lflag1}
 
-test: EXE
-	BATL.exe > test.log
-	-@diff test.log test.ref > test.diff
-	ls -l test.diff
+ADVECT:
+	make DEPEND
+	make ADVECT.exe
+
+ADVECT.exe: advect_main.o ${OBJECTS}
+	${LINK.f90} -o ADVECT.exe advect_main.o ${OBJECTS} \
+		-L${LIBDIR} -lSHARE ${Lflag1}
 
 distclean: clean
 	rm -f *.log *.diff *.rst BATL_size.f90 Makefile.DEPEND
