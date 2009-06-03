@@ -28,10 +28,3 @@ subroutine CON_stop(String)
   call MPI_abort(iComm, nError, iError)
   stop
 end subroutine CON_stop
-!=============================================================================
-!subroutine stop_mpi(String)
-!  character (len=*), intent(in) :: String
-!  write(*,*)'stop_mpi called with String='
-!  write(*,*) String
-!  stop
-!end subroutine stop_mpi
