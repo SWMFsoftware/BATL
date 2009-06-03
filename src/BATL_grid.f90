@@ -9,22 +9,28 @@ module BATL_grid
   private ! except
 
   public :: init_grid
+  public :: clean_grid
   public :: create_grid_block
   public :: test_grid
 
-  logical :: DoInitializeGrid = .true.
+  real, public:: &
+       CoordMin_D(MaxDim),      & ! Min gen. coords of domain
+       CoordMax_D(MaxDim)         ! Max gen. coordinates of domain
 
-  real :: CoordMin_D(MaxDim)                  ! Min gen. coordinates of domain
-  real :: CoordMax_D(MaxDim)                  ! Max gen. coordinates of domain
-  real, allocatable :: CoordMin_DB(:,:)       ! Min gen. coordinates of a block
-  real, allocatable :: CoordMax_DB(:,:)       ! Max gen. coordinates of a block
-  real, allocatable :: CellSize_DB(:,:)       ! Cell size in gen. coordinates
-  real, allocatable :: CellFace_DB(:,:)       ! Cell faces for Cartesian grids
-  real, allocatable :: CellFace_DFB(:,:,:,:,:)! Cell faces for general grids
-  real, allocatable :: CellVolume_B(:)        ! Cell volume for Cartesian grids
-  real, allocatable :: CellVolume_GB(:,:,:,:) ! Cell volume for general grids
+  real, public, allocatable::   &
+       CoordMin_DB(:,:),        & ! Min gen. coordinates of a block
+       CoordMax_DB(:,:),        & ! Max gen. coordinates of a block
+       CellSize_DB(:,:),        & ! Cell size in gen. coordinates
+       CellFace_DB(:,:),        & ! Cell faces for Cartesian grids
+       CellFace_DFB(:,:,:,:,:), & ! Cell faces for general grids
+       CellVolume_B(:),         & ! Cell volume for Cartesian grids
+       CellVolume_GB(:,:,:,:),  & ! Cell volume for general grids
+       Xyz_DGB(:,:,:,:,:)         ! Cartesian cell centers coords
+
+  ! Local variables
+
+  logical :: DoInitializeGrid = .true.
   
-  real, allocatable :: Xyz_DGB(:,:,:,:,:)     ! Cartesian cell centers coords
 
 contains
   !============================================================================
