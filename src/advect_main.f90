@@ -1,6 +1,6 @@
-program flow2d
+program advect
 
-  use BATL_size
+  use BATL_lib, ONLY: nDim, nI, nJ, nK, MinI, MaxI, MinJ, MaxJ, MinK, MaxK
 
   implicit none
 
@@ -36,6 +36,9 @@ program flow2d
 
   ! Face centered flux for one block
   real:: Flux_VFD(nVar,1:nI+1,1:nJ+1,1:nK+1,nDim)
+
+  ! Total initial mass
+  real:: TotalIni_I(0:nVar) = -1.0
   !--------------------------------------------------------------------------
   call initialize
   do
@@ -59,37 +62,40 @@ program flow2d
 contains
 
   !===========================================================================
-  subroutine initialize
+  real function initial_density(Xyz_D)
 
-    use ModMpi,    ONLY: MPI_COMM_WORLD, MPI_init
-    use BATL_mpi,  ONLY: init_mpi
-    use BATL_tree, ONLY: init_tree, Unused_B, set_tree_root, distribute_tree
-    use BATL_grid, ONLY: init_grid, create_grid_block, Xyz_DGB
     use ModNumConst, ONLY: cHalfPi
+
+    real, intent(in):: Xyz_D(nDim)
 
     ! Square of the radius of the circle/sphere
     real, parameter :: Radius2 = 25.0
-    real:: r2
+    real :: r2
+    !-------------------------------------------------------------------------
+    r2 = sum(Xyz_D**2)
+    if(r2 < Radius2)then
+       initial_density = 1 + cos(cHalfPi*sqrt(r2/Radius2))**2
+    else
+       initial_density = 1
+    end if
+
+  end function initial_density
+
+  !===========================================================================
+  subroutine initialize
+
+    use BATL_lib, ONLY: init_mpi, init_batl, iProc, &
+         MaxBlock, nBlock, Unused_B, Xyz_DGB
+
     integer :: i, j, k, iBlock, iError
     !------------------------------------------------------------------------
 
-    call MPI_init(iError)
-    call init_mpi(MPI_COMM_WORLD)
-    call init_tree( &
-         MaxBlockIn = 10, &
-         MaxNodeIn  = 100)
-    call init_grid( &
-         CoordMinIn_D = DomainMin_D, &
-         CoordMaxIn_D = DomainMax_D )
-    call set_tree_root( &
-         nRootIn_D      = (/1,1,1/), &
+    call init_mpi
+    call init_batl( &
+         MaxBlockIn     = 10, &
+         CoordMinIn_D   = DomainMin_D, &
+         CoordMaxIn_D   = DomainMax_D, &
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
-
-    call distribute_tree(.true.)
-    do iBlock = 1, nBlock
-       if(Unused_B(iBlock))CYCLE
-       call create_grid_block(iBlock)
-    end do
 
     allocate( &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock), &
@@ -98,21 +104,17 @@ contains
     State_VGB = 0.0
     Flux_VFD = 0.0
 
+    ! Initialize the state as a sphere with a cos^2 density profile
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
        do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
-          r2 = sum(Xyz_DGB(1:nDimTree,i,j,k,iBlock)**2)
-          if(r2 < Radius2)then
-             State_VGB(:,i,j,k,iBlock) &
-                  = 1.0 + cos( cHalfPi*sqrt(r2/Radius2) )**2
-          else
-             State_VGB(:,i,j,k,iBlock) = 1.0
-          end if
+          State_VGB(:,i,j,k,iBlock) &
+               = initial_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
        end do; end do; end do
     end do
 
-    write(*,*)'!!! maxval(State_VGB)=',maxval(State_VGB(:,:,:,:,1:nBlock))
-    write(*,*)'!!! minval(State_VGB)=',minval(State_VGB(:,:,:,:,1:nBlock))
+    call set_total(TotalIni_I)
+    if(iProc == 0)write(*,*)'TotalVolume, TotalVars =',TotalIni_I
 
     ! Initial time step and time
     iStep    = 0
@@ -120,7 +122,35 @@ contains
     TimePlot = 0.0
 
   end subroutine initialize
-  !=======================================================================
+
+  !===========================================================================
+  subroutine set_total(Total_I)
+
+    ! Calculate the totals on processor 0
+    use ModMpi
+    use BATL_lib, ONLY: nBlock, Unused_B, CellVolume_B, iComm, iProc, nProc
+
+    real, intent(out):: Total_I(0:nVar)
+
+    integer:: iBlock, iError
+    real:: TotalPe_I(0:nVar)
+    !------------------------------------------------------------------------
+    Total_I = 0.0
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       Total_I(1:nVar) = Total_I(1:nVar) &
+            + CellVolume_B(iBlock)*sum(State_VGB(:,1:nI,1:nJ,1:nK,iBlock))
+       Total_I(0) = Total_I(0) + CellVolume_B(iBlock)*nI*nJ*nK
+    end do
+
+    if(nProc > 0)then
+       TotalPe_I = Total_I
+       call MPI_reduce(TotalPe_I, Total_I, 1+nVar, MPI_REAL, MPI_SUM, 0, &
+            iComm, iError)
+    end if
+
+  end subroutine set_total
+  !===========================================================================
   subroutine save_plot
 
     use ModPlotFile, ONLY: save_plot_file
@@ -149,15 +179,43 @@ contains
   end subroutine save_plot
   !===========================================================================
   subroutine finalize
-    use BATL_tree, ONLY: clean_tree
-    use BATL_grid, ONLY: clean_grid
-    use ModMpi, ONLY: MPI_finalize
-    integer :: iError
+
+    use BATL_lib, ONLY: clean_batl, clean_mpi, &
+         iComm, nProc, iProc, &
+         nBlock, Unused_B, CellVolume_B, Xyz_DGB
+    use ModMpi
+ 
+    integer:: iBlock, i, j, k, iError
+    real:: Total_I(0:nVar)
+    real:: Error, ErrorPe, CellVolume
     !------------------------------------------------------------------------
     call save_plot
-    call clean_grid
-    call clean_tree
-    call MPI_finalize(iError)
+
+    ! Calculate final error
+    
+    Error       = 0.0
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       CellVolume = CellVolume_B(iBlock)
+       do k = 1, nK; do j = 1, nJ; do i = 1, nI
+          Error = Error + CellVolume*abs(State_VGB(1,i,j,k,iBlock) - &
+               initial_density(Xyz_DGB(1:nDim,i,j,k,iBlock)))
+       end do; end do; end do
+    end do
+
+    if(nProc > 1)then
+       ErrorPe = Error
+       call MPI_reduce(ErrorPe, Error, 1, MPI_REAL, MPI_SUM, 0, iComm, iError)
+    endif
+    call set_total(Total_I)
+    if(iProc == 0)then
+       write(*,*)'TotalVolume, TotalVars= ',Total_I
+       write(*,*)'Error = ',Error/Total_I(0)
+    end if
+
+    call clean_batl
+    call clean_mpi
+
   end subroutine finalize
   !===========================================================================
   subroutine calc_face_values(iBlock)
@@ -246,8 +304,7 @@ contains
   !===========================================================================
   subroutine advance_explicit
 
-    use BATL_grid, ONLY: CellSize_DB
-    use BATL_tree, ONLY: Unused_B
+    use BATL_lib, ONLY: nBlock, Unused_B, CellSize_DB
     use ModNumConst, ONLY: i_DD
 
     integer:: iStage, iDim, iBlock, i, j, k, Di, Dj, Dk
@@ -290,17 +347,18 @@ contains
 
   end subroutine advance_explicit
 
-end program flow2d
+end program advect
 
 !=============================================================================
 subroutine CON_stop(String)
-  use BATL_mpi
+  use ModMpi, ONLY: MPI_abort, MPI_COMM_WORLD
   implicit none
-  character (len=*), intent(in) :: String
   integer:: iError, nError
+  character (len=*), intent(in) :: String
   !--------------------------------------------------------------------------
   write(*,*)'CON_stop called with String='
   write(*,*) String
-  call MPI_abort(iComm, nError, iError)
+
+  call MPI_abort(MPI_COMM_WORLD, nError, iError)
   stop
 end subroutine CON_stop
