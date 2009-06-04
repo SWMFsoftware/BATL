@@ -11,6 +11,7 @@ install:
 	touch Makefile.DEPEND
 
 OBJECTS = \
+	BATL_lib.o  \
 	BATL_mpi.o  \
 	BATL_size.o \
 	BATL_tree.o \
