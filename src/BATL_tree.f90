@@ -1,6 +1,6 @@
 module BATL_tree
 
-  use BATL_size, ONLY: MaxBlock, nBlock, MaxDim, nDimTree
+  use BATL_size, ONLY: MaxBlock, nBlock, MaxDim, nDimAmr
 
   implicit none
   save
@@ -20,7 +20,7 @@ module BATL_tree
   public:: show_tree
   public:: test_tree
 
-  integer, public, parameter :: nChild = 2**nDimTree
+  integer, public, parameter :: nChild = 2**nDimAmr
 
   integer, public, allocatable :: iTree_IA(:,:)
 
@@ -67,8 +67,12 @@ module BATL_tree
   ! Mapping from local block index to global node index
   integer, public, allocatable :: iNode_B(:)
 
-  ! Unused blocks on the local processor
-  logical, public, allocatable :: Unused_B(:)
+  logical, public, allocatable :: &
+       Unused_B(:)                   ! Unused blocks on the local processor
+
+  integer, public, allocatable :: &
+       DiLevelNei_IIIB(:,:,:,:),  &  ! Level difference relative to neighbors 
+       iNodeNei_IIIB(:,:,:,:)        ! Node index of neighboring blocks
 
   ! Local variables -----------------------------------------------
   character(len=*), parameter:: NameMod = "BATL_tree"
@@ -90,9 +94,6 @@ module BATL_tree
 
   ! Index for unset values (that are otherwise larger)
   integer, parameter :: Unset_ = -100
-
-  ! Neighbor information
-  integer, allocatable :: DiLevelNei_IIIB(:,:,:,:), iNodeNei_IIIB(:,:,:,:)
 
   ! Maximum number of nodes including unused and skipped ones
   integer :: MaxNode = 0
@@ -121,18 +122,19 @@ module BATL_tree
 
 contains
 
-  subroutine init_tree(MaxBlockIn, MaxNodeIn)
+  subroutine init_tree(MaxBlockIn)
+
+    use BATL_mpi, ONLY: nProc
 
     ! Initialize the tree array with nNode nodes
 
     integer, intent(in) :: MaxBlockIn ! Max number of blocks per processor
-    integer, intent(in) :: MaxNodeIn  ! Max number of nodes altogether
     !----------------------------------------------------------------------
     if(allocated(iTree_IA)) RETURN
 
     ! Store tree size and maximum number of blocks/processor
-    MaxNode = MaxNodeIn
     MaxBlock = MaxBlockIn
+    MaxNode  = nProc*ceiling(MaxBlock*(1 + 1.0/(nChild - 1)))
 
     ! Allocate and initialize all elements of tree as unset
     allocate(iTree_IA(nInfo, MaxNode));                iTree_IA        = Unset_
@@ -177,15 +179,24 @@ contains
 
   subroutine set_tree_root(nRootIn_D, IsPeriodicIn_D)
 
-    integer, intent(in) :: nRootIn_D(MaxDim)
-    logical, intent(in) :: IsPeriodicIn_D(MaxDim)
+    integer, optional, intent(in) :: nRootIn_D(MaxDim)
+    logical, optional, intent(in) :: IsPeriodicIn_D(MaxDim)
 
     integer :: iRoot, jRoot, kRoot, iNode, Ijk_D(MaxDim)
     !-----------------------------------------------------------------------
 
-    nRoot_D      = nRootIn_D
+    if(present(nRootIn_D))then
+       nRoot_D = nRootIn_D
+    else
+       nRoot_D = 1
+    end if
     nRoot        = product(nRoot_D)
-    IsPeriodic_D = IsPeriodicIn_D
+
+    if(present(IsPeriodicIn_D))then
+       IsPeriodic_D = IsPeriodicIn_D
+    else
+       IsPeriodic_D = .false.
+    end if
 
     ! Use the first product(nRoot_D) nodes as root nodes in the tree
     iNode = 0
@@ -222,7 +233,7 @@ contains
     integer, intent(in) :: iNode
 
     integer :: iChild, DiChild, iLevelChild, iProc, iBlock
-    integer :: iCoord_D(nDimTree)
+    integer :: iCoord_D(nDimAmr)
     integer :: iDim, iNodeChild
     !----------------------------------------------------------------------
 
@@ -237,7 +248,7 @@ contains
     if(nLevel > MaxLevel) &
          call CON_stop('Error in refine_tree_node: too many levels')
 
-    iCoord_D = 2*iTree_IA(Coord1_:Coord0_+nDimTree, iNode) - 1
+    iCoord_D = 2*iTree_IA(Coord1_:Coord0_+nDimAmr, iNode) - 1
 
     do iChild = Child1_, ChildLast_
 
@@ -256,13 +267,13 @@ contains
 
        ! Calculate the coordinates of the child node
        DiChild = iChild - Child1_
-       do iDim = 1, nDimTree
+       do iDim = 1, nDimAmr
           iTree_IA(Coord0_+iDim, iNodeChild) = &
                iCoord_D(iDim) + ibits(DiChild, iDim-1, 1)
        end do
 
        ! The non-AMR coordinates remain the same as for the parent node
-       do iDim = nDimTree+1, MaxDim
+       do iDim = nDimAmr+1, MaxDim
           iTree_IA(Coord0_+iDim, iNodeChild) = iTree_IA(Coord0_+iDim, iNode)
        end do
 
@@ -326,7 +337,7 @@ contains
     iLevel = iTree_IA(Level_, iNode)
 
     MaxIndex_D = nRoot_D
-    MaxIndex_D(1:nDimTree) = MaxCoord_I(iLevel)*MaxIndex_D(1:nDimTree)
+    MaxIndex_D(1:nDimAmr) = MaxCoord_I(iLevel)*MaxIndex_D(1:nDimAmr)
 
     ! Convert to real by adding -1.0 or 0.0 for the two edges, respectively
     PositionMin_D = (iTree_IA(Coord1_:CoordLast_,iNode) - 1.0)/MaxIndex_D
@@ -346,7 +357,7 @@ contains
 
     real :: Coord_D(MaxDim)
     integer :: iLevel, iChild
-    integer :: Ijk_D(MaxDim), iCoord_D(nDimTree), iBit_D(nDimTree)
+    integer :: Ijk_D(MaxDim), iCoord_D(nDimAmr), iBit_D(nDimAmr)
     !----------------------------------------------------------------------
     ! Scale coordinates so that 1 <= Coord_D <= nRoot_D+1
     Coord_D = 1.0 + nRoot_D*max(0.0, min(1.0, CoordIn_D))
@@ -361,12 +372,12 @@ contains
 
     ! Get normalized coordinates within root node and scale it up
     ! to the largest resolution
-    iCoord_D = (Coord_D(1:nDimTree) - Ijk_D(1:nDimTree))*MaxCoord_I(nLevel)
+    iCoord_D = (Coord_D(1:nDimAmr) - Ijk_D(1:nDimAmr))*MaxCoord_I(nLevel)
 
     ! Go down the tree using bit information
     do iLevel = nLevel-1,0,-1
        iBit_D = ibits(iCoord_D, iLevel, 1)
-       iChild = sum(iBit_D*MaxCoord_I(0:nDimTree-1)) + Child1_
+       iChild = sum(iBit_D*MaxCoord_I(0:nDimAmr-1)) + Child1_
        iNode = iTree_IA(iChild, iNode)
 
        if(iTree_IA(Status_, iNode) == Used_) RETURN
@@ -410,7 +421,7 @@ contains
     Scale_D = (1.0/MaxCoord_I(iLevel))/nRoot_D
     do k=0,3
        Dk = nint((k - 1.5)/1.5)
-       if(nDimTree < 3)then
+       if(nDimAmr < 3)then
           if(k/=1) CYCLE
           z = 0.3
        else
@@ -427,7 +438,7 @@ contains
        end if
        do j=0,3
           Dj = nint((j - 1.5)/1.5)
-          if(nDimTree < 2)then
+          if(nDimAmr < 2)then
              if(j/=1) CYCLE
              y = 0.3
           else
@@ -568,7 +579,7 @@ contains
        open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
        write(UnitTmp_) nNode, nInfo
-       write(UnitTmp_) nDimTree, nRoot_D
+       write(UnitTmp_) nDimAmr, nRoot_D
        write(UnitTmp_) iTree_IA(:,1:nNode)
 
        close(UnitTmp_)
@@ -587,7 +598,7 @@ contains
 
     ! Read tree information from a file
 
-    integer :: nInfoIn, nNodeIn, nDimTreeIn, nRootIn_D(MaxDim)
+    integer :: nInfoIn, nNodeIn, nDimAmrIn, nRootIn_D(MaxDim)
     character(len=*), parameter :: NameSub = 'read_tree_file'
     !----------------------------------------------------------------------
 
@@ -598,10 +609,10 @@ contains
        write(*,*) NameSub,' nNodeIn, MaxNode=',nNodeIn, MaxNode 
        call CON_stop(NameSub//' too many nodes in tree file!')
     end if
-    read(UnitTmp_) nDimTreeIn, nRootIn_D
-    if(nDimTreeIn /= nDimTree)then
-       write(*,*) NameSub,' nDimTreeIn, nDimTree=',nDimTreeIn, nDimTree
-       call CON_stop(NameSub//' nDimTree is different in tree file!')
+    read(UnitTmp_) nDimAmrIn, nRootIn_D
+    if(nDimAmrIn /= nDimAmr)then
+       write(*,*) NameSub,' nDimAmrIn, nDimAmr=',nDimAmrIn, nDimAmr
+       call CON_stop(NameSub//' nDimAmr is different in tree file!')
     end if
     call set_tree_root(nRootIn_D, IsPeriodic_D)
     read(UnitTmp_) iTree_IA(:,1:nNodeIn)
@@ -752,14 +763,14 @@ contains
     DoTestMe = iProc == 0
 
     if(DoTestMe)write(*,*)'Testing init_tree'
-    call init_tree(50, 100)
+    call init_tree(50)
     if(MaxBlock /= 50) &
          write(*,*)'init_mod_octtree faild, MaxBlock=',&
          MaxBlock, ' should be 50'
 
-    if(MaxNode /= 100) &
+    if(MaxNode > 100) &
          write(*,*)'init_mod_octtree faild, MaxNode=',&
-         MaxNode, ' should be 100'
+         MaxNode, ' should be <= 100'
 
     if(DoTestMe)write(*,*)'Testing i_node_new()'
     iNode = i_node_new()
@@ -779,7 +790,7 @@ contains
 
     if(any( iTree_IA(Coord1_:CoordLast_,4) /= Int_D )) &
          write(*,*) 'set_tree_root failed, coordinates of node four=',&
-         iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDimTree)
+         iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDimAmr)
 
     if(DoTestMe)write(*,*)'Testing find_tree_node'
     CoordTest_D = (/0.99,0.99,0.9/)
