@@ -7,9 +7,9 @@ module BATL_size
   ! Dimensionality of grid and AMR
   integer, parameter :: MaxDim = 3    ! This has to be 3 all the time
   integer, parameter :: nDim   = 3    ! Number of not ignored dimensions
-  integer, parameter :: nDimTree = 3  ! Number of refined dimensions
+  integer, parameter :: nDimAmr = 3  ! Number of refined dimensions
 
-  ! Note: 3 = MaxDim >= nDim >= nDimTree >= 1
+  ! Note: 3 = MaxDim >= nDim >= nDimAmr >= 1
 
   ! Maximum number of blocks per processor
   integer :: MaxBlock = 0
