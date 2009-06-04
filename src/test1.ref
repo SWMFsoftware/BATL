@@ -94,7 +94,7 @@
  Testing clean_tree
  MaxNode= 0
  Testing init_grid
- nDimTree, nIJK_D= 1 8 4 2
+ nDimAmr, nIJK_D= 1 8 4 2
  After distribute_tree
  iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
       1      2      0      0      1      0      1      1      1      1   -100   -100   -100
