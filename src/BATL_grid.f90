@@ -188,8 +188,8 @@ contains
     DoTestMe = iProc == 0
 
     if(DoTestMe) write(*,*)'Testing init_grid'
-    if(DoTestMe) write(*,*)'nDimTree, nIJK_D=', nDimTree, nIJK_D
-    call init_tree(50, 100)
+    if(DoTestMe) write(*,*)'nDimAmr, nIJK_D=', nDimAmr, nIJK_D
+    call init_tree(50)
     call init_grid( DomainMin_D, DomainMax_D )
     call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
 
