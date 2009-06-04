@@ -134,7 +134,7 @@ contains
 
     ! Store tree size and maximum number of blocks/processor
     MaxBlock = MaxBlockIn
-    MaxNode  = nProc*ceiling(MaxBlock*(1 + 1.0/(nChild - 1)))
+    MaxNode  = ceiling(nProc*MaxBlock*(1 + 1.0/(nChild - 1)))
 
     ! Allocate and initialize all elements of tree as unset
     allocate(iTree_IA(nInfo, MaxNode));                iTree_IA        = Unset_
@@ -750,7 +750,7 @@ contains
 
   subroutine test_tree
 
-    use BATL_mpi, ONLY: iProc
+    use BATL_mpi, ONLY: iProc, nProc
 
     integer :: iNode, Int_D(MaxDim)
     real:: CoordTest_D(MaxDim)
@@ -765,12 +765,12 @@ contains
     if(DoTestMe)write(*,*)'Testing init_tree'
     call init_tree(50)
     if(MaxBlock /= 50) &
-         write(*,*)'init_mod_octtree faild, MaxBlock=',&
+         write(*,*)'init_mod_octtree failed, MaxBlock=',&
          MaxBlock, ' should be 50'
 
-    if(MaxNode > 100) &
-         write(*,*)'init_mod_octtree faild, MaxNode=',&
-         MaxNode, ' should be <= 100'
+    if(MaxNode /= ceiling(50*nProc*(1 + 1.0/(2**nDimAmr-1)))) &
+         write(*,*)'init_mod_octtree failed, MaxNode=', MaxNode, &
+         ' should be', ceiling(50*nProc*(1 + 1.0/(2**nDimAmr-1)))
 
     if(DoTestMe)write(*,*)'Testing i_node_new()'
     iNode = i_node_new()
