@@ -74,6 +74,12 @@ module BATL_tree
        DiLevelNei_IIIB(:,:,:,:),  &  ! Level difference relative to neighbors 
        iNodeNei_IIIB(:,:,:,:)        ! Node index of neighboring blocks
 
+  ! Index for unset values (that are otherwise larger)
+  integer, public, parameter :: Unset_ = -100
+
+  ! Possible values for the status variable
+  integer, public, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
+
   ! Local variables -----------------------------------------------
   character(len=*), parameter:: NameMod = "BATL_tree"
 
@@ -88,12 +94,6 @@ module BATL_tree
 
   ! The number of root nodes in all dimensions, and altogether
   integer :: nRoot_D(MaxDim) = 0, nRoot = 0
-
-  ! Possible values for the status variable
-  integer, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
-
-  ! Index for unset values (that are otherwise larger)
-  integer, parameter :: Unset_ = -100
 
   ! Maximum number of nodes including unused and skipped ones
   integer :: MaxNode = 0
@@ -489,14 +489,6 @@ contains
        end do
     end do
     
-    !write(*,*)'!!! find_nei iBlock, iNode:',iBlock, iNode
-    !write(*,*)'!!! Nei1=',iNodeNei_IIIB( 0, 1, 1,iBlock)
-    !write(*,*)'!!! Nei2=',iNodeNei_IIIB( 3, 1, 1,iBlock)
-    !write(*,*)'!!! Nei3=',iNodeNei_IIIB( 0,-1, 0,iBlock)
-    !write(*,*)'!!! Nei4=',iNodeNei_IIIB( 0, 1, 0,iBlock)
-    !write(*,*)'!!! Nei5=',iNodeNei_IIIB( 0, 0,-1,iBlock)
-    !write(*,*)'!!! Nei6=',iNodeNei_IIIB( 0, 0, 1,iBlock)
-
   end subroutine find_neighbors
 
   !==========================================================================
@@ -821,11 +813,6 @@ contains
 
     if(DoTestMe)call show_tree('after another refine_tree_node')
 
-    if(DoTestMe)write(*,*)'Testing find_neighbors'
-    call find_neighbors(5)
-    if(DoTestMe)write(*,*)'DiLevelNei_IIIB(:,:,:,5)=', DiLevelNei_IIIB(:,:,:,5)
-    if(DoTestMe)write(*,*)'iNodeNei_IIIB(:,:,:,5)=', iNodeNei_IIIB(:,:,:,5)
-
     if(DoTestMe)write(*,*)'Testing distribute_tree 1st'
     call distribute_tree(.false.)
     if(DoTestMe)write(*,*)'iNodePeano_I =', iNodePeano_I(1:22)
@@ -846,7 +833,10 @@ contains
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 2nd'
     call distribute_tree(.true.)
+    if(DoTestMe)call show_tree('after distribute_tree 2nd')
     if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
+    if(DoTestMe)write(*,*)'DiLevelNei_IIIB(:,1,1,1)=', DiLevelNei_IIIB(:,1,1,1)
+    if(DoTestMe)write(*,*)'iNodeNei_IIIB(:,1,1,1)=', iNodeNei_IIIB(:,1,1,1)
 
     if(DoTestMe)write(*,*)'Testing compact_tree'
     call compact_tree
