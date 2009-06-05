@@ -10,9 +10,6 @@ program advect
   ! Advection velocity. Should be positive. For now set to 2
   real :: Velocity_D(nDim) = 2.0
 
-  ! Name plot file
-  character (len=*), parameter:: NamePlotFile='advect.out'
-
   ! Spatial order of accuracy and beta parameter for the TVD limiter
   integer, parameter :: nOrder = 2
   real,    parameter :: BetaLimiter = 1.5 ! 1 <= Beta <= 2 for nOrder=2
@@ -95,6 +92,7 @@ contains
          MaxBlockIn     = 10, &
          CoordMinIn_D   = DomainMin_D, &
          CoordMaxIn_D   = DomainMax_D, &
+         nRootIn_D      = (/2,2,1/),   &
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
 
     allocate( &
@@ -154,25 +152,32 @@ contains
   subroutine save_plot
 
     use ModPlotFile, ONLY: save_plot_file
+    use BATL_lib, ONLY: iProc, &
+         nBlock, Unused_B, CoordMin_DB, CoordMax_DB, CellSize_DB
     
-    integer, parameter :: nPlotVar=3
-    integer, parameter :: nEqpar=1
-    integer, parameter :: nDim=2
-    character (len=*), parameter :: &
-         StringHead = "water_rho11", NameCoord = "x y z "
-
+    integer :: iBlock
+    character(len=100):: NameFile
     character (len=10) :: TypePosition = 'rewind'
     !---------------------------------------------------------------------
 
-    call save_plot_file(NamePlotFile, &
-         TypeFileIn='real8',          &
-         TypePositionIn=TypePosition, &
-         nStepIn = iStep, &
-         TimeIn  = Time, &
-         nDimIn  = nDim, &
-         CoordMinIn_D = DomainMin_D(1:nDim), &
-         CoordMaxIn_D = DomainMax_D(1:nDim), &
-         VarIn_VIII = State_VGB(:,1:nI,1:nJ,1:nK,1))
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+
+       write(NameFile,'(a,i3.3,a,i5.5,a)') &
+            'advect_pe',iProc,'_blk',iBlock,'.out'
+       
+       call save_plot_file(NameFile,     &
+            TypeFileIn='ascii',          &
+            TypePositionIn=TypePosition, &
+            nStepIn = iStep, &
+            TimeIn  = Time, &
+            nDimIn  = nDim, &
+            CoordMinIn_D = CoordMin_DB(1:nDim,iBlock)        &
+            +              0.5*CellSize_DB(1:nDim,iBlock),   &
+            CoordMaxIn_D = CoordMax_DB(1:nDim,iBlock)        &
+            -              0.5*CellSize_DB(1:nDim,iBlock),   &
+            VarIn_VIII = State_VGB(:,1:nI,1:nJ,1:nK,iBlock))
+    end do
 
     TypePosition = 'append'
 
@@ -229,20 +234,6 @@ contains
 
     integer :: iDim, i, j, k, Di, Dj, Dk
     !------------------------------------------------------------------------
-
-    ! Apply boundary conditions for h here: 1 block periodic !!!
-    State_VGB(:,  -1,:,:,iBlock) = State_VGB(:,nI-1,:,:,iBlock)
-    State_VGB(:,   0,:,:,iBlock) = State_VGB(:,nI  ,:,:,iBlock)
-    State_VGB(:,nI+1,:,:,iBlock) = State_VGB(:,   1,:,:,iBlock)
-    State_VGB(:,nI+2,:,:,iBlock) = State_VGB(:,   2,:,:,iBlock)
-    State_VGB(:,:,  -1,:,iBlock) = State_VGB(:,:,nJ-1,:,iBlock)
-    State_VGB(:,:,   0,:,iBlock) = State_VGB(:,:,nJ  ,:,iBlock)
-    State_VGB(:,:,nJ+1,:,iBlock) = State_VGB(:,:,   1,:,iBlock)
-    State_VGB(:,:,nJ+2,:,iBlock) = State_VGB(:,:,   2,:,iBlock)
-    State_VGB(:,:,:,  -1,iBlock) = State_VGB(:,:,:,nK-1,iBlock)
-    State_VGB(:,:,:,   0,iBlock) = State_VGB(:,:,:,nK  ,iBlock)
-    State_VGB(:,:,:,nK+1,iBlock) = State_VGB(:,:,:,   1,iBlock)
-    State_VGB(:,:,:,nK+2,iBlock) = State_VGB(:,:,:,   2,iBlock)
 
     if(nOrder==2)call limit_slope(State_VGB(:,:,:,:,iBlock), Slope_VGD)
 
@@ -304,10 +295,13 @@ contains
   !===========================================================================
   subroutine advance_explicit
 
-    use BATL_lib, ONLY: nBlock, Unused_B, CellSize_DB
+    use BATL_lib, ONLY: message_pass_cell, nBlock, Unused_B, CellSize_DB, &
+         iComm, nProc
     use ModNumConst, ONLY: i_DD
+    use ModMpi
 
-    integer:: iStage, iDim, iBlock, i, j, k, Di, Dj, Dk
+    integer:: iStage, iDim, iBlock, i, j, k, Di, Dj, Dk, iError
+    real:: DtPe
     !--------------------------------------------------------------------------
     Dt = 1e30
     do iBlock = 1, nBlock
@@ -316,7 +310,10 @@ contains
     end do
     Dt = min( Cfl*Dt, TimeMax - Time)
 
-    !!! MPI_allreduce
+    if(nProc > 1)then
+       DtPe = Dt
+       call MPI_allreduce(DtPe, Dt, 1, MPI_REAL, MPI_MIN, iComm, iError)
+    end if
 
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
@@ -324,6 +321,8 @@ contains
     end do
 
     do iStage = 1, nOrder
+
+       call message_pass_cell(nVar, State_VGB)
 
        do iBlock = 1, nBlock
           if(Unused_B(iBlock)) CYCLE
