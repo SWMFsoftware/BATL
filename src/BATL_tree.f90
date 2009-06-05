@@ -1,6 +1,6 @@
 module BATL_tree
 
-  use BATL_size, ONLY: MaxBlock, nBlock, MaxDim, nDimAmr
+  use BATL_size, ONLY: MaxBlock, nBlock, MaxDim, nDim, nDimAmr
 
   implicit none
   save
@@ -220,11 +220,6 @@ contains
     nNodeUsed = nRoot
     nNode     = nRoot
 
-    ! Set neighbor info
-    !do iNode = 1, nRoot
-    !   call find_neighbors(iNode)
-    !end do
-
   end subroutine set_tree_root
 
   !==========================================================================
@@ -280,16 +275,6 @@ contains
     end do
 
     nNodeUsed = nNodeUsed + nChild - 1
-
-    ! Find neighbors of children
-    !do iChild = Child1_, ChildLast_
-    !
-    !   iNodeChild = iTree_IA(iChild, iNode)
-    !   call find_neighbors(iNodeChild)
-    !
-    !end do
-
-    ! Should also redo neighbors of the parent node
 
   end subroutine refine_tree_node
 
@@ -407,21 +392,22 @@ contains
 
   !===========================================================================
 
-  subroutine find_neighbors(iNode)
+  subroutine find_neighbors(iBlock)
 
-    integer, intent(in):: iNode
+    integer, intent(in):: iBlock
 
-    integer :: iLevel, i, j, k, Di, Dj, Dk, jNode
+    integer :: iLevel, i, j, k, Di, Dj, Dk, iNode, jNode
     real :: Scale_D(MaxDim), x, y, z
     !-----------------------------------------------------------------------
 
-    ! We should convert local node into global node index or vice-versa
+    ! Get node index of the block
+    iNode = iNode_B(iBlock)
 
     iLevel  = iTree_IA(Level_, iNode)
     Scale_D = (1.0/MaxCoord_I(iLevel))/nRoot_D
     do k=0,3
        Dk = nint((k - 1.5)/1.5)
-       if(nDimAmr < 3)then
+       if(nDim < 3)then
           if(k/=1) CYCLE
           z = 0.3
        else
@@ -430,15 +416,15 @@ contains
              if(IsPeriodic_D(3))then
                 z = modulo(z, 1.0)
              else
-                iNodeNei_IIIB(:,:,k,iNode) = Unset_
-                DiLevelNei_IIIB(:,:,Dk,iNode) = Unset_
+                iNodeNei_IIIB(:,:,k,iBlock) = Unset_
+                DiLevelNei_IIIB(:,:,Dk,iBlock) = Unset_
                 CYCLE
              end if
           end if
        end if
        do j=0,3
           Dj = nint((j - 1.5)/1.5)
-          if(nDimAmr < 2)then
+          if(nDim < 2)then
              if(j/=1) CYCLE
              y = 0.3
           else
@@ -451,8 +437,8 @@ contains
                    y = max(0.0, min(1.0, y))
                    z = modulo( z+0.5, 1.0)
                 else
-                   iNodeNei_IIIB(:,j,k,iNode) = Unset_
-                   DiLevelNei_IIIB(:,Dj,Dk,iNode) = Unset_
+                   iNodeNei_IIIB(:,j,k,iBlock) = Unset_
+                   DiLevelNei_IIIB(:,Dj,Dk,iBlock) = Unset_
                    CYCLE
                 end if
              end if
@@ -464,17 +450,17 @@ contains
              Di = nint((i - 1.5)/1.5)
 
              ! If neighbor is not finer, fill in the i=2 or j=2 or k=2 elements
-             if(DiLevelNei_IIIB(Di,Dj,Dk,iNode) >= 0)then
+             if(DiLevelNei_IIIB(Di,Dj,Dk,iBlock) >= 0)then
                 if(i==2)then
-                   iNodeNei_IIIB(i,j,k,iNode) = iNodeNei_IIIB(1,j,k,iNode)
+                   iNodeNei_IIIB(i,j,k,iBlock) = iNodeNei_IIIB(1,j,k,iBlock)
                    CYCLE
                 end if
                 if(j==2)then
-                   iNodeNei_IIIB(i,j,k,iNode) = iNodeNei_IIIB(i,1,k,iNode)
+                   iNodeNei_IIIB(i,j,k,iBlock) = iNodeNei_IIIB(i,1,k,iBlock)
                    CYCLE
                 end if
                 if(k==2)then
-                   iNodeNei_IIIB(i,j,k,iNode) = iNodeNei_IIIB(i,j,1,iNode)
+                   iNodeNei_IIIB(i,j,k,iBlock) = iNodeNei_IIIB(i,j,1,iBlock)
                    CYCLE
                 end if
              end if
@@ -488,19 +474,28 @@ contains
                    x = 0.0
                    z = modulo( z+0.5, 1.0)
                 else
-                   iNodeNei_IIIB(i,j,k,iNode) = Unset_
-                   DiLevelNei_IIIB(Di,Dj,Dk,iNode) = Unset_
+                   iNodeNei_IIIB(i,j,k,iBlock) = Unset_
+                   DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = Unset_
                    CYCLE
                 end if
              end if
 
              call find_tree_node( (/x, y, z/), jNode)
-             iNodeNei_IIIB(i,j,k,iNode) = jNode
-             DiLevelNei_IIIB(Di,Dj,Dk,iNode) = &
+
+             iNodeNei_IIIB(i,j,k,iBlock) = jNode
+             DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = &
                   iLevel - iTree_IA(Level_, jNode)
           end do
        end do
     end do
+    
+    !write(*,*)'!!! find_nei iBlock, iNode:',iBlock, iNode
+    !write(*,*)'!!! Nei1=',iNodeNei_IIIB( 0, 1, 1,iBlock)
+    !write(*,*)'!!! Nei2=',iNodeNei_IIIB( 3, 1, 1,iBlock)
+    !write(*,*)'!!! Nei3=',iNodeNei_IIIB( 0,-1, 0,iBlock)
+    !write(*,*)'!!! Nei4=',iNodeNei_IIIB( 0, 1, 0,iBlock)
+    !write(*,*)'!!! Nei5=',iNodeNei_IIIB( 0, 0,-1,iBlock)
+    !write(*,*)'!!! Nei6=',iNodeNei_IIIB( 0, 0, 1,iBlock)
 
   end subroutine find_neighbors
 
@@ -632,7 +627,7 @@ contains
     ! Are nodes moved immediatly or just assigned new processor/node
     logical, intent(in):: DoMove
 
-    integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo
+    integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo, iBlock
     !------------------------------------------------------------------------
 
     ! Initialize processor and block indexes
@@ -669,7 +664,16 @@ contains
 
     end do
 
-    if(DoMove) nBlock = maxval(iTree_IA(Block_, :))
+    if(DoMove)then
+       nBlock = maxval(iTree_IA(Block_, :))
+
+       ! Set neighbor info
+       do iBlock = 1, nBlock
+          if(Unused_B(iBlock)) CYCLE
+          call find_neighbors(iBlock)
+       end do
+
+    end if
 
   end subroutine distribute_tree
   !==========================================================================
