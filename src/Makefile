@@ -16,7 +16,8 @@ OBJECTS = \
 	BATL_size.o \
 	BATL_tree.o \
 	BATL_grid.o \
-	BATL_geometry.o 
+	BATL_geometry.o \
+	BATL_pass_cell.o
 
 ALLOBJECTS = \
 	${OBJECTS} \
