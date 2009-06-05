@@ -6,6 +6,7 @@ module BATL_lib
   use BATL_mpi
   use BATL_tree
   use BATL_grid
+  use BATL_pass_cell
 
   implicit none
 
@@ -30,6 +31,9 @@ module BATL_lib
   public:: Xyz_DGB
   public:: CellFace_DB, CellFace_DFB
   public:: CellVolume_B, CellVolume_GB
+
+  ! Inherited from BATL_pass_cell
+  public:: message_pass_cell
 
   ! Public methods of this module
   public:: init_batl
