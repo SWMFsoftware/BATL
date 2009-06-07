@@ -41,11 +41,13 @@ test3:
 test_advect2:
 	Config.pl -g=2,2,80,40,1
 	make ADVECT
-	cd src; ./ADVECT.exe
-	#cd src; ${MPIRUN} ADVECT.exe > advect2.log
-	#-@${SCRIPTDIR}/DiffNum.pl -r=1.e-5 advect.out advect2.ref \
-	#	> advect2.diff
-	#ls -l advect2.diff
+	cd src; ${MPIRUN} ADVECT.exe > advect2.log
+	make test_advect2_check
+
+test_advect2_check:
+	-@(cd src; ${SCRIPTDIR}/DiffNum.pl \
+		-r=1.e-8 advect2.log advect2.ref > advect2.diff)
+	ls -l src/advect2.diff
 
 clean:
 	cd share; make clean
