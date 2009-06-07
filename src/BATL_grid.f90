@@ -10,6 +10,7 @@ module BATL_grid
 
   public :: init_grid
   public :: clean_grid
+  public :: create_grid
   public :: create_grid_block
   public :: test_grid
 
@@ -36,11 +37,17 @@ contains
   !============================================================================
   subroutine init_grid(CoordMinIn_D, CoordMaxIn_D)
 
-    real, intent(in):: CoordMinIn_D(MaxDim), CoordMaxIn_D(MaxDim)
+    real, intent(in):: CoordMinIn_D(nDim), CoordMaxIn_D(nDim)
     !-------------------------------------------------------------------------
     if(.not. DoInitializeGrid) RETURN
 
     DoInitializeGrid = .false.
+
+    ! Make sure that the thickness is unity in the ignored dimensions
+    CoordMin_D = -0.5
+    CoordMax_D = +0.5
+    CoordMin_D(1:nDim) = CoordMinIn_D
+    CoordMax_D(1:nDim) = CoordMaxIn_D
 
     allocate(CoordMin_DB(MaxDim,MaxBlock))
     allocate(CoordMax_DB(MaxDim,MaxBlock))
@@ -54,9 +61,6 @@ contains
     if(.not.IsCartesian) &
          allocate(CellVolume_GB(MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
     allocate(Xyz_DGB(MaxDim,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
-
-    CoordMin_D = CoordMinIn_D
-    CoordMax_D = CoordMaxIn_D
 
   end subroutine init_grid
   !===========================================================================
@@ -116,6 +120,17 @@ contains
 
   end subroutine create_grid_block
 
+  !===========================================================================
+  subroutine create_grid
+
+    integer:: iBlock
+    !------------------------------------------------------------------------
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock))CYCLE
+       call create_grid_block(iBlock)
+    end do
+
+  end subroutine create_grid
   !===========================================================================
 
   subroutine show_grid_block(iBlock)
@@ -195,7 +210,7 @@ contains
     if(DoTestMe) write(*,*)'Testing init_grid'
     if(DoTestMe) write(*,*)'nDimAmr, nIJK_D=', nDimAmr, nIJK_D
     call init_tree(MaxBlockTest)
-    call init_grid( DomainMin_D, DomainMax_D )
+    call init_grid( DomainMin_D(1:nDim), DomainMax_D(1:nDim) )
     call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
     call set_tree_root( nRootTest_D(1:nDim))
 
@@ -203,11 +218,8 @@ contains
     call distribute_tree(.true.)
     if(DoTestMe) call show_tree('After distribute_tree')
 
-    if(DoTestMe) write(*,*)'Testing create_grid_block'
-    do iBlock = 1, nBlock
-       if(Unused_B(iBlock))CYCLE
-       call create_grid_block(iBlock)
-    end do
+    if(DoTestMe) write(*,*)'Testing create_grid'
+    call create_grid
 
     call show_grid
 
