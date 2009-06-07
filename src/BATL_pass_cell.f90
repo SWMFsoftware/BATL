@@ -127,7 +127,7 @@ contains
 
     character(len=*), parameter:: NameSub = 'BATL_pass_cell::message_pass_cell'
 
-    logical :: DoTest = .true., DoTestMe = .true.
+    logical :: DoTest = .false., DoTestMe = .false.
     !--------------------------------------------------------------------------
     if(DoTestMe)write(*,*)NameSub,' starting with nVar=',nVar
 
