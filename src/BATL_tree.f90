@@ -140,7 +140,7 @@ contains
     allocate(iTree_IA(nInfo, MaxNode));                iTree_IA        = Unset_
     allocate(iNodePeano_I(MaxNode));                   iNodePeano_I    = Unset_
     allocate(iNode_B(MaxBlock));                       iNode_B         = Unset_
-    allocate(Unused_B(MaxBlock));                      Unused_B        =.true.
+    allocate(Unused_B(MaxBlock));                      Unused_B        = .true.
     allocate(iNodeNei_IIIB(0:3,0:3,0:3,MaxBlock));     iNodeNei_IIIB   = Unset_
     allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock));DiLevelNei_IIIB = Unset_
 
@@ -179,24 +179,20 @@ contains
 
   subroutine set_tree_root(nRootIn_D, IsPeriodicIn_D)
 
-    integer, optional, intent(in) :: nRootIn_D(MaxDim)
-    logical, optional, intent(in) :: IsPeriodicIn_D(MaxDim)
+    integer, optional, intent(in) :: nRootIn_D(nDim)
+    logical, optional, intent(in) :: IsPeriodicIn_D(nDim)
 
     integer :: iRoot, jRoot, kRoot, iNode, Ijk_D(MaxDim)
     !-----------------------------------------------------------------------
 
-    if(present(nRootIn_D))then
-       nRoot_D = nRootIn_D
-    else
-       nRoot_D = 1
-    end if
-    nRoot        = product(nRoot_D)
+    ! Set number of root blocks: default or input arguments
+    nRoot_D = 1
+    if(present(nRootIn_D)) nRoot_D(1:nDim) = nRootIn_D
+    nRoot   = product(nRoot_D)
 
-    if(present(IsPeriodicIn_D))then
-       IsPeriodic_D = IsPeriodicIn_D
-    else
-       IsPeriodic_D = .false.
-    end if
+    ! Set periodicity: default or inptu arguments
+    IsPeriodic_D = .false.
+    if(present(IsPeriodicIn_D)) IsPeriodic_D(1:nDim) = IsPeriodicIn_D
 
     ! Use the first product(nRoot_D) nodes as root nodes in the tree
     iNode = 0
@@ -368,7 +364,6 @@ contains
        if(iTree_IA(Status_, iNode) == Used_) RETURN
     end do
 
-
   end subroutine find_tree_node
 
   !==========================================================================
@@ -405,6 +400,12 @@ contains
 
     iLevel  = iTree_IA(Level_, iNode)
     Scale_D = (1.0/MaxCoord_I(iLevel))/nRoot_D
+
+    ! Fill in self-referring info
+    iNodeNei_IIIB(1:2,1:2,1:2,iBlock) = iNode
+    DiLevelNei_IIIB(0,0,0,iBlock)     = 0
+
+    ! Loop through neighbors
     do k=0,3
        Dk = nint((k - 1.5)/1.5)
        if(nDim < 3)then
@@ -566,7 +567,8 @@ contains
        open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
 
        write(UnitTmp_) nNode, nInfo
-       write(UnitTmp_) nDimAmr, nRoot_D
+       write(UnitTmp_) nDim, nDimAmr
+       write(UnitTmp_) nRoot_D(1:nDim)
        write(UnitTmp_) iTree_IA(:,1:nNode)
 
        close(UnitTmp_)
@@ -585,7 +587,7 @@ contains
 
     ! Read tree information from a file
 
-    integer :: nInfoIn, nNodeIn, nDimAmrIn, nRootIn_D(MaxDim)
+    integer :: nInfoIn, nNodeIn, nDimIn, nDimAmrIn, nRootIn_D(nDim)
     character(len=*), parameter :: NameSub = 'read_tree_file'
     !----------------------------------------------------------------------
 
@@ -596,12 +598,19 @@ contains
        write(*,*) NameSub,' nNodeIn, MaxNode=',nNodeIn, MaxNode 
        call CON_stop(NameSub//' too many nodes in tree file!')
     end if
-    read(UnitTmp_) nDimAmrIn, nRootIn_D
+    read(UnitTmp_) nDimIn, nDimAmrIn
+    if(nDimIn /= nDim)then
+       write(*,*) NameSub,' nDimIn, nDim=',nDimIn, nDim
+       call CON_stop(NameSub//' nDim is different in tree file!')
+    end if
     if(nDimAmrIn /= nDimAmr)then
        write(*,*) NameSub,' nDimAmrIn, nDimAmr=',nDimAmrIn, nDimAmr
        call CON_stop(NameSub//' nDimAmr is different in tree file!')
     end if
-    call set_tree_root(nRootIn_D, IsPeriodic_D)
+    read(UnitTmp_) nRootIn_D
+
+    call set_tree_root(nRootIn_D, IsPeriodic_D(1:nDim))
+
     read(UnitTmp_) iTree_IA(:,1:nNodeIn)
     close(UnitTmp_)
 
@@ -748,8 +757,12 @@ contains
 
     use BATL_mpi, ONLY: iProc, nProc
 
+    integer, parameter:: MaxBlockTest            = 50
+    integer, parameter:: nRootTest_D(MaxDim)     = (/1,2,3/)
+    logical, parameter:: IsPeriodicTest_D(MaxDim)= (/.true., .true., .false./)
+    real,    parameter:: CoordTest_D(MaxDim)     = 0.99
+
     integer :: iNode, Int_D(MaxDim)
-    real:: CoordTest_D(MaxDim)
 
     logical :: DoTestMe
  
@@ -759,13 +772,13 @@ contains
     DoTestMe = iProc == 0
 
     if(DoTestMe)write(*,*)'Testing init_tree'
-    call init_tree(50)
-    if(MaxBlock /= 50) &
-         write(*,*)'init_mod_octtree failed, MaxBlock=',&
-         MaxBlock, ' should be 50'
+    call init_tree(MaxBlockTest)
+    if(MaxBlock /= MaxBlockTest) &
+         write(*,*)'init_tree failed, MaxBlock=',&
+         MaxBlock, ' should be ',MaxBlockTest
 
-    if(MaxNode /= ceiling(50*nProc*(1 + 1.0/(2**nDimAmr-1)))) &
-         write(*,*)'init_mod_octtree failed, MaxNode=', MaxNode, &
+    if(MaxNode /= ceiling(MaxBlockTest*nProc*(1 + 1.0/(2**nDimAmr-1)))) &
+         write(*,*)'init_tree failed, MaxNode=', MaxNode, &
          ' should be', ceiling(50*nProc*(1 + 1.0/(2**nDimAmr-1)))
 
     if(DoTestMe)write(*,*)'Testing i_node_new()'
@@ -774,22 +787,21 @@ contains
          write(*,*)'i_node_new() failed, iNode=',iNode,' should be 1'
 
     if(DoTestMe)write(*,*)'Testing set_tree_root'
-    call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
+    call set_tree_root( nRootTest_D(1:nDim), IsPeriodicTest_D(1:nDim))
 
     if(DoTestMe)call show_tree('after set_tree_root')
 
-    if(any( nRoot_D /= (/1,2,3/) )) &
-         write(*,*) 'set_tree_root failed, nRoot_D=',nRoot_D,&
-         ' should be 1,2,3'
+    if(any( nRoot_D(1:nDim) /= nRootTest_D(1:nDim) )) &
+         write(*,*) 'set_tree_root failed, nRoot_D=',nRoot_D(1:nDim),&
+         ' should be ',nRootTest_D(1:nDim)
 
     Int_D = (/1,2,2/)
 
-    if(any( iTree_IA(Coord1_:CoordLast_,4) /= Int_D )) &
+    if(any( iTree_IA(Coord1_:Coord0_+nDim,4) /= Int_D(1:nDim) )) &
          write(*,*) 'set_tree_root failed, coordinates of node four=',&
-         iTree_IA(Coord1_:CoordLast_,4), ' should be ',Int_D(1:nDimAmr)
+         iTree_IA(Coord1_:Coord0_+nDim,4), ' should be ',Int_D(1:nDim)
 
     if(DoTestMe)write(*,*)'Testing find_tree_node'
-    CoordTest_D = (/0.99,0.99,0.9/)
     call find_tree_node(CoordTest_D, iNode)
     if(iNode /= nRoot)write(*,*)'ERROR: Test find point failed, iNode=',&
          iNode,' instead of',nRoot

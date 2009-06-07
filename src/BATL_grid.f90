@@ -179,6 +179,10 @@ contains
     use BATL_mpi, ONLY: iProc
 
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
+
+    integer, parameter:: MaxBlockTest            = 50
+    integer, parameter:: nRootTest_D(MaxDim)     = (/1,2,3/)
+    logical, parameter:: IsPeriodicTest_D(MaxDim)= (/.true., .true., .false./)
     real:: DomainMin_D(MaxDim) = (/ 1.0, 2.0, 3.0 /)
     real:: DomainMax_D(MaxDim) = (/ 4.0, 6.0, 9.0 /)
 
@@ -189,9 +193,9 @@ contains
 
     if(DoTestMe) write(*,*)'Testing init_grid'
     if(DoTestMe) write(*,*)'nDimAmr, nIJK_D=', nDimAmr, nIJK_D
-    call init_tree(50)
+    call init_tree(MaxBlockTest)
     call init_grid( DomainMin_D, DomainMax_D )
-    call set_tree_root( (/1,2,3/), (/.true., .true., .false./) )
+    call set_tree_root( nRootTest_D(1:nDim), IsPeriodicTest_D(1:nDim) )
 
     call refine_tree_node(6)
     call distribute_tree(.true.)

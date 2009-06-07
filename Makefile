@@ -18,14 +18,14 @@ test:	test1 test2 test3
 MPIRUN = mpirun -np 2
 
 test1:
-	Config.pl -g=1,1,8,4,2
+	Config.pl -g=3,1,8,4,2
 	make BATL
 	cd src; ${MPIRUN} BATL.exe > test1.log
 	-@(cd src; diff test1.log test1.ref > test1.diff)
 	cd src; ls -l test1.diff
 
 test2:
-	Config.pl -g=2,2,8,4,2
+	Config.pl -g=3,2,8,4,2
 	make BATL
 	cd src; ${MPIRUN} BATL.exe > test2.log
 	-@(cd src; diff test2.log test2.ref > test2.diff)
