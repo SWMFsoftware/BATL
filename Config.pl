@@ -29,7 +29,12 @@ my ($nDim, $nDimAmr, $nI, $nJ, $nK);
 # Read previous grid size, equation and user module
 &set_grid_size if $NewGridSize and $NewGridSize ne $GridSize;
 
-print "Config.pl -g=$nDim,$nDimAmr,$nI,$nJ,$nK\n" if $ShowGridSize or $Show;
+if($ShowGridSize or $Show){
+    print "Config.pl -g=$nDim,$nDimAmr,$nI";
+    print ",$nJ" if $nDim > 1;
+    print ",$nK" if $nDim > 2;
+    print "\n";
+}
 
 exit;
 
@@ -57,7 +62,9 @@ sub get_settings{
     die "$ERROR could not read nJ from $NameGridFile\n" unless length($nJ);
     die "$ERROR could not read nK from $NameGridFile\n" unless length($nK);
 
-    $GridSize = "$nDim,$nDimAmr,$nI,$nJ,$nK";
+    $GridSize  = "$nDim,$nDimAmr,$nI";
+    $GridSize .= ",$nJ" if $nDim > 1;
+    $GridSize .= ",$nK" if $nDim > 2;
 }
 
 #############################################################################
@@ -66,10 +73,26 @@ sub set_grid_size{
 
     $GridSize = $NewGridSize;
 
-    if($GridSize=~/^\d+,\d+,\d+,\d+,\d+$/){
-	($nDim,$nDimAmr,$nI,$nJ,$nK)= split(',', $GridSize);
+    if($GridSize =~ /^\d+(,\d+){2,4}$/){
+	($nDim,$nDimAmr,$nI,$nJ,$nK) = split(',', $GridSize);
+	if($nDim == 1){
+	    die "$ERROR for nDim=1 ".
+		"-g=$GridSize should contain 3 positive integers\n"
+		if $nJ > 0;
+	    $nJ = 1; $nK = 1;
+	}elsif($nDim == 2){
+	    die "$ERROR for nDim=2 ".
+		"-g=$GridSize should contain 4 positive integers\n"
+		if $nJ < 1 or $nK > 0;
+	    $nK = 1;
+	}elsif($nDim == 3){
+	    die "$ERROR for nDim=3 ".
+		"-g=$GridSize should contain 5 integers\n"
+		if $nJ < 1 or $nK < 1;
+	}
     }elsif($GridSize){
-	die "$ERROR -g=$GridSize should be 5 integers separated with commas\n";
+	die "$ERROR ".
+	    "-g=$GridSize should be 3 to 5 integers separated by commas\n";
     }
 
     # Check the grid size (to be set)
@@ -77,14 +100,12 @@ sub set_grid_size{
     die "$ERROR nDimAmr=$nDimAmr must be 1 to nDim=$nDim\n" 
 	if $nDimAmr < 1 or $nDimAmr > $nDim;
     die "$ERROR nI=$nI must be 2 or more\n" if $nI < 2;
-    die "$ERROR nJ=$nJ must be 1 or more\n" if $nJ < 1 and $nDim < 2;
-    die "$ERROR nK=$nK must be 1 or more\n" if $nK < 1 and $nDim < 3;
     die "$ERROR nJ=$nJ must be 2 or more\n" if $nJ < 2 and $nDim > 1;
     die "$ERROR nK=$nK must be 2 or more\n" if $nK < 2 and $nDim > 2;
 
     die "$ERROR nI=$nI must be an even integer\n" if $nI%2!=0;
-    die "$ERROR nJ=$nJ must be an even integer\n" if $nJ%2!=0 and $nDim > 1;
-    die "$ERROR nK=$nK must be an even integer\n" if $nK%2!=0 and $nDim > 2;
+    die "$ERROR nJ=$nJ must be an even integer\n" if $nJ%2!=0 and $nDimAmr > 1;
+    die "$ERROR nK=$nK must be an even integer\n" if $nK%2!=0 and $nDimAmr > 2;
 
     print "Writing new grid size $GridSize into $NameGridFile...\n";
 
@@ -109,21 +130,28 @@ sub print_help{
     print "
 Additional options for BATL/Config.pl:
 
--g=NDIM,NDIMAMR,NI,NJ,NK
-                Set grid size. NDIM=1,2 or 3 is the dimensionality of the 
-                problem. NDIMAMR is the dimensionality of the AMR tree. 
-                NI, NJ and NK are the number of cells in a block 
-                in the I, J and K directions, respectively. 
+-g[=NDIM,NDIMAMR,NI[,NJ[,NK]]]
+    If -g is used without a value, it shows grid size. 
+    Otherwise set grid and AMR dimensionality and the AMR block size.
+    NDIM=1,2 or 3 is the dimensionality of the problem. 
+    NDIMAMR is the dimensionality of the AMR tree: 1..NDIM.
+    NI, NJ and NK are the number of cells in a block in the I, J and K 
+    directions, respectively. The number of cells is always 1 in the 
+    ignored dimensions, and should not be set.
 
 Examples for BATS/Config.pl:
 
-Set 3D domain with 3D AMR and block size 8x8x8:
+Show grid size:
+
+    Config.pl -g
+
+Set 3D domain with 3D AMR and block size 8x8x8 cells:
 
     Config.pl -g=3,3,8,8,8
 
-Set 2D domain with 1D AMR and block size to 40x10x1:
+Set 2D domain with 1D AMR and block size 40x10 cells:
 
-    Config.pl -g=2,1,40,10,1
+    Config.pl -g=2,1,40,10
 \n";
     exit 0;
 }
