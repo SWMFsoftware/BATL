@@ -50,23 +50,18 @@ contains
        TypeGeometryIn, IsPeriodicIn_D, nRootIn_D)
 
     integer, intent(in):: MaxBlockIn
-    real,    intent(in):: CoordMinIn_D(MaxDim), CoordMaxIn_D(MaxDim)
+    real,    intent(in):: CoordMinIn_D(nDim), CoordMaxIn_D(nDim)
 
     integer,          optional, intent(in):: nRootIn_D(nDim)
     character(len=*), optional, intent(in):: TypeGeometryIn
     logical,          optional, intent(in):: IsPeriodicIn_D(nDim)
-
-    integer:: iBlock
     !-------------------------------------------------------------------------
     call init_tree(MaxBlockIn)
     call init_geometry(TypeGeometryIn, IsPeriodicIn_D)
     call init_grid(CoordMinIn_D, CoordMaxIn_D)
     call set_tree_root(nRootIn_D)
     call distribute_tree(.true.)
-    do iBlock = 1, nBlock
-       if(Unused_B(iBlock))CYCLE
-       call create_grid_block(iBlock)
-    end do
+    call create_grid
 
   end subroutine init_batl
   !============================================================================
