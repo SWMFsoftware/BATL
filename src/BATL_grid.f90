@@ -177,6 +177,7 @@ contains
   subroutine test_grid
 
     use BATL_mpi, ONLY: iProc
+    use BATL_geometry, ONLY: init_geometry
 
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
 
@@ -195,7 +196,8 @@ contains
     if(DoTestMe) write(*,*)'nDimAmr, nIJK_D=', nDimAmr, nIJK_D
     call init_tree(MaxBlockTest)
     call init_grid( DomainMin_D, DomainMax_D )
-    call set_tree_root( nRootTest_D(1:nDim), IsPeriodicTest_D(1:nDim) )
+    call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
+    call set_tree_root( nRootTest_D(1:nDim))
 
     call refine_tree_node(6)
     call distribute_tree(.true.)
