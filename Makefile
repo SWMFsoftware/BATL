@@ -39,7 +39,7 @@ test3:
 	cd src; ls -l test3.diff
 
 test_advect2:
-	Config.pl -g=2,2,80,40,1
+	Config.pl -g=2,2,80,40
 	make ADVECT
 	cd src; ${MPIRUN} ADVECT.exe > advect2.log
 	make test_advect2_check
