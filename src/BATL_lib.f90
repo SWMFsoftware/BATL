@@ -5,6 +5,7 @@ module BATL_lib
   use BATL_size
   use BATL_mpi
   use BATL_tree
+  use BATL_geometry
   use BATL_grid
   use BATL_pass_cell
 
@@ -26,6 +27,9 @@ module BATL_lib
   public:: Unused_B
   public:: DiLevelNei_IIIB, iNodeNei_IIIB
 
+  ! Inherited from BATL_geometry
+  public:: TypeGeometry, IsPeriodic_D
+
   ! Inherited from BATL_grid
   public:: CoordMin_D, CoordMax_D, CoordMin_DB, CoordMax_DB, CellSize_DB
   public:: Xyz_DGB
@@ -43,19 +47,21 @@ contains
   !============================================================================
   subroutine init_batl(&
        CoordMinIn_D, CoordMaxIn_D, MaxBlockIn, &
-       IsPeriodicIn_D, nRootIn_D)
+       TypeGeometryIn, IsPeriodicIn_D, nRootIn_D)
 
     integer, intent(in):: MaxBlockIn
     real,    intent(in):: CoordMinIn_D(MaxDim), CoordMaxIn_D(MaxDim)
 
-    integer, optional, intent(in):: nRootIn_D(MaxDim)
-    logical, optional, intent(in):: IsPeriodicIn_D(MaxDim)
+    integer,          optional, intent(in):: nRootIn_D(nDim)
+    character(len=*), optional, intent(in):: TypeGeometryIn
+    logical,          optional, intent(in):: IsPeriodicIn_D(nDim)
 
     integer:: iBlock
     !-------------------------------------------------------------------------
     call init_tree(MaxBlockIn)
+    call init_geometry(TypeGeometryIn, IsPeriodicIn_D)
     call init_grid(CoordMinIn_D, CoordMaxIn_D)
-    call set_tree_root(nRootIn_D, IsPeriodicIn_D)
+    call set_tree_root(nRootIn_D)
     call distribute_tree(.true.)
     do iBlock = 1, nBlock
        if(Unused_B(iBlock))CYCLE
