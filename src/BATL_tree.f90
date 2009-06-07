@@ -107,12 +107,6 @@ module BATL_tree
   ! Number of levels below root in level (that has occured at any time)
   integer :: nLevel = 0
 
-  ! Periodicity of the domain per dimension
-  logical :: IsPeriodic_D(MaxDim) = .false.
-
-  ! Cylindrical or spherical coordinates
-  logical :: IsSpherical = .false., IsCylindrical = .false.
-
   ! Ordering along the Peano-Hilbert space filling curve
   integer, allocatable :: iNodePeano_I(:)
 
@@ -126,7 +120,7 @@ contains
 
     use BATL_mpi, ONLY: nProc
 
-    ! Initialize the tree array with nNode nodes
+    ! Initialize the tree assuming MaxBlockIn blocks per processor
 
     integer, intent(in) :: MaxBlockIn ! Max number of blocks per processor
     !----------------------------------------------------------------------
@@ -177,10 +171,9 @@ contains
 
   !==========================================================================
 
-  subroutine set_tree_root(nRootIn_D, IsPeriodicIn_D)
+  subroutine set_tree_root(nRootIn_D)
 
     integer, optional, intent(in) :: nRootIn_D(nDim)
-    logical, optional, intent(in) :: IsPeriodicIn_D(nDim)
 
     integer :: iRoot, jRoot, kRoot, iNode, Ijk_D(MaxDim)
     !-----------------------------------------------------------------------
@@ -189,10 +182,6 @@ contains
     nRoot_D = 1
     if(present(nRootIn_D)) nRoot_D(1:nDim) = nRootIn_D
     nRoot   = product(nRoot_D)
-
-    ! Set periodicity: default or inptu arguments
-    IsPeriodic_D = .false.
-    if(present(IsPeriodicIn_D)) IsPeriodic_D(1:nDim) = IsPeriodicIn_D
 
     ! Use the first product(nRoot_D) nodes as root nodes in the tree
     iNode = 0
@@ -387,19 +376,32 @@ contains
 
   !===========================================================================
 
-  subroutine find_neighbors(iBlock)
+  subroutine find_neighbor(iBlock)
+
+    use BATL_geometry, ONLY: IsCylindrical, IsSpherical, IsPeriodic_D
 
     integer, intent(in):: iBlock
 
     integer :: iLevel, i, j, k, Di, Dj, Dk, iNode, jNode
     real :: Scale_D(MaxDim), x, y, z
+
+    logical, parameter :: DoTestMe = .false.
     !-----------------------------------------------------------------------
+    if(DoTestMe)write(*,*)'Starting find neighbors for block ',iBlock
 
-    ! Get node index of the block
-    iNode = iNode_B(iBlock)
+    ! Get node index and AMR level of the block
+    iNode  = iNode_B(iBlock)
+    iLevel = iTree_IA(Level_,iNode)
 
-    iLevel  = iTree_IA(Level_, iNode)
-    Scale_D = (1.0/MaxCoord_I(iLevel))/nRoot_D
+    ! Calculate scaling factor from integer index to 0<x,y,z<1 real coordinates
+    Scale_D = 1.0/nRoot_D
+    Scale_D(1:nDimAmr) = Scale_D(1:nDimAmr)/MaxCoord_I(iLevel)
+
+    if(DoTestMe)then
+       write(*,*)'iNode, iLevel, Scale_D=', iNode, iLevel, Scale_D
+       write(*,*)'scaled coordinates=', &
+            iTree_IA(Coord1_:CoordLast_, iNode)*Scale_D
+    end if
 
     ! Fill in self-referring info
     iNodeNei_IIIB(1:2,1:2,1:2,iBlock) = iNode
@@ -412,7 +414,7 @@ contains
           if(k/=1) CYCLE
           z = 0.3
        else
-          z = (iTree_IA(CoordLast_, iNode) + 0.4*k - 1.1)*Scale_D(3)
+          z = (iTree_IA(Coord3_, iNode) + 0.4*k - 1.1)*Scale_D(3)
           if(z > 1.0 .or. z < 0.0)then
              if(IsPeriodic_D(3))then
                 z = modulo(z, 1.0)
@@ -429,7 +431,7 @@ contains
              if(j/=1) CYCLE
              y = 0.3
           else
-             y = (iTree_IA(Coord0_+2, iNode) + 0.4*j - 1.1)*Scale_D(2)
+             y = (iTree_IA(Coord2_, iNode) + 0.4*j - 1.1)*Scale_D(2)
              if(y > 1.0 .or. y < 0.0)then
                 if(IsPeriodic_D(2))then
                    y = modulo(y, 1.0)
@@ -486,11 +488,15 @@ contains
              iNodeNei_IIIB(i,j,k,iBlock) = jNode
              DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = &
                   iLevel - iTree_IA(Level_, jNode)
+
+             if(DoTestMe)write(*,'(a,3i2,3f6.3,i4)') &
+                  'i,j,k,x,y,z,jNode=',i,j,k,x,y,z,jNode
+
           end do
        end do
     end do
     
-  end subroutine find_neighbors
+  end subroutine find_neighbor
 
   !==========================================================================
 
@@ -609,11 +615,12 @@ contains
     end if
     read(UnitTmp_) nRootIn_D
 
-    call set_tree_root(nRootIn_D, IsPeriodic_D(1:nDim))
+    call set_tree_root(nRootIn_D)
 
     read(UnitTmp_) iTree_IA(:,1:nNodeIn)
     close(UnitTmp_)
 
+    ! It is probably ordered already...
     call order_tree
 
   end subroutine read_tree_file
@@ -671,7 +678,7 @@ contains
        ! Set neighbor info
        do iBlock = 1, nBlock
           if(Unused_B(iBlock)) CYCLE
-          call find_neighbors(iBlock)
+          call find_neighbor(iBlock)
        end do
 
     end if
@@ -687,6 +694,7 @@ contains
 
     integer :: iNode, iRoot, jRoot, kRoot
     !-----------------------------------------------------------------------
+    nNode = nRoot
     iNode = 0
     iPeano = 0
     iNodePeano_I = Unset_
@@ -714,6 +722,8 @@ contains
     integer, intent(in) :: iNode, iChildMe
     integer :: iChild
     !-----------------------------------------------------------------------
+    nNode = max(nNode, iNode)
+
     if(iTree_IA(Status_, iNode) == Used_)then
        iPeano = iPeano + 1
        iNodePeano_I(iPeano) = iNode
@@ -726,9 +736,12 @@ contains
   end subroutine order_children
   !==========================================================================
 
-  subroutine show_tree(String)
+  subroutine show_tree(String, DoShowNei)
+
+    use BATL_geometry, ONLY: IsPeriodic_D
 
     character(len=*), intent(in):: String
+    logical, optional,intent(in):: DoShowNei
 
     ! Show complete tree information. Also write out string as an identifier.
 
@@ -749,6 +762,25 @@ contains
        write(*,'(100i7)') iNode, iTree_IA(:, iNode)
     end do
 
+    if(.not.present(DoShowNei)) RETURN
+    if(.not.DoShowNei) RETURN
+
+    write(*,*)'nNode, nNodeUsed, nBlock=',nNode, nNodeUsed, nBlock
+    write(*,*)'iNodePeano_I =', iNodePeano_I(1:nNodeUsed)
+    write(*,*)'IsPeriodic_D =', IsPeriodic_D
+    write(*,*)'DiLevelNei_IIIB(:,0,0,1)=', DiLevelNei_IIIB(:,0,0,1)
+    write(*,*)'DiLevelNei_IIIB(0,:,0,1)=', DiLevelNei_IIIB(0,:,0,1)
+    write(*,*)'DiLevelNei_IIIB(0,0,:,1)=', DiLevelNei_IIIB(0,0,:,1)
+    write(*,*)'iNodeNei_IIIB(:,1,1,1)=', iNodeNei_IIIB(:,1,1,1)
+    write(*,*)'iNodeNei_IIIB(1,:,1,1)=', iNodeNei_IIIB(1,:,1,1)
+    write(*,*)'iNodeNei_IIIB(1,1,:,1)=', iNodeNei_IIIB(1,1,:,1)
+    write(*,*)'DiLevelNei_IIIB(:,0,0,nBlock)=', DiLevelNei_IIIB(:,0,0,nBlock)
+    write(*,*)'DiLevelNei_IIIB(0,:,0,nBlock)=', DiLevelNei_IIIB(0,:,0,nBlock)
+    write(*,*)'DiLevelNei_IIIB(0,0,:,nBlock)=', DiLevelNei_IIIB(0,0,:,nBlock)
+    write(*,*)'iNodeNei_IIIB(:,1,1,nBlock)=', iNodeNei_IIIB(:,1,1,nBlock)
+    write(*,*)'iNodeNei_IIIB(1,:,1,nBlock)=', iNodeNei_IIIB(1,:,1,nBlock)
+    write(*,*)'iNodeNei_IIIB(1,1,:,nBlock)=', iNodeNei_IIIB(1,1,:,nBlock)
+
   end subroutine show_tree
 
   !==========================================================================
@@ -756,6 +788,7 @@ contains
   subroutine test_tree
 
     use BATL_mpi, ONLY: iProc, nProc
+    use BATL_geometry, ONLY: init_geometry, IsPeriodic_D
 
     integer, parameter:: MaxBlockTest            = 50
     integer, parameter:: nRootTest_D(MaxDim)     = (/1,2,3/)
@@ -776,10 +809,15 @@ contains
     if(MaxBlock /= MaxBlockTest) &
          write(*,*)'init_tree failed, MaxBlock=',&
          MaxBlock, ' should be ',MaxBlockTest
-
     if(MaxNode /= ceiling(MaxBlockTest*nProc*(1 + 1.0/(2**nDimAmr-1)))) &
          write(*,*)'init_tree failed, MaxNode=', MaxNode, &
          ' should be', ceiling(50*nProc*(1 + 1.0/(2**nDimAmr-1)))
+
+    if(DoTestMe)write(*,*)'Testing init_geometry'
+    call init_geometry('cartesian', IsPeriodicTest_D(1:nDim))
+    if(any(IsPeriodic_D(1:nDim) .neqv. IsPeriodicTest_D(1:nDim))) &
+         write(*,*)'init_geometry failed, IsPeriodic_D=',&
+         IsPeriodic_D(1:nDim), ' should be ', IsPeriodicTest_D(1:nDim)
 
     if(DoTestMe)write(*,*)'Testing i_node_new()'
     iNode = i_node_new()
@@ -787,7 +825,7 @@ contains
          write(*,*)'i_node_new() failed, iNode=',iNode,' should be 1'
 
     if(DoTestMe)write(*,*)'Testing set_tree_root'
-    call set_tree_root( nRootTest_D(1:nDim), IsPeriodicTest_D(1:nDim))
+    call set_tree_root( nRootTest_D(1:nDim))
 
     if(DoTestMe)call show_tree('after set_tree_root')
 
@@ -809,11 +847,17 @@ contains
     if(.not.is_point_inside_node(CoordTest_D, iNode)) &
          write(*,*)'ERROR: Test find point failed'
     
+    if(DoTestMe)write(*,*)'Testing distribute_tree 1st'
+    call distribute_tree(.true.)
+    if(DoTestMe)call show_tree('after distribute_tree 1st', .true.)
+
     if(DoTestMe)write(*,*)'Testing refine_tree_node'
     ! Refine the node where the point was found and find it again
     call refine_tree_node(iNode)
 
-    if(DoTestMe)call show_tree('after refine_tree_node')
+    if(DoTestMe)write(*,*)'Testing distribute_tree 2nd'
+    call distribute_tree(.true.)
+    if(DoTestMe)call show_tree('after distribute_tree 2nd', .true.)
 
     call find_tree_node(CoordTest_D,iNode)
     if(.not.is_point_inside_node(CoordTest_D, iNode)) &
@@ -824,11 +868,6 @@ contains
     call refine_tree_node(nRoot-2)
 
     if(DoTestMe)call show_tree('after another refine_tree_node')
-
-    if(DoTestMe)write(*,*)'Testing distribute_tree 1st'
-    call distribute_tree(.false.)
-    if(DoTestMe)write(*,*)'iNodePeano_I =', iNodePeano_I(1:22)
-    if(DoTestMe)call show_tree('after distribute_tree 1st')
 
     if(DoTestMe)write(*,*)'Testing coarsen_tree_node'
 
@@ -841,14 +880,6 @@ contains
          iNode,' instead of',nRoot
     if(.not.is_point_inside_node(CoordTest_D, iNode)) &
          write(*,*)'ERROR: is_point_inside_node failed'
-
-
-    if(DoTestMe)write(*,*)'Testing distribute_tree 2nd'
-    call distribute_tree(.true.)
-    if(DoTestMe)call show_tree('after distribute_tree 2nd')
-    if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
-    if(DoTestMe)write(*,*)'DiLevelNei_IIIB(:,1,1,1)=', DiLevelNei_IIIB(:,1,1,1)
-    if(DoTestMe)write(*,*)'iNodeNei_IIIB(:,1,1,1)=', iNodeNei_IIIB(:,1,1,1)
 
     if(DoTestMe)write(*,*)'Testing compact_tree'
     call compact_tree
@@ -870,7 +901,7 @@ contains
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 3rd'
     call distribute_tree(.true.)
-    if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
+    if(DoTestMe)call show_tree('after distribute_tree 3rd', .true.)
 
     if(DoTestMe)write(*,*)'Testing write_tree_file'
     call write_tree_file('tree.rst')
@@ -887,7 +918,7 @@ contains
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 4th'
     call distribute_tree(.true.)
-    if(DoTestMe)write(*,*)'iNodePeano_I =',iNodePeano_I(1:22)
+    if(DoTestMe)call show_tree('after distribute_tree 4th', .true.)
 
     if(DoTestMe)write(*,*)'Testing clean_tree'
     call clean_tree
