@@ -9,7 +9,7 @@ module BATL_pass_cell
   use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
 
   use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
-       iNodeNei_IIIB, DiLevelNei_IIIB, &
+       iNodeNei_IIIA, DiLevelNei_IIIA, &
        iTree_IA, Proc_, Block_, Status_, Unset_, Unused_, &
        show_tree
 
@@ -65,7 +65,7 @@ contains
 
     ! Variables related to recv and send buffers
     integer, parameter:: nGhostCell = &
-         (MaxI-MinI+1)*(MaxJ-MinJ+1)*(MaxK-MinK+1)-nI*nJ*nK
+         (MaxI-MinI+1)*(MaxJ-MinJ+1)*(MaxK-MinK+1) - nI*nJ*nK
     integer :: MaxBuffer
     integer, allocatable:: iBufferR_P(:), iBufferS_P(:)
     real, allocatable:: BufferR_IP(:,:), BufferS_IP(:,:)
@@ -110,6 +110,8 @@ contains
        MaxBuffer = nVar*MaxBlock*nGhostCell
        allocate(BufferR_IP(MaxBuffer,0:nProc-1))
        allocate(BufferS_IP(MaxBuffer,0:nProc-1))
+
+       write(*,*)'!!! nVar, nGhostCell, MaxBlock, MaxBuffer=',nVar, nGhostCell, MaxBlock, MaxBuffer
     end if
 
     do iProlongOrder = 1, nProlongOrder
@@ -121,9 +123,11 @@ contains
           ! For serial run there is no need for Recv_ stage
           if(nProc==1 .and. iSendRecv == Recv_) CYCLE
 
-          ! initialize buffer indexes
-          iBufferR_P = 0
-          iBufferS_P = 0
+          if(nProc>1)then
+             ! initialize buffer indexes
+             iBufferR_P = 0
+             iBufferS_P = 0
+          end if
 
           ! Loop through all nodes
           do iPeano = 1, nNodeUsed
@@ -168,14 +172,14 @@ contains
 
                       iDir = (2*iSend - 3)/3
 
-                      iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
+                      iNodeRecv  = iNodeNei_IIIA(iSend,jSend,kSend,iNodeSend)
                       iProcRecv  = iTree_IA(Proc_,iNodeRecv)
 
                       if(iProc /= iProcSend .and. iProc /= iProcRecv) CYCLE
 
                       iBlockRecv = iTree_IA(Block_,iNodeRecv)
 
-                      DiLevel = DiLevelNei_IIIB(iDir,jDir,kDir,iBlockSend)
+                      DiLevel = DiLevelNei_IIIA(iDir,jDir,kDir,iNodeSend)
                       ! Only 1 "subface" if the level is equal or coarser
                       if(DiLevel >= 0 .and. &
                            (iSend==2 .or. jSend==2 .or. kSend==2)) CYCLE
@@ -185,6 +189,9 @@ contains
                            (iProlongOrder == 2 .and. DiLevel >=  0)) CYCLE
                       
                       if(DiLevel == 0)then
+                         write(*,*)'!!! iProc,i,j,kSend, i,j,kDir=',&
+                              iProc,iSend,jSend,kSend,iDir,jDir,kDir
+
                          call do_equal
                       elseif(DiLevel == 1)then
                          call do_coarse
@@ -196,7 +203,8 @@ contains
              enddo ! kSend
           end do ! iNodeSend
 
-          if(iSendRecv == Recv_) EXIT
+          ! Messages are sent at the end of the Send_ stage only
+          if(iSendRecv == Recv_ .or. nProc == 1) EXIT
 
           ! post requests
           iRequestR = 0
@@ -207,9 +215,9 @@ contains
              write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
                   iProc,iProcSend,iBufferR_P(iProcSend)
 
-             call MPI_irecv(BufferR_IP(1,iProcSend), iBufferR_P(iProcSend), &
-                  MPI_REAL, iProcSend, 1, iComm, iRequestR_I(iRequestR), &
-                  iError)
+!             call MPI_irecv(BufferR_IP(1,iProcSend), iBufferR_P(iProcSend), &
+!                  MPI_REAL, iProcSend, 1, iComm, iRequestR_I(iRequestR), &
+!                  iError)
           end do
 
           ! post sends
@@ -221,9 +229,9 @@ contains
              write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
                   iProcRecv,iProc,iBufferS_P(iProcRecv)
 
-             call MPI_isend(BufferS_IP(1,iProcRecv), iBufferS_P(iProcRecv), &
-                  MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
-                  iError)
+!             call MPI_isend(BufferS_IP(1,iProcRecv), iBufferS_P(iProcRecv), &
+!                  MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
+!                  iError)
           end do
 
           call MPI_finalize(iError)

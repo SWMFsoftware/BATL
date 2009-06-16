@@ -71,8 +71,8 @@ module BATL_tree
        Unused_B(:)                   ! Unused blocks on the local processor
 
   integer, public, allocatable :: &
-       DiLevelNei_IIIB(:,:,:,:),  &  ! Level difference relative to neighbors 
-       iNodeNei_IIIB(:,:,:,:)        ! Node index of neighboring blocks
+       DiLevelNei_IIIA(:,:,:,:),  &  ! Level difference relative to neighbors 
+       iNodeNei_IIIA(:,:,:,:)        ! Node index of neighboring blocks
 
   ! Index for unset values (that are otherwise larger)
   integer, public, parameter :: Unset_ = -100
@@ -135,8 +135,8 @@ contains
     allocate(iNodePeano_I(MaxNode));                   iNodePeano_I    = Unset_
     allocate(iNode_B(MaxBlock));                       iNode_B         = Unset_
     allocate(Unused_B(MaxBlock));                      Unused_B        = .true.
-    allocate(iNodeNei_IIIB(0:3,0:3,0:3,MaxBlock));     iNodeNei_IIIB   = Unset_
-    allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock));DiLevelNei_IIIB = Unset_
+    allocate(iNodeNei_IIIA(0:3,0:3,0:3,MaxNode));      iNodeNei_IIIA   = Unset_
+    allocate(DiLevelNei_IIIA(-1:1,-1:1,-1:1,MaxNode)); DiLevelNei_IIIA = Unset_
 
   end subroutine init_tree
 
@@ -145,7 +145,7 @@ contains
 
     if(.not.allocated(iTree_IA)) RETURN
     deallocate(iTree_IA, iNodePeano_I, iNode_B, Unused_B, &
-         iNodeNei_IIIB, DiLevelNei_IIIB)
+         iNodeNei_IIIA, DiLevelNei_IIIA)
 
     MaxNode = 0
 
@@ -376,21 +376,20 @@ contains
 
   !===========================================================================
 
-  subroutine find_neighbor(iBlock)
+  subroutine find_neighbor(iNode)
 
     use BATL_geometry, ONLY: IsCylindrical, IsSpherical, IsPeriodic_D
 
-    integer, intent(in):: iBlock
+    integer, intent(in):: iNode
 
-    integer :: iLevel, i, j, k, Di, Dj, Dk, iNode, jNode
+    integer :: iLevel, i, j, k, Di, Dj, Dk, jNode
     real :: Scale_D(MaxDim), x, y, z
 
     logical, parameter :: DoTestMe = .false.
     !-----------------------------------------------------------------------
-    if(DoTestMe)write(*,*)'Starting find neighbors for block ',iBlock
+    if(DoTestMe)write(*,*)'Starting find neighbors for node ',iNode
 
-    ! Get node index and AMR level of the block
-    iNode  = iNode_B(iBlock)
+    ! Get AMR level of the node
     iLevel = iTree_IA(Level_,iNode)
 
     ! Calculate scaling factor from integer index to 0<x,y,z<1 real coordinates
@@ -404,8 +403,8 @@ contains
     end if
 
     ! Fill in self-referring info
-    iNodeNei_IIIB(1:2,1:2,1:2,iBlock) = iNode
-    DiLevelNei_IIIB(0,0,0,iBlock)     = 0
+    iNodeNei_IIIA(1:2,1:2,1:2,iNode) = iNode
+    DiLevelNei_IIIA(0,0,0,iNode)     = 0
 
     ! Loop through neighbors
     do k=0,3
@@ -419,8 +418,8 @@ contains
              if(IsPeriodic_D(3))then
                 z = modulo(z, 1.0)
              else
-                iNodeNei_IIIB(:,:,k,iBlock) = Unset_
-                DiLevelNei_IIIB(:,:,Dk,iBlock) = Unset_
+                iNodeNei_IIIA(:,:,k,iNode) = Unset_
+                DiLevelNei_IIIA(:,:,Dk,iNode) = Unset_
                 CYCLE
              end if
           end if
@@ -440,8 +439,8 @@ contains
                    y = max(0.0, min(1.0, y))
                    z = modulo( z+0.5, 1.0)
                 else
-                   iNodeNei_IIIB(:,j,k,iBlock) = Unset_
-                   DiLevelNei_IIIB(:,Dj,Dk,iBlock) = Unset_
+                   iNodeNei_IIIA(:,j,k,iNode) = Unset_
+                   DiLevelNei_IIIA(:,Dj,Dk,iNode) = Unset_
                    CYCLE
                 end if
              end if
@@ -453,17 +452,17 @@ contains
              Di = nint((i - 1.5)/1.5)
 
              ! If neighbor is not finer, fill in the i=2 or j=2 or k=2 elements
-             if(DiLevelNei_IIIB(Di,Dj,Dk,iBlock) >= 0)then
+             if(DiLevelNei_IIIA(Di,Dj,Dk,iNode) >= 0)then
                 if(i==2)then
-                   iNodeNei_IIIB(i,j,k,iBlock) = iNodeNei_IIIB(1,j,k,iBlock)
+                   iNodeNei_IIIA(i,j,k,iNode) = iNodeNei_IIIA(1,j,k,iNode)
                    CYCLE
                 end if
                 if(j==2)then
-                   iNodeNei_IIIB(i,j,k,iBlock) = iNodeNei_IIIB(i,1,k,iBlock)
+                   iNodeNei_IIIA(i,j,k,iNode) = iNodeNei_IIIA(i,1,k,iNode)
                    CYCLE
                 end if
                 if(k==2)then
-                   iNodeNei_IIIB(i,j,k,iBlock) = iNodeNei_IIIB(i,j,1,iBlock)
+                   iNodeNei_IIIA(i,j,k,iNode) = iNodeNei_IIIA(i,j,1,iNode)
                    CYCLE
                 end if
              end if
@@ -477,16 +476,16 @@ contains
                    x = 0.0
                    z = modulo( z+0.5, 1.0)
                 else
-                   iNodeNei_IIIB(i,j,k,iBlock) = Unset_
-                   DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = Unset_
+                   iNodeNei_IIIA(i,j,k,iNode) = Unset_
+                   DiLevelNei_IIIA(Di,Dj,Dk,iNode) = Unset_
                    CYCLE
                 end if
              end if
 
              call find_tree_node( (/x, y, z/), jNode)
 
-             iNodeNei_IIIB(i,j,k,iBlock) = jNode
-             DiLevelNei_IIIB(Di,Dj,Dk,iBlock) = &
+             iNodeNei_IIIA(i,j,k,iNode) = jNode
+             DiLevelNei_IIIA(Di,Dj,Dk,iNode) = &
                   iLevel - iTree_IA(Level_, jNode)
 
              if(DoTestMe)write(*,'(a,3i2,3f6.3,i4)') &
@@ -635,7 +634,7 @@ contains
     ! Are nodes moved immediatly or just assigned new processor/node
     logical, intent(in):: DoMove
 
-    integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo, iBlock
+    integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo
     !------------------------------------------------------------------------
 
     ! Initialize processor and block indexes
@@ -676,9 +675,9 @@ contains
        nBlock = maxval(iTree_IA(Block_, :))
 
        ! Set neighbor info
-       do iBlock = 1, nBlock
-          if(Unused_B(iBlock)) CYCLE
-          call find_neighbor(iBlock)
+       do iPeano = 1, nNodeUsed
+          iNode = iNodePeano_I(iPeano)
+          call find_neighbor(iNode)
        end do
 
     end if
@@ -766,21 +765,25 @@ contains
     if(.not.present(DoShowNei)) RETURN
     if(.not.DoShowNei) RETURN
 
-    write(*,*)iProc,': nNode, nNodeUsed, nBlock=',nNode, nNodeUsed, nBlock
-    write(*,*)iProc,': iNodePeano_I =', iNodePeano_I(1:nNodeUsed)
-    write(*,*)iProc,': IsPeriodic_D =', IsPeriodic_D
-    write(*,*)iProc,': DiLevelNei_IIIB(:,0,0,1)=', DiLevelNei_IIIB(:,0,0,1)
-    write(*,*)iProc,': DiLevelNei_IIIB(0,:,0,1)=', DiLevelNei_IIIB(0,:,0,1)
-    write(*,*)iProc,': DiLevelNei_IIIB(0,0,:,1)=', DiLevelNei_IIIB(0,0,:,1)
-    write(*,*)iProc,': iNodeNei_IIIB(:,1,1,1)=', iNodeNei_IIIB(:,1,1,1)
-    write(*,*)iProc,': iNodeNei_IIIB(1,:,1,1)=', iNodeNei_IIIB(1,:,1,1)
-    write(*,*)iProc,': iNodeNei_IIIB(1,1,:,1)=', iNodeNei_IIIB(1,1,:,1)
-    write(*,*)iProc,': DiLevelNei_IIIB(:,0,0,nBlock)=', DiLevelNei_IIIB(:,0,0,nBlock)
-    write(*,*)iProc,': DiLevelNei_IIIB(0,:,0,nBlock)=', DiLevelNei_IIIB(0,:,0,nBlock)
-    write(*,*)iProc,': DiLevelNei_IIIB(0,0,:,nBlock)=', DiLevelNei_IIIB(0,0,:,nBlock)
-    write(*,*)iProc,': iNodeNei_IIIB(:,1,1,nBlock)=', iNodeNei_IIIB(:,1,1,nBlock)
-    write(*,*)iProc,': iNodeNei_IIIB(1,:,1,nBlock)=', iNodeNei_IIIB(1,:,1,nBlock)
-    write(*,*)iProc,': iNodeNei_IIIB(1,1,:,nBlock)=', iNodeNei_IIIB(1,1,:,nBlock)
+    write(*,*)'nNode, nNodeUsed, nBlock=',nNode, nNodeUsed, nBlock
+    write(*,*)'iNodePeano_I =', iNodePeano_I(1:nNodeUsed)
+    write(*,*)'IsPeriodic_D =', IsPeriodic_D
+
+    iNode = iNodePeano_I(1)
+    write(*,*)'DiLevelNei_IIIA(:,0,0,First)=', DiLevelNei_IIIA(:,0,0,iNode)
+    write(*,*)'DiLevelNei_IIIA(0,:,0,First)=', DiLevelNei_IIIA(0,:,0,iNode)
+    write(*,*)'DiLevelNei_IIIA(0,0,:,First)=', DiLevelNei_IIIA(0,0,:,iNode)
+    write(*,*)'iNodeNei_IIIA(:,1,1,  First)=',   iNodeNei_IIIA(:,1,1,iNode)
+    write(*,*)'iNodeNei_IIIA(1,:,1,  First)=',   iNodeNei_IIIA(1,:,1,iNode)
+    write(*,*)'iNodeNei_IIIA(1,1,:,  First)=',   iNodeNei_IIIA(1,1,:,iNode)
+
+    iNode = iNodePeano_I(nNodeUsed)
+    write(*,*)'DiLevelNei_IIIA(:,0,0, Last)=', DiLevelNei_IIIA(:,0,0,iNode)
+    write(*,*)'DiLevelNei_IIIA(0,:,0, Last)=', DiLevelNei_IIIA(0,:,0,iNode)
+    write(*,*)'DiLevelNei_IIIA(0,0,:, Last)=', DiLevelNei_IIIA(0,0,:,iNode)
+    write(*,*)'iNodeNei_IIIA(:,1,1,   Last)=',   iNodeNei_IIIA(:,1,1,iNode)
+    write(*,*)'iNodeNei_IIIA(1,:,1,   Last)=',   iNodeNei_IIIA(1,:,1,iNode)
+    write(*,*)'iNodeNei_IIIA(1,1,:,   Last)=',   iNodeNei_IIIA(1,1,:,iNode)
 
   end subroutine show_tree
 
