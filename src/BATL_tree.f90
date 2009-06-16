@@ -80,6 +80,12 @@ module BATL_tree
   ! Possible values for the status variable
   integer, public, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
 
+  ! Number of used nodes (leaves of the node tree)
+  integer, public :: nNodeUsed = 0
+
+  ! Ordering along the Peano-Hilbert space filling curve
+  integer, public, allocatable :: iNodePeano_I(:)
+
   ! Local variables -----------------------------------------------
   character(len=*), parameter:: NameMod = "BATL_tree"
 
@@ -98,17 +104,11 @@ module BATL_tree
   ! Maximum number of nodes including unused and skipped ones
   integer :: MaxNode = 0
 
-  ! Number of used nodes (leaves of the node tree)
-  integer :: nNodeUsed = 0
-
   ! Number of nodes in the tree (some may not be used)
   integer :: nNode = 0
 
   ! Number of levels below root in level (that has occured at any time)
   integer :: nLevel = 0
-
-  ! Ordering along the Peano-Hilbert space filling curve
-  integer, allocatable :: iNodePeano_I(:)
 
   ! The index along the Peano curve is global so that it can be used by the 
   ! recursive subroutine order_children 
@@ -739,6 +739,7 @@ contains
   subroutine show_tree(String, DoShowNei)
 
     use BATL_geometry, ONLY: IsPeriodic_D
+    use BATL_mpi, ONLY: iProc
 
     character(len=*), intent(in):: String
     logical, optional,intent(in):: DoShowNei
@@ -765,21 +766,21 @@ contains
     if(.not.present(DoShowNei)) RETURN
     if(.not.DoShowNei) RETURN
 
-    write(*,*)'nNode, nNodeUsed, nBlock=',nNode, nNodeUsed, nBlock
-    write(*,*)'iNodePeano_I =', iNodePeano_I(1:nNodeUsed)
-    write(*,*)'IsPeriodic_D =', IsPeriodic_D
-    write(*,*)'DiLevelNei_IIIB(:,0,0,1)=', DiLevelNei_IIIB(:,0,0,1)
-    write(*,*)'DiLevelNei_IIIB(0,:,0,1)=', DiLevelNei_IIIB(0,:,0,1)
-    write(*,*)'DiLevelNei_IIIB(0,0,:,1)=', DiLevelNei_IIIB(0,0,:,1)
-    write(*,*)'iNodeNei_IIIB(:,1,1,1)=', iNodeNei_IIIB(:,1,1,1)
-    write(*,*)'iNodeNei_IIIB(1,:,1,1)=', iNodeNei_IIIB(1,:,1,1)
-    write(*,*)'iNodeNei_IIIB(1,1,:,1)=', iNodeNei_IIIB(1,1,:,1)
-    write(*,*)'DiLevelNei_IIIB(:,0,0,nBlock)=', DiLevelNei_IIIB(:,0,0,nBlock)
-    write(*,*)'DiLevelNei_IIIB(0,:,0,nBlock)=', DiLevelNei_IIIB(0,:,0,nBlock)
-    write(*,*)'DiLevelNei_IIIB(0,0,:,nBlock)=', DiLevelNei_IIIB(0,0,:,nBlock)
-    write(*,*)'iNodeNei_IIIB(:,1,1,nBlock)=', iNodeNei_IIIB(:,1,1,nBlock)
-    write(*,*)'iNodeNei_IIIB(1,:,1,nBlock)=', iNodeNei_IIIB(1,:,1,nBlock)
-    write(*,*)'iNodeNei_IIIB(1,1,:,nBlock)=', iNodeNei_IIIB(1,1,:,nBlock)
+    write(*,*)iProc,': nNode, nNodeUsed, nBlock=',nNode, nNodeUsed, nBlock
+    write(*,*)iProc,': iNodePeano_I =', iNodePeano_I(1:nNodeUsed)
+    write(*,*)iProc,': IsPeriodic_D =', IsPeriodic_D
+    write(*,*)iProc,': DiLevelNei_IIIB(:,0,0,1)=', DiLevelNei_IIIB(:,0,0,1)
+    write(*,*)iProc,': DiLevelNei_IIIB(0,:,0,1)=', DiLevelNei_IIIB(0,:,0,1)
+    write(*,*)iProc,': DiLevelNei_IIIB(0,0,:,1)=', DiLevelNei_IIIB(0,0,:,1)
+    write(*,*)iProc,': iNodeNei_IIIB(:,1,1,1)=', iNodeNei_IIIB(:,1,1,1)
+    write(*,*)iProc,': iNodeNei_IIIB(1,:,1,1)=', iNodeNei_IIIB(1,:,1,1)
+    write(*,*)iProc,': iNodeNei_IIIB(1,1,:,1)=', iNodeNei_IIIB(1,1,:,1)
+    write(*,*)iProc,': DiLevelNei_IIIB(:,0,0,nBlock)=', DiLevelNei_IIIB(:,0,0,nBlock)
+    write(*,*)iProc,': DiLevelNei_IIIB(0,:,0,nBlock)=', DiLevelNei_IIIB(0,:,0,nBlock)
+    write(*,*)iProc,': DiLevelNei_IIIB(0,0,:,nBlock)=', DiLevelNei_IIIB(0,0,:,nBlock)
+    write(*,*)iProc,': iNodeNei_IIIB(:,1,1,nBlock)=', iNodeNei_IIIB(:,1,1,nBlock)
+    write(*,*)iProc,': iNodeNei_IIIB(1,:,1,nBlock)=', iNodeNei_IIIB(1,:,1,nBlock)
+    write(*,*)iProc,': iNodeNei_IIIB(1,1,:,nBlock)=', iNodeNei_IIIB(1,1,:,nBlock)
 
   end subroutine show_tree
 
