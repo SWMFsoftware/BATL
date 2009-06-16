@@ -38,22 +38,33 @@ program advect
   real:: TotalIni_I(0:nVar) = -1.0
   !--------------------------------------------------------------------------
   call initialize
+
+  call timing_start('ADVECT')
   do
      ! Save plot at required frequency
      if( Time >= TimePlot - 1e-10 )then
+        call timing_start('save_plot')
         call save_plot
+        call timing_stop('save_plot')
         TimePlot = TimePlot + DtPlot
      end if
 
+     call timing_start('explicit')
      call advance_explicit
+     call timing_stop('explicit')
 
      ! Update time
      iStep = iStep + 1
      Time  = Time + Dt
 
+     call timing_step(iStep)
+
      if(Time >= TimeMax - 1e-10) EXIT
 
   end do
+  call timing_stop('ADVECT')
+  call timing_report_total
+
   call finalize
 
 contains
@@ -89,10 +100,10 @@ contains
 
     call init_mpi
     call init_batl( &
-         MaxBlockIn     = 10, &
+         MaxBlockIn     = 10, &          
          CoordMinIn_D   = DomainMin_D, &
          CoordMaxIn_D   = DomainMax_D, &
-         nRootIn_D      = (/2,2,1/),   &
+         nRootIn_D      = (/2,2,1/),   & 
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
 
     allocate( &
@@ -118,6 +129,13 @@ contains
     iStep    = 0
     Time     = 0.0
     TimePlot = 0.0
+
+    if(iProc==0)then
+       call timing_active(.true.)
+       call timing_step(0)
+       call timing_depth(-1)
+       call timing_report_style('tree')
+    end if
 
   end subroutine initialize
 
@@ -167,7 +185,7 @@ contains
             'advect_pe',iProc,'_blk',iBlock,'.out'
        
        call save_plot_file(NameFile,     &
-            TypeFileIn='ascii',          &
+            TypeFileIn='real4',          &  !!!ascii
             TypePositionIn=TypePosition, &
             nStepIn = iStep, &
             TimeIn  = Time, &
@@ -322,8 +340,11 @@ contains
 
     do iStage = 1, nOrder
 
+       call timing_start('message_pass')
        call message_pass_cell(nVar, State_VGB)
+       call timing_stop('message_pass')
 
+       call timing_start('update')
        do iBlock = 1, nBlock
           if(Unused_B(iBlock)) CYCLE
 
@@ -341,6 +362,7 @@ contains
 
           end do
        end do
+       call timing_stop('update')
 
     end do
 

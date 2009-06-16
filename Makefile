@@ -10,6 +10,7 @@ BATL:
 
 ADVECT:
 	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
 	cd src; make ADVECT
 
 test:	test1 test2 test3

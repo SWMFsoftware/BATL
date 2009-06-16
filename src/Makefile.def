@@ -6,4 +6,4 @@ SCRIPTDIR = ${DIR}/share/Scripts
 LIBDIR    = ${DIR}/src
 BINDIR    = ${DIR}/src
 SHAREDIR  = ${DIR}/share/Library/src
-
+TIMINGDIR = ${DIR}/util/TIMING/src

@@ -40,7 +40,7 @@ ADVECT:
 
 ADVECT.exe: advect_main.o ${OBJECTS}
 	${LINK.f90} -o ADVECT.exe advect_main.o ${OBJECTS} \
-		-L${LIBDIR} -lSHARE ${Lflag1}
+		-L${LIBDIR} -lSHARE -lTIMING ${Lflag1}
 
 distclean: clean
 	rm -f *.log *.diff *.rst BATL_size.f90 Makefile.DEPEND

@@ -10,8 +10,7 @@ module BATL_pass_cell
 
   use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
        iNodeNei_IIIA, DiLevelNei_IIIA, &
-       iTree_IA, Proc_, Block_, Status_, Unset_, Unused_, &
-       show_tree
+       iTree_IA, Proc_, Block_, Status_, Unset_, Unused_
 
   use ModMpi
 
@@ -95,7 +94,7 @@ contains
     DoRestrictFace = .false.
     if(present(DoRestrictFaceIn)) DoRestrictFace = DoRestrictFaceIn
 
-    call show_tree('BATL_pass_cell',.true.)
+    ! if(nProc>1)call show_tree('BATL_pass_cell',.true.)
 
     call set_range
 
@@ -108,10 +107,10 @@ contains
        end if
        ! Big arrays are allocated and deallocated every time (for now)
        MaxBuffer = nVar*MaxBlock*nGhostCell
+       call timing_start('msg_allocate')
        allocate(BufferR_IP(MaxBuffer,0:nProc-1))
        allocate(BufferS_IP(MaxBuffer,0:nProc-1))
-
-       write(*,*)'!!! nVar, nGhostCell, MaxBlock, MaxBuffer=',nVar, nGhostCell, MaxBlock, MaxBuffer
+       call timing_stop('msg_allocate')
     end if
 
     do iProlongOrder = 1, nProlongOrder
@@ -189,10 +188,9 @@ contains
                            (iProlongOrder == 2 .and. DiLevel >=  0)) CYCLE
                       
                       if(DiLevel == 0)then
-                         write(*,*)'!!! iProc,i,j,kSend, i,j,kDir=',&
-                              iProc,iSend,jSend,kSend,iDir,jDir,kDir
-
+                         call timing_start('do_equal')
                          call do_equal
+                         call timing_stop('do_equal')
                       elseif(DiLevel == 1)then
                          call do_coarse
                       else
@@ -206,18 +204,19 @@ contains
           ! Messages are sent at the end of the Send_ stage only
           if(iSendRecv == Recv_ .or. nProc == 1) EXIT
 
+          call timing_start('send_recv')
           ! post requests
           iRequestR = 0
           do iProcSend = 0, nProc - 1
              if(iBufferR_P(iProcSend) == 0) CYCLE
              iRequestR = iRequestR + 1
 
-             write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
-                  iProc,iProcSend,iBufferR_P(iProcSend)
+             !write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
+             !     iProc,iProcSend,iBufferR_P(iProcSend)
 
-!             call MPI_irecv(BufferR_IP(1,iProcSend), iBufferR_P(iProcSend), &
-!                  MPI_REAL, iProcSend, 1, iComm, iRequestR_I(iRequestR), &
-!                  iError)
+             call MPI_irecv(BufferR_IP(1,iProcSend), iBufferR_P(iProcSend), &
+                  MPI_REAL, iProcSend, 1, iComm, iRequestR_I(iRequestR), &
+                  iError)
           end do
 
           ! post sends
@@ -226,15 +225,13 @@ contains
              if(iBufferS_P(iProcRecv) == 0) CYCLE
              iRequestS = iRequestS + 1
 
-             write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
-                  iProcRecv,iProc,iBufferS_P(iProcRecv)
+             !write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
+             !     iProcRecv,iProc,iBufferS_P(iProcRecv)
 
-!             call MPI_isend(BufferS_IP(1,iProcRecv), iBufferS_P(iProcRecv), &
-!                  MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
-!                  iError)
+             call MPI_isend(BufferS_IP(1,iProcRecv), iBufferS_P(iProcRecv), &
+                  MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
+                  iError)
           end do
-
-          call MPI_finalize(iError)
 
           ! wait for all requests to be completed
           if(iRequestR > 0) &
@@ -243,11 +240,13 @@ contains
           ! wait for all sends to be completed
           if(iRequestS > 0) &
                call MPI_waitall(iRequestS, iRequestS_I, iStatus_II, iError)
+
+          call timing_stop('send_recv')
           
        end do ! iSendRecv
     end do ! iProlongOrder
 
-    if(nProc>1) deallocate(BufferR_IP, BufferS_IP)
+    if(nProc>1)deallocate(BufferR_IP, BufferS_IP)
 
   contains
 
@@ -275,9 +274,15 @@ contains
 
       nSize = nVar*(iSMax-iSMin+1)*(jSMax-jSMin+1)*(kSMax-kSMin+1)
 
-      write(*,*)'!!! do_equal: iNodeS/R, iProcS/R, iBlockS/R, nSize=',&
-           iNodeSend, iNodeRecv, iProcSend, iProcRecv, iBlockSend, iBlockRecv,&
-           nSize
+      !if(nProc>1)then
+      !   write(*,*)'!!! iProc,iSendRecv =',iProc,iSendRecv
+      !   write(*,*)'!!! iProc,i,j,kSend, i,j,kDir=',&
+      !                        iProc,iSend,jSend,kSend,iDir,jDir,kDir
+      !
+      !   write(*,*)'!!! do_equal: iNodeS/R, iProcS/R, iBlockS/R, nSize=',&
+      !     iNodeSend, iNodeRecv, iProcSend, iProcRecv, iBlockSend, iBlockRecv,&
+      !     nSize
+      !end if
 
       if(iSendRecv == Send_)then
          if(iProcSend == iProcRecv)then
@@ -296,14 +301,16 @@ contains
                iBufferR_P(iProcSend) = iBufferR_P(iProcSend) + nSize
             end if
          end if
-      elseif(iProc == iProcRecv)then ! Receive stage
+      elseif(iProc == iProcRecv .and. iProc /= iProcSend)then ! Receive stage
          iBufferR = iBufferR_P(iProcSend)
+
          do k=kRMin,kRmax; do j=jRMin,jRMax; do i=iRMin,iRmax
             State_VGB(:,i,j,k,iBlockRecv) = &
                  BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
             iBufferR = iBufferR + nVar
          end do; end do; end do
          iBufferR_P(iProcSend) = iBufferR
+
       end if
 
     end subroutine do_equal
