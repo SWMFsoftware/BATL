@@ -1,6 +1,7 @@
 program advect
 
-  use BATL_lib, ONLY: nDim, nI, nJ, nK, MinI, MaxI, MinJ, MaxJ, MinK, MaxK
+  use BATL_lib, ONLY: nDim, nI, nJ, nK, &
+       MinI, MaxI, MinJ, MaxJ, MinK, MaxK
 
   implicit none
 
@@ -169,6 +170,79 @@ contains
   !===========================================================================
   subroutine save_plot
 
+    call save_plot_proc
+
+  end subroutine save_plot
+  !===========================================================================
+
+  subroutine save_plot_proc
+
+    use BATL_lib, ONLY: MaxDim, nNodeUsed, nBlock, Unused_B, &
+         iComm, nProc, iProc, &
+         TypeGeometry, CellSize_DB, Xyz_DGB
+    use ModMpi,    ONLY: MPI_REAL, MPI_MIN, MPI_reduce
+    use ModIoUnit, ONLY: UnitTmp_
+    use ModKind,   ONLY: nByteReal
+
+    character(len=100):: NameSnapshot, NameFile
+    real:: CellSizeMin_D(MaxDim), CellSizeMinAll_D(MaxDim)
+    real:: PlotMax_D(MaxDim), PlotMin_D(MaxDim)
+    integer :: iDim, iBlock, i, j, k, iError
+    integer :: nCellAll
+    !-----------------------------------------------------------------------
+    write(NameSnapshot,'(a,i7.7)') 'plots/cut_var_1_n',iStep
+
+    do iDim = 1, MaxDim
+       CellSizeMin_D(iDim) = &
+            minval(CellSize_DB(iDim,1:nBlock), MASK=.not.Unused_B(1:nBlock))
+    end do
+    call MPI_reduce(CellSizeMin_D, CellSizeMinAll_D, MaxDim, MPI_REAL, &
+         MPI_MIN, 0, iComm, iError)
+
+    nCellAll = nNodeUsed*nI*nJ*nK
+
+    if(iProc == 0)then
+       PlotMin_D = -1e-10; PlotMin_D(1:nDim) = DomainMin_D(1:nDim)
+       PlotMax_D = +1e-10; PlotMax_D(1:nDim) = DomainMax_D(1:nDim)
+
+       NameFile = trim(NameSnapshot)//'.h'
+       open(UnitTmp_,file=NameFile,status="replace")
+       write(UnitTmp_,'(a)')         NameFile
+       write(UnitTmp_,'(i8,a)')      nProc,        ' nProc'
+       write(UnitTmp_,'(i8,a)')      iStep,        ' n_step'
+       write(UnitTmp_,'(1pe13.5,a)') Time,         ' t'
+       write(UnitTmp_,'(6(1pe18.10),a)') &
+            (PlotMin_D(iDim),PlotMax_D(iDim),iDim=1,MaxDim),' plot_range'
+       write(UnitTmp_,'(6(1pe18.10),i10,a)') &
+            -1.0, -1.0, -1.0, &
+            CellSizeMinAll_D, nCellAll,            ' plot_dx, dxmin, ncell'
+       write(UnitTmp_,'(i8,a)')     nVar,          ' nplotvar'
+       write(UnitTmp_,'(i8,a)')     1,             ' neqpar'
+       write(UnitTmp_,'(10es13.5)') 0.0            ! eqpar
+       write(UnitTmp_,'(a)')        'rho none'     ! varnames
+       write(UnitTmp_,'(a)')        '1 1 1'        ! units
+       write(UnitTmp_,'(l8,a)')     .true.         ! save binary .idl files
+       write(UnitTmp_,'(i8,a)')     nByteReal,     ' nByteReal'
+       write(UnitTmp_,'(a)')        TypeGeometry
+       write(UnitTmp_,'(a)')        'real4'        ! type of .out file
+       close(UnitTmp_)
+    end if
+
+    ! write data from all processors into separate files
+    write(NameFile,'(a,i4.4,a)') trim(NameSnapshot)//'_pe',iProc,'.idl'
+    open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
+    do iBlock = 1, nBlock
+       do k = 1, nK; do j = 1, nJ; do i = 1, nI
+          write(UnitTmp_) CellSize_DB(1,iBlock), &
+               Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock)
+       end do; end do; end do
+    end do
+    close(UnitTmp_)
+
+  end subroutine save_plot_proc
+  !===========================================================================
+  subroutine save_plot_block
+
     use ModPlotFile, ONLY: save_plot_file
     use BATL_lib, ONLY: iProc, &
          nBlock, Unused_B, CoordMin_DB, CoordMax_DB, CellSize_DB
@@ -199,7 +273,7 @@ contains
 
     TypePosition = 'append'
 
-  end subroutine save_plot
+  end subroutine save_plot_block
   !===========================================================================
   subroutine finalize
 
