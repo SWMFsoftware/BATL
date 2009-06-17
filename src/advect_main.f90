@@ -96,6 +96,10 @@ contains
     use BATL_lib, ONLY: init_mpi, init_batl, iProc, &
          MaxBlock, nBlock, Unused_B, Xyz_DGB
 
+    ! Should be called through BATL_lib::refine
+    use BATL_tree, ONLY: refine_tree_node, distribute_tree, show_tree
+    use BATL_grid, ONLY: create_grid
+
     integer :: i, j, k, iBlock, iError
     !------------------------------------------------------------------------
 
@@ -106,6 +110,12 @@ contains
          CoordMaxIn_D   = DomainMax_D, &
          nRootIn_D      = (/2,2,1/),   & 
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
+
+    call refine_tree_node(1)
+    call distribute_tree(.true.)
+    call create_grid
+
+    call show_tree('advect::initialize',.true.)
 
     allocate( &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock), &
@@ -259,7 +269,7 @@ contains
             'advect_pe',iProc,'_blk',iBlock,'.out'
        
        call save_plot_file(NameFile,     &
-            TypeFileIn='real4',          &  !!!ascii
+            TypeFileIn='real4',          &
             TypePositionIn=TypePosition, &
             nStepIn = iStep, &
             TimeIn  = Time, &
