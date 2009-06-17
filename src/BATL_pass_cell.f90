@@ -4,13 +4,14 @@ module BATL_pass_cell
 
   use BATL_size, ONLY: MaxBlock, &
        nI, nJ, nK, nIjk_D, nG, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
-       nDim, nDimAmr
+       MaxDim, nDim, nDimAmr
 
   use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
 
   use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
        iNodeNei_IIIA, DiLevelNei_IIIA, &
-       iTree_IA, Proc_, Block_, Status_, Unset_, Unused_
+       iTree_IA, Proc_, Block_, Coord1_, Coord2_, Coord3_, Status_, &
+       Unset_, Unused_
 
   use ModMpi
 
@@ -22,10 +23,24 @@ module BATL_pass_cell
 
   public message_pass_cell
 
-  integer, parameter:: RecvMin_=1, RecvMax_=2, SendMin_=3, SendMax_=4
-  integer:: iEqual_DII(3,-1:1,RecvMin_:SendMax_)
+  integer, parameter:: Min_=1, Max_=2
+  integer:: iEqualS_DII(MaxDim,-1:1,Min_:Max_)
+  integer:: iEqualR_DII(MaxDim,-1:1,Min_:Max_)
+  integer:: iRestrictS_DII(MaxDim,-1:1,Min_:Max_)
+  integer:: iRestrictR_DII(MaxDim,0:3,Min_:Max_)
+  integer:: iProlongS_DII(MaxDim,0:3,Min_:Max_)
+  integer:: iProlongR_DII(MaxDim,-1:1,Min_:Max_)
 
   integer :: nWidth
+
+  ! Refinement ratios in the 3 dimensions (depends on nDimAmr!)
+  integer, parameter:: &
+       iRatio = 2, jRatio = min(2,nDimAmr), kRatio = max(1,nDimAmr-1)
+
+  integer, parameter:: iRatio_D(MaxDim) = (/ iRatio, jRatio, kRatio /)
+  
+  ! Inverse volume ratio for Cartesian case !!!
+  real, parameter:: InvIjkRatio = 1.0/(iRatio*jRatio*kRatio)
 
 contains
 
@@ -57,10 +72,14 @@ contains
     integer, parameter :: Send_=1, Recv_=2
 
     integer :: iProlongOrder, iSendRecv, iPeano
-    integer :: iSend, jSend, kSend
+    integer :: iSend, jSend, kSend, iRecv, jRecv, kRecv, DiRecv, DjRecv, DkRecv
     integer :: iDir, jDir, kDir
     integer :: iNodeRecv, iNodeSend
     integer :: iBlockRecv, iProcRecv, iBlockSend, iProcSend, DiLevel
+
+    ! Index range for recv and send segments of the blocks
+    integer :: iRMin, iRMax, jRMin, jRMax, kRMin, kRMax
+    integer :: iSMin, iSMax, jSMin, jSMax, kSMin, kSMax
 
     ! Variables related to recv and send buffers
     integer, parameter:: nGhostCell = &
@@ -119,6 +138,9 @@ contains
        ! second stage uses these to prolong and fill in finer ghost cells
 
        do iSendRecv = Send_, Recv_
+
+          !write(*,*)'!!! iSendRecv =',iSendRecv
+
           ! For serial run there is no need for Recv_ stage
           if(nProc==1 .and. iSendRecv == Recv_) CYCLE
 
@@ -136,6 +158,16 @@ contains
              iBlockSend = iTree_IA(Block_,iNodeSend)
              iProcSend  = iTree_IA(Proc_, iNodeSend) 
 
+             ! For sideways communication from a fine to a coarser block
+             ! the coordinate parity of the sender block tells 
+             ! if the receiver block fills into the 
+             ! lower (D*Recv = 0) or uppper (D*Rev=1) half of the block
+             DiRecv = modulo(iTree_IA(Coord1_,iNodeSend)-1, 2)
+             DjRecv = modulo(iTree_IA(Coord2_,iNodeSend)-1, 2)
+             DkRecv = modulo(iTree_IA(Coord3_,iNodeSend)-1, 2)
+
+             !write(*,*)'!!! DiRecv, DjRecv, DkRecv=', DiRecv, DjRecv, DkRecv 
+
              do kSend = 0, 3
                 ! Skip ignored dimension
                 if(nDim < 3 .and. kSend /= 1) CYCLE
@@ -143,7 +175,13 @@ contains
                 ! Skip second subface if no AMR in this dimension
                 if(nDimAmr < 3 .and. kSend == 2) CYCLE
 
+                ! Magic formulas
+                ! Direction -1,0,1 can be obtained for part index 0,1,2,3
                 kDir = (2*kSend - 3)/3
+
+                ! Receiving part is the opposite of the sending part
+                kRecv = 3 - kSend
+                if(kRecv == 2) kRecv = 1 + DkRecv
 
                 do jSend = 0, 3
                    if(nDim < 2 .and. jSend /= 1) CYCLE
@@ -154,7 +192,10 @@ contains
                         (jSend == 0 .or. jSend == 3) .and. &
                         (kSend == 0 .or. kSend == 3)) CYCLE
 
-                   jDir = (2*jSend - 3)/3
+                   ! Magic formulas
+                   jDir  = (2*jSend - 3)/3
+                   jRecv = 3 - jSend
+                   if(jRecv == 2) jRecv = 1 + DjRecv
 
                    do iSend = 0, 3
 
@@ -169,7 +210,10 @@ contains
                            (jSend == 0 .or. jSend == 3 .or. &
                            kSend == 0 .or. kSend ==3)) CYCLE
 
-                      iDir = (2*iSend - 3)/3
+                      ! Magic formulas
+                      iDir  = (2*iSend - 3)/3
+                      iRecv = 3 - iSend
+                      if(iRecv == 2) iRecv = 1 + DiRecv
 
                       iNodeRecv  = iNodeNei_IIIA(iSend,jSend,kSend,iNodeSend)
                       iProcRecv  = iTree_IA(Proc_,iNodeRecv)
@@ -186,15 +230,31 @@ contains
                       if(nProlongOrder == 2 .and. &
                            (iProlongOrder == 1 .and. DiLevel == -1) .or. &
                            (iProlongOrder == 2 .and. DiLevel >=  0)) CYCLE
-                      
+
+                      !write(*,*)'!!! iNodeS/R, iProcS/R, iBlockS/R=',&
+                      !     iNodeSend, iNodeRecv, iProcSend, iProcRecv, &
+                      !     iBlockSend, iBlockRecv
+                      !
+                      !write(*,*)'!!! iProc,i,j,kSend, i,j,kDir=',&
+                      !     iProc,iSend,jSend,kSend,iDir,jDir,kDir
+
                       if(DiLevel == 0)then
                          call timing_start('do_equal')
                          call do_equal
                          call timing_stop('do_equal')
                       elseif(DiLevel == 1)then
-                         call do_coarse
+                         ! Do not restrict diagonally in the direction
+                         ! of the sibling.
+                         if(iDir == -1 .and. DiRecv==1) CYCLE
+                         if(iDir == +1 .and. DiRecv==0) CYCLE
+                         if(jDir == -1 .and. DjRecv==1) CYCLE
+                         if(jDir == +1 .and. DjRecv==0) CYCLE
+                         if(kDir == -1 .and. DkRecv==1) CYCLE
+                         if(kDir == +1 .and. DkRecv==0) CYCLE
+
+                         call do_restrict
                       else
-                         call do_fine
+                         call do_prolong
                       end if
                    enddo ! iSend
                 enddo ! jSend
@@ -211,8 +271,8 @@ contains
              if(iBufferR_P(iProcSend) == 0) CYCLE
              iRequestR = iRequestR + 1
 
-             !write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
-             !     iProc,iProcSend,iBufferR_P(iProcSend)
+             write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
+                  iProc,iProcSend,iBufferR_P(iProcSend)
 
              call MPI_irecv(BufferR_IP(1,iProcSend), iBufferR_P(iProcSend), &
                   MPI_REAL, iProcSend, 1, iComm, iRequestR_I(iRequestR), &
@@ -225,8 +285,8 @@ contains
              if(iBufferS_P(iProcRecv) == 0) CYCLE
              iRequestS = iRequestS + 1
 
-             !write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
-             !     iProcRecv,iProc,iBufferS_P(iProcRecv)
+             write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
+                  iProcRecv,iProc,iBufferS_P(iProcRecv)
 
              call MPI_isend(BufferS_IP(1,iProcRecv), iBufferS_P(iProcRecv), &
                   MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
@@ -253,36 +313,24 @@ contains
     !==========================================================================
     subroutine do_equal
 
-      integer :: iRMin, iRMax, jRMin, jRMax, kRMin, kRMax
-      integer :: iSMin, iSMax, jSMin, jSMax, kSMin, kSMax
       integer :: iBufferS, iBufferR, i, j, k, nSize
       !------------------------------------------------------------------------
 
-      iRMin = iEqual_DII(1,iDir,RecvMin_)
-      iRMax = iEqual_DII(1,iDir,RecvMax_)
-      jRMin = iEqual_DII(2,jDir,RecvMin_)
-      jRMax = iEqual_DII(2,jDir,RecvMax_)
-      kRMin = iEqual_DII(3,kDir,RecvMin_)
-      kRMax = iEqual_DII(3,kDir,RecvMax_)
+      iRMin = iEqualR_DII(1,iDir,Min_)
+      iRMax = iEqualR_DII(1,iDir,Max_)
+      jRMin = iEqualR_DII(2,jDir,Min_)
+      jRMax = iEqualR_DII(2,jDir,Max_)
+      kRMin = iEqualR_DII(3,kDir,Min_)
+      kRMax = iEqualR_DII(3,kDir,Max_)
 
-      iSMin = iEqual_DII(1,iDir,SendMin_)
-      iSMax = iEqual_DII(1,iDir,SendMax_)
-      jSMin = iEqual_DII(2,jDir,SendMin_)
-      jSMax = iEqual_DII(2,jDir,SendMax_)
-      kSMin = iEqual_DII(3,kDir,SendMin_)
-      kSMax = iEqual_DII(3,kDir,SendMax_)
+      iSMin = iEqualS_DII(1,iDir,Min_)
+      iSMax = iEqualS_DII(1,iDir,Max_)
+      jSMin = iEqualS_DII(2,jDir,Min_)
+      jSMax = iEqualS_DII(2,jDir,Max_)
+      kSMin = iEqualS_DII(3,kDir,Min_)
+      kSMax = iEqualS_DII(3,kDir,Max_)
 
       nSize = nVar*(iSMax-iSMin+1)*(jSMax-jSMin+1)*(kSMax-kSMin+1)
-
-      !if(nProc>1)then
-      !   write(*,*)'!!! iProc,iSendRecv =',iProc,iSendRecv
-      !   write(*,*)'!!! iProc,i,j,kSend, i,j,kDir=',&
-      !                        iProc,iSend,jSend,kSend,iDir,jDir,kDir
-      !
-      !   write(*,*)'!!! do_equal: iNodeS/R, iProcS/R, iBlockS/R, nSize=',&
-      !     iNodeSend, iNodeRecv, iProcSend, iProcRecv, iBlockSend, iBlockRecv,&
-      !     nSize
-      !end if
 
       if(iSendRecv == Send_)then
          if(iProcSend == iProcRecv)then
@@ -310,44 +358,232 @@ contains
             iBufferR = iBufferR + nVar
          end do; end do; end do
          iBufferR_P(iProcSend) = iBufferR
-
       end if
 
     end subroutine do_equal
 
     !==========================================================================
 
-    subroutine do_coarse
+    subroutine do_restrict
 
+      integer :: iR, jR, kR, iS1, jS1, kS1, iS2, jS2, kS2, iVar
+      integer :: iBufferS, iBufferR, nSize
+      !-----------------------------------------------------------------------
+      ! Sending range depends on iDir,jDir,kDir only
+      iSMin = iRestrictS_DII(1,iDir,Min_)
+      iSMax = iRestrictS_DII(1,iDir,Max_)
+      jSMin = iRestrictS_DII(2,jDir,Min_)
+      jSMax = iRestrictS_DII(2,jDir,Max_)
+      kSMin = iRestrictS_DII(3,kDir,Min_)
+      kSMax = iRestrictS_DII(3,kDir,Max_)
 
+      ! Receiving range depends on iRecv,kRecv,jRecv = 0..3
+      iRMin = iRestrictR_DII(1,iRecv,Min_)
+      iRMax = iRestrictR_DII(1,iRecv,Max_)
+      jRMin = iRestrictR_DII(2,jRecv,Min_)
+      jRMax = iRestrictR_DII(2,jRecv,Max_)
+      kRMin = iRestrictR_DII(3,kRecv,Min_)
+      kRMax = iRestrictR_DII(3,kRecv,Max_)
 
+      nSize = nVar*(iSMax-iSMin+1)*(jSMax-jSMin+1)*(kSMax-kSMin+1)
 
-    end subroutine do_coarse
+      !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
+      !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
+      !
+      !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
+      !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
+      
+      if(iSendRecv == Send_)then
+         if(iProcSend == iProcRecv)then
+            do kR=kRMin,kRMax
+               kS1 = kSMin + kRatio*(kR-kRMin)
+               kS2 = kS1 + kRatio - 1
+               do jR=jRMin,jRMax
+                  jS1 = jSMin + jRatio*(jR-jRMin)
+                  jS2 = jS1 + jRatio - 1
+                  do iR=iRMin,iRMax
+                     iS1 = iSMin + iRatio*(iR-iRMin)
+                     iS2 = iS1 + iRatio - 1
+                     do iVar = 1, nVar
+                        State_VGB(iVar,iR,jR,kR,iBlockRecv) = &
+                             InvIjkRatio * sum &
+                             (State_VGB(iVar,iS1:iS2,jS1:jS2,kS1:kS2,iBlockSend))
+                     end do
+                  end do
+               end do
+            end do
+         else
+            iBufferS = iBufferS_P(iProcRecv)
+            if(iProc == iProcSend)then
+               do kR=kRMin,kRMax
+                  kS1 = kSMin + kRatio*(kR-kRMin)
+                  kS2 = kS1 + kRatio - 1
+                  do jR=jRMin,jRMax
+                     jS1 = jSMin + jRatio*(jR-jRMin)
+                     jS2 = jS1 + jRatio - 1
+                     do iR=iRMin,iRMax
+                        iS1 = iSMin + iRatio*(iR-iRMin)
+                        iS2 = iS1 + iRatio - 1
+                        do iVar = 1, nVar
+                           BufferS_IP(iBufferS+iVar,iProcRecv) = &
+                                InvIjkRatio * &
+                                sum(State_VGB(iVar,iS1:iS2,jS1:jS2,kS1:kS2,&
+                                iBlockSend))
+                        end do
+                        iBufferS = iBufferS + nVar
+                     end do
+                  end do
+               end do
+               iBufferS_P(iProcRecv) = iBufferS
+            else
+               iBufferR_P(iProcSend) = iBufferR_P(iProcSend) + nSize
+            end if
+         end if 
+      elseif(iProc == iProcRecv .and. iProc /= iProcSend)then ! Receive stage
+         iBufferR = iBufferR_P(iProcSend)
+         do kR=kRMin,kRmax; do jR=jRMin,jRMax; do iR=iRMin,iRmax
+            State_VGB(:,iR,jR,kR,iBlockRecv) = &
+                 BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
+            iBufferR = iBufferR + nVar
+         end do; end do; end do
+         iBufferR_P(iProcSend) = iBufferR
+      end if
+
+    end subroutine do_restrict
 
     !==========================================================================
 
-    subroutine do_fine
+    subroutine do_prolong
 
-    end subroutine do_fine
+      integer :: iR, jR, kR, iS, jS, kS
+      integer :: iBufferS, iBufferR, nSize
+      !-----------------------------------------------------------------------
+      ! Sending range depends on iDir,jDir,kDir only
+      iSMin = iProlongS_DII(1,iSend,Min_)
+      iSMax = iProlongS_DII(1,iSend,Max_)
+      jSMin = iProlongS_DII(2,jSend,Min_)
+      jSMax = iProlongS_DII(2,jSend,Max_)
+      kSMin = iProlongS_DII(3,kSend,Min_)
+      kSMax = iProlongS_DII(3,kSend,Max_)
+
+      ! Receiving range depends on iRecv,kRecv,jRecv = 0..3
+      iRMin = iProlongR_DII(1,iDir,Min_)
+      iRMax = iProlongR_DII(1,iDir,Max_)
+      jRMin = iProlongR_DII(2,jDir,Min_)
+      jRMax = iProlongR_DII(2,jDir,Max_)
+      kRMin = iProlongR_DII(3,kDir,Min_)
+      kRMax = iProlongR_DII(3,kDir,Max_)
+
+      nSize = nVar*(iSMax-iSMin+1)*(jSMax-jSMin+1)*(kSMax-kSMin+1)
+
+      !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
+      !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
+      !
+      !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
+      !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
+
+      if(iSendRecv == Send_)then
+         if(iProcSend == iProcRecv)then
+            do kR=kRMin,kRMax
+               kS = kSMin + (kR-kRMin)/kRatio
+               do jR=jRMin,jRMax
+                  jS = jSMin + (jR-jRMin)/jRatio
+                  do iR=iRMin,iRMax
+                     iS = iSMin + (iR-iRMin)/iRatio
+                     State_VGB(:,iR,jR,kR,iBlockRecv) = &
+                          State_VGB(:,iS,jS,kS,iBlockSend)
+                  end do
+               end do
+            end do
+         else
+            iBufferS = iBufferS_P(iProcRecv)
+            if(iProc == iProcSend)then
+               do kR=kRMin,kRMax
+                  kS = kSMin + (kR-kRMin)/kRatio
+                  do jR=jRMin,jRMax
+                     jS = jSMin + (jR-jRMin)/jRatio
+                     do iR=iRMin,iRMax
+                        iS = iSMin + (iR-iRMin)/iRatio
+                        BufferS_IP(iBufferS+1:iBufferS+nVar,iProcRecv) = &
+                             State_VGB(:,iS,jS,kS,iBlockSend)
+                        iBufferS = iBufferS + nVar
+                     end do
+                  end do
+               end do
+               iBufferS_P(iProcRecv) = iBufferS
+            else
+               iBufferR_P(iProcSend) = iBufferR_P(iProcSend) + nSize
+            end if
+         end if
+      elseif(iProc == iProcRecv .and. iProc /= iProcSend)then ! Receive stage
+         iBufferR = iBufferR_P(iProcSend)
+
+         do kR=kRMin,kRmax; do jR=jRMin,jRMax; do iR=iRMin,iRmax
+            State_VGB(:,iR,jR,kR,iBlockRecv) = &
+                 BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
+            iBufferR = iBufferR + nVar
+         end do; end do; end do
+         iBufferR_P(iProcSend) = iBufferR
+      end if
+
+    end subroutine do_prolong
 
   end subroutine message_pass_cell
 
   !============================================================================
   subroutine set_range
 
-    iEqual_DII(:,-1,SendMin_) = 1
-    iEqual_DII(:,-1,SendMax_) = nWidth
-    iEqual_DII(:, 0,SendMin_) = 1
-    iEqual_DII(:, 0,SendMax_) = nIjk_D
-    iEqual_DII(:, 1,SendMin_) = nIjk_D + 1 - nWidth
-    iEqual_DII(:, 1,SendMax_) = nIjk_D
+    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
+    iEqualS_DII(:,-1,Min_) = 1
+    iEqualS_DII(:,-1,Max_) = nWidth
+    iEqualS_DII(:, 0,Min_) = 1
+    iEqualS_DII(:, 0,Max_) = nIjk_D
+    iEqualS_DII(:, 1,Min_) = nIjk_D + 1 - nWidth
+    iEqualS_DII(:, 1,Max_) = nIjk_D
 
-    iEqual_DII(:,-1,RecvMin_) = nIjk_D + 1
-    iEqual_DII(:,-1,RecvMax_) = nIjk_D + nWidth
-    iEqual_DII(:, 0,RecvMin_) = 1
-    iEqual_DII(:, 0,RecvMax_) = nIjk_D
-    iEqual_DII(:, 1,RecvMin_) = 1 - nWidth
-    iEqual_DII(:, 1,RecvMax_) = 0
+    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
+    iEqualR_DII(:,-1,Min_) = nIjk_D + 1
+    iEqualR_DII(:,-1,Max_) = nIjk_D + nWidth
+    iEqualR_DII(:, 0,Min_) = 1
+    iEqualR_DII(:, 0,Max_) = nIjk_D
+    iEqualR_DII(:, 1,Min_) = 1 - nWidth
+    iEqualR_DII(:, 1,Max_) = 0
+
+    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
+    iRestrictS_DII(:,-1,Min_) = 1
+    iRestrictS_DII(:,-1,Max_) = iRatio_D*nWidth
+    iRestrictS_DII(:, 0,Min_) = 1
+    iRestrictS_DII(:, 0,Max_) = nIjk_D
+    iRestrictS_DII(:, 1,Min_) = nIjk_D + 1 - iRatio_D*nWidth
+    iRestrictS_DII(:, 1,Max_) = nIjk_D
+
+    ! Indexed by iRecv/jRecv/kRecv = 0..3
+    iRestrictR_DII(:,0,Min_) = 1 - nWidth
+    iRestrictR_DII(:,0,Max_) = 0
+    iRestrictR_DII(:,1,Min_) = 1
+    iRestrictR_DII(:,1,Max_) = nIjk_D/iRatio_D
+    iRestrictR_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
+    iRestrictR_DII(:,2,Max_) = nIjk_D
+    iRestrictR_DII(:,3,Min_) = nIjk_D + 1
+    iRestrictR_DII(:,3,Max_) = nIjk_D + nWidth
+
+    ! Indexed by iSend/jSend,kSend = 0..3
+    iProlongS_DII(:,0,Min_) = 1
+    iProlongS_DII(:,0,Max_) = 1 + (nWidth-1)/iRatio_D ! rounding up
+    iProlongS_DII(:,1,Min_) = 1
+    iProlongS_DII(:,1,Max_) = nIjk_D/iRatio_D
+    iProlongS_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
+    iProlongS_DII(:,2,Max_) = nIjk_D
+    iProlongS_DII(:,3,Min_) = nIjk_D + 1 - (1+(nWidth-1)/iRatio_D)
+    iProlongS_DII(:,3,Max_) = nIjk_D
+    
+    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
+    iProlongR_DII(:,-1,Min_) = nIjk_D + 1
+    iProlongR_DII(:,-1,Max_) = nIjk_D + nWidth
+    iProlongR_DII(:, 0,Min_) = 1
+    iProlongR_DII(:, 0,Max_) = nIjk_D
+    iProlongR_DII(:, 1,Min_) = 1 - nWidth
+    iProlongR_DII(:, 1,Max_) = 0
 
   end subroutine set_range
 
