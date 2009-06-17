@@ -39,16 +39,22 @@ test3:
 	-@(cd src; diff test3.log test3.ref > test3.diff)
 	cd src; ls -l test3.diff
 
-test_advect2:
+rundir:
+	mkdir -p run/plots
+	cd run; ln -s ../src/ADVECT.exe .;
+
+test_advect2: 
 	Config.pl -g=2,2,80,40
 	make ADVECT
-	cd src; ${MPIRUN} ADVECT.exe > advect2.log
+	rm -rf run
+	make rundir
+	cd run; ${MPIRUN} ADVECT.exe > advect2.log
 	make test_advect2_check
 
 test_advect2_check:
-	-@(cd src; ${SCRIPTDIR}/DiffNum.pl \
-		-r=1.e-8 advect2.log advect2.ref > advect2.diff)
-	ls -l src/advect2.diff
+	-@(${SCRIPTDIR}/DiffNum.pl \
+		-r=1.e-8 run/advect2.log src/advect2.ref > advect2.diff)
+	ls -l advect2.diff
 
 clean:
 	cd share; make clean
@@ -57,3 +63,5 @@ clean:
 allclean:
 	touch src/Makefile.DEPEND
 	cd src; make distclean
+	rm -rf run *.diff
+
