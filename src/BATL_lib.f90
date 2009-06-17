@@ -24,6 +24,7 @@ module BATL_lib
   public:: iComm, nProc, iProc          
 
   ! Inherited from BATL_tree
+  public:: nNodeUsed
   public:: Unused_B
   public:: DiLevelNei_IIIA, iNodeNei_IIIA
 
