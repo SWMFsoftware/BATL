@@ -78,7 +78,9 @@ module BATL_tree
   integer, public, parameter :: Unset_ = -100
 
   ! Possible values for the status variable
-  integer, public, parameter :: Unused_=1, Used_=2, Refine_=3, Coarsen_=4
+  integer, public, parameter :: &
+       Unused_=-1, Refine_=-2, Coarsen_=-3, &     ! unused or to be unused
+       Used_=1, RefineNew_=2, CoarsenNew_=3    ! used or to be used
 
   ! Number of used nodes (leaves of the node tree)
   integer, public :: nNodeUsed = 0
@@ -219,10 +221,10 @@ contains
     character(len=*), parameter:: NameSub='refine_tree_node'
     !----------------------------------------------------------------------
 
-    if(iTree_IA(Status_, iNode) /= Used_) &
+    if(iTree_IA(Status_, iNode) == Unused_) &
          call CON_stop(NameSub//' trying to refine and unused block')
 
-    iTree_IA(Status_, iNode) = Unused_
+    iTree_IA(Status_, iNode) = Refine_
 
     iLevelChild = iTree_IA(Level_, iNode) + 1
     iProc       = iTree_IA(Proc_,  iNode)
@@ -241,12 +243,12 @@ contains
 
        iTree_IA(iChild, iNode) = iNodeChild
 
-       iTree_IA(Status_,   iNodeChild) = Used_
+       iTree_IA(Status_,   iNodeChild) = RefineNew_
        iTree_IA(Level_,    iNodeChild) = iLevelChild
        iTree_IA(Parent_,   iNodeChild) = iNode
        iTree_IA(Child1_:ChildLast_, iNodeChild) = Unset_
 
-       ! This overwrites the two first children (saves memory)
+       ! Data will come from the parent's proc/block
        iTree_IA(Proc_,     iNodeChild) = iProc
        iTree_IA(Block_,    iNodeChild) = iBlock
 
@@ -264,6 +266,7 @@ contains
 
     end do
 
+    ! Keep track of used nodes in the future tree 
     nNodeUsed = nNodeUsed + nChild - 1
 
   end subroutine refine_tree_node
@@ -279,20 +282,14 @@ contains
     do iChild = Child1_, ChildLast_
        iNodeChild = iTree_IA(iChild, iNode)
 
-       ! Wipe out the child node
-       iTree_IA(Status_, iNodeChild) = Unset_
+       ! Set the status of the child node
+       iTree_IA(Status_, iNodeChild) = Coarsen_
     end do
 
     ! Make this node used with no children
-    iTree_IA(Status_, iNode) = Used_
+    iTree_IA(Status_, iNode) = CoarsenNew_
 
-    iNodeChild1 = iTree_IA(Child1_, iNode)
-    iTree_IA(Child1_:ChildLast_, iNode) = Unset_
-
-    ! set proc and node info from child1
-    iTree_IA(Proc_,  iNode) = iTree_IA(Proc_,  iNodeChild1)
-    iTree_IA(Block_, iNode) = iTree_IA(Block_, iNodeChild1)
-
+    ! Keep track of used nodes in the future tree
     nNodeUsed = nNodeUsed - nChild + 1
 
   end subroutine coarsen_tree_node
@@ -512,13 +509,14 @@ contains
     integer, allocatable:: iNodeNew_A(:)
     integer :: iNode, iNodeSkipped, iNodeOld, i
     !-------------------------------------------------------------------------
+
     allocate(iNodeNew_A(MaxNode))
 
     ! Set impossible initial values
     iNodeNew_A = Unset_
     iNodeSkipped = MaxNode + 1
 
-    do iNode = 1, MaxNode
+    do iNode = 1, MaxNode !!! nNode ???
 
        if(iTree_IA(Status_, iNode) == Unset_)then
           ! Store the first skipped position
@@ -632,11 +630,12 @@ contains
   !==========================================================================
   subroutine distribute_tree(DoMove)
 
-    ! Assign tree nodes to separate processors
+    ! Assign tree nodes to processors and blocks
+    ! If DoMove is true,
 
     use BATL_mpi, ONLY: iProc, nProc
 
-    ! Are nodes moved immediatly or just assigned new processor/node
+    ! Are nodes moved immediately or just assigned new processor/node
     logical, intent(in):: DoMove
 
     integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo
@@ -645,7 +644,7 @@ contains
     ! Initialize processor and block indexes
     iTree_IA(ProcNew_:BlockNew_,:) = Unset_
     if(DoMove)then
-       iTree_IA(Proc_:Block_,:) = Unset_
+       iTree_IA(Proc_:Block_,:) = Unset_  !!! not a good idea
        Unused_B                 = .true.
     end if
 
@@ -659,37 +658,72 @@ contains
        iNode = iNodePeano_I(iPeano)
 
        iProcTo  = (iPeano-1)/nNodePerProc
+!!! iBlockTo should be set in a smarter way !!!
        iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
 
        ! Assign new processor and node
        iTree_IA(ProcNew_, iNode) = iProcTo
        iTree_IA(BlockNew_,iNode) = iBlockTo
+    end do
 
-       if(.not.DoMove) CYCLE
+    if(DoMove) call move_tree
+
+  end subroutine distribute_tree
+  !==========================================================================
+  subroutine move_tree
+
+    use BATL_mpi, ONLY: iProc
+
+    integer:: iPeano, iNode, iNodeChild, iNodeParent, iChild, iBlock
+    !-----------------------------------------------------------------------
+    do iPeano = 1, nNodeUsed
+       iNode = iNodePeano_I(iPeano)
 
        ! Move the node to new processor/node
        iTree_IA(Proc_:Block_,iNode) = iTree_IA(ProcNew_:BlockNew_,iNode)
-       if(iProc == iProcTo)then
-          iNode_B(iBlockTo)  = iNode
-          Unused_B(iBlockTo) = iTree_IA(Status_,iNode) <= Unused_
+
+       if(iTree_IA(Status_,iNode) == CoarsenNew_) then
+          ! Remove the children of newly coarsened blocks from the tree
+
+          do iChild = Child1_, ChildLast_
+             iNodeChild = iTree_IA(iChild, iNode)
+             iTree_IA(:,iNodeChild) = Unset_
+          end do
+          iTree_IA(Child1_:ChildLast_, iNode) = Unset_
+
+       elseif(iTree_IA(Status_,iNode) == RefineNew_)then
+          ! Make the parent of newly refined blocks unused
+
+          iNodeParent = iTree_IA(Parent_, iNode)
+          iTree_IA(Proc_:Block_,iNodeParent) = Unset_
+          iTree_IA(Status_,iNodeParent)      = Unused_
+       end if
+
+       ! Now newly formed blocks are simply used
+       iTree_IA(Status_,iNode) = Used_
+
+       ! Set local information for this processor
+       if(iProc == iTree_IA(Proc_,iNode))then
+          iBlock = iTree_IA(Block_,iNode)
+          iNode_B(iBlock)  = iNode
+          Unused_B(iBlock) = iTree_IA(Status_,iNode) == Unused_
        end if
 
     end do
 
-    if(DoMove)then
-       nBlock = maxval(iTree_IA(Block_, :))
+    nBlock = maxval(iTree_IA(Block_, :))
 
-       ! Set neighbor info
-       do iPeano = 1, nNodeUsed
-          iNode = iNodePeano_I(iPeano)
-          call find_neighbor(iNode)
-       end do
+    ! Now that we removed children of coarsened blocks, compact the tree
+    call compact_tree
 
-    end if
+    ! Set neighbor info
+    do iPeano = 1, nNodeUsed
+       iNode = iNodePeano_I(iPeano)
+       call find_neighbor(iNode)
+    end do
 
-  end subroutine distribute_tree
+  end subroutine move_tree
   !==========================================================================
-
   subroutine order_tree
 
     ! Set iNodePeano_I indirect index array according to 
@@ -728,7 +762,7 @@ contains
     !-----------------------------------------------------------------------
     nNode = max(nNode, iNode)
 
-    if(iTree_IA(Status_, iNode) == Used_)then
+    if(iTree_IA(Status_, iNode) >= Used_)then
        iPeano = iPeano + 1
        iNodePeano_I(iPeano) = iNode
     else
@@ -884,15 +918,17 @@ contains
     call coarsen_tree_node(nRoot)
     if(DoTestMe)call show_tree('after coarsen_tree_node')
 
+    ! Distribute the new tree
+    if(DoTestMe)write(*,*)'Testing distribute_tree 3rd'
+    call distribute_tree(.true.)
+    if(DoTestMe)call show_tree('after distribute_tree 3rd', .true.)
+
     call find_tree_node(CoordTest_D,iNode)
-    if(iNode /= nRoot)write(*,*)'ERROR: coarsen_tree_node faild, iNode=',&
+    if(iNode /= nRoot)write(*,*) &
+         'ERROR: coarsen_tree_node+compact failed, iNode=',&
          iNode,' instead of',nRoot
     if(.not.is_point_inside_node(CoordTest_D, iNode)) &
          write(*,*)'ERROR: is_point_inside_node failed'
-
-    if(DoTestMe)write(*,*)'Testing compact_tree'
-    call compact_tree
-    if(DoTestMe)call show_tree('after compact_tree')
 
     if(iTree_IA(Status_, nNode+1) /= Unset_) &
          write(*,*)'ERROR: compact_tree failed, nNode=', nNode, &
@@ -907,10 +943,6 @@ contains
          iNode,' instead of',nRoot
     if(.not.is_point_inside_node(CoordTest_D, iNode)) &
          write(*,*)'ERROR: is_point_inside_node failed'
-
-    if(DoTestMe)write(*,*)'Testing distribute_tree 3rd'
-    call distribute_tree(.true.)
-    if(DoTestMe)call show_tree('after distribute_tree 3rd', .true.)
 
     if(DoTestMe)write(*,*)'Testing write_tree_file'
     call write_tree_file('tree.rst')
