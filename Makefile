@@ -65,18 +65,18 @@ rundir:
 	mkdir -p run/plots
 	cd run; ln -s ../src/ADVECT.exe .;
 
-test_advect2: 
+test_advect22: 
 	Config.pl -g=2,2,80,40
 	make ADVECT
 	rm -rf run
 	make rundir
-	cd run; ${MPIRUN} ADVECT.exe > advect2.log
-	make test_advect2_check
+	cd run; ${MPIRUN} ADVECT.exe > runlog
+	make test_advect22_check
 
-test_advect2_check:
+test_advect22_check:
 	-@(${SCRIPTDIR}/DiffNum.pl \
-		-r=1.e-8 run/advect2.log src/advect2.ref > advect2.diff)
-	ls -l advect2.diff
+		-r=1.e-8 run/advect22.log src/advect22.ref > advect22.diff)
+	ls -l advect22.diff
 
 clean:
 	cd share; make clean

@@ -47,6 +47,11 @@ program advect
         call timing_start('save_plot')
         call save_plot
         call timing_stop('save_plot')
+
+        call timing_start('save_log')
+        call save_log
+        call timing_stop('save_log')
+
         TimePlot = TimePlot + DtPlot
      end if
 
@@ -71,24 +76,36 @@ program advect
 contains
 
   !===========================================================================
-  real function initial_density(Xyz_D)
+  real function exact_density(Xyz_D)
 
     use ModNumConst, ONLY: cHalfPi
 
     real, intent(in):: Xyz_D(nDim)
 
     ! Square of the radius of the circle/sphere
+    real:: XyzShift_D(nDim)
+
     real, parameter :: Radius2 = 25.0
     real :: r2
+
+    real, parameter:: DomainSize_D(nDim) = &
+         DomainMax_D(1:nDim)-DomainMin_D(1:nDim)
     !-------------------------------------------------------------------------
-    r2 = sum(Xyz_D**2)
+    ! Move position back to initial point
+    XyzShift_D = Xyz_D - Time*Velocity_D
+
+    ! Take periodicity into account
+    XyzShift_D = modulo(XyzShift_D - DomainMin_D(1:nDim), DomainSize_D) &
+         + DomainMin_D(1:nDim)
+
+    r2 = sum(XyzShift_D**2)
     if(r2 < Radius2)then
-       initial_density = 1 + cos(cHalfPi*sqrt(r2/Radius2))**2
+       exact_density = 1 + cos(cHalfPi*sqrt(r2/Radius2))**2
     else
-       initial_density = 1
+       exact_density = 1
     end if
 
-  end function initial_density
+  end function exact_density
 
   !===========================================================================
   subroutine initialize
@@ -117,6 +134,11 @@ contains
 
     if(iProc==0)call show_tree('advect::initialize',.true.)
 
+    ! Initial time step and time
+    iStep    = 0
+    Time     = 0.0
+    TimePlot = 0.0
+
     allocate( &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock), &
          StateOld_VCB(nVar,nI,nJ,nK,MaxBlock) )
@@ -129,17 +151,9 @@ contains
        if(Unused_B(iBlock)) CYCLE
        do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
           State_VGB(:,i,j,k,iBlock) &
-               = initial_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
+               = exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
        end do; end do; end do
     end do
-
-    call set_total(TotalIni_I)
-    if(iProc == 0)write(*,*)'TotalVolume, TotalVars =',TotalIni_I
-
-    ! Initial time step and time
-    iStep    = 0
-    Time     = 0.0
-    TimePlot = 0.0
 
     if(iProc==0)then
        call timing_active(.true.)
@@ -151,41 +165,69 @@ contains
   end subroutine initialize
 
   !===========================================================================
-  subroutine set_total(Total_I)
+  subroutine save_log
 
     ! Calculate the totals on processor 0
-    use ModMpi
-    use BATL_lib, ONLY: nBlock, Unused_B, CellVolume_B, iComm, iProc, nProc
+    use BATL_lib, ONLY: nDimAmr, nBlock, Unused_B, CellVolume_B, Xyz_DGB, &
+         iComm, iProc, nProc
+    use ModMpi,    ONLY: MPI_reduce, MPI_REAL, MPI_SUM
+    use ModIoUnit, ONLY: UnitTmp_
 
-    real, intent(out):: Total_I(0:nVar)
+    integer:: iBlock, i, j, k, iVar, iError
+    integer, parameter:: Volume_=nVar+1, Error_=nVar+2
+    real:: TotalPe_I(Error_), Total_I(Error_), Error
 
-    integer:: iBlock, iError
-    real:: TotalPe_I(0:nVar)
+    character(len=100):: NameFile = '???'
+    logical :: DoInitialize = .true.
     !------------------------------------------------------------------------
     Total_I = 0.0
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
-       Total_I(1:nVar) = Total_I(1:nVar) &
-            + CellVolume_B(iBlock)*sum(State_VGB(:,1:nI,1:nJ,1:nK,iBlock))
-       Total_I(0) = Total_I(0) + CellVolume_B(iBlock)*nI*nJ*nK
+       do iVar = 1, nVar
+          Total_I(iVar) = Total_I(iVar) + CellVolume_B(iBlock) &
+               *sum(State_VGB(iVar,1:nI,1:nJ,1:nK,iBlock))
+       end do
+       Total_I(Volume_) = Total_I(Volume_) &
+            + CellVolume_B(iBlock)*nI*nJ*nK
+
+       do k=1,nK; do j=1,nJ; do i=1,nI
+          Total_I(Error_) = Total_I(Error_) &
+               + CellVolume_B(iBlock) &
+               *abs(State_VGB(1,i,j,k,iBlock)  &
+               -    exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock)))
+       end do; end do; end do
     end do
 
-    if(nProc > 0)then
+    if(nProc > 1)then
        TotalPe_I = Total_I
-       call MPI_reduce(TotalPe_I, Total_I, 1+nVar, MPI_REAL, MPI_SUM, 0, &
+       call MPI_reduce(TotalPe_I, Total_I, Error_, MPI_REAL, MPI_SUM, 0, &
             iComm, iError)
     end if
 
-  end subroutine set_total
+    if(iProc /= 0) RETURN
+
+    ! Divide total error by total mass to get relative error
+    Total_I(Error_) = Total_I(Error_) / Total_I(1)
+
+    if(DoInitialize)then
+       write(NameFile,'(a,i1,i1,a)') 'advect',nDim,nDimAmr,'.log'
+       open(UnitTmp_,file=NameFile,status='replace')
+       write(UnitTmp_,'(a)')'Advection test for BATL'
+       write(UnitTmp_,'(a)')'mass volume error'
+
+       DoInitialize = .false.
+    else
+       open(UnitTmp_,file=NameFile,position='append')
+    end if
+    write(UnitTmp_,'(100es15.6)') Total_I
+    close(UnitTmp_)
+
+  end subroutine save_log
+
+
   !===========================================================================
+
   subroutine save_plot
-
-    call save_plot_proc
-
-  end subroutine save_plot
-  !===========================================================================
-
-  subroutine save_plot_proc
 
     use BATL_lib, ONLY: MaxDim, nNodeUsed, nBlock, Unused_B, &
          iComm, nProc, iProc, &
@@ -251,7 +293,7 @@ contains
     end do
     close(UnitTmp_)
 
-  end subroutine save_plot_proc
+  end subroutine save_plot
   !===========================================================================
   subroutine save_plot_block
 
@@ -289,38 +331,10 @@ contains
   !===========================================================================
   subroutine finalize
 
-    use BATL_lib, ONLY: clean_batl, clean_mpi, &
-         iComm, nProc, iProc, &
-         nBlock, Unused_B, CellVolume_B, Xyz_DGB
-    use ModMpi
- 
-    integer:: iBlock, i, j, k, iError
-    real:: Total_I(0:nVar)
-    real:: Error, ErrorPe, CellVolume
+    use BATL_lib, ONLY: clean_batl, clean_mpi
     !------------------------------------------------------------------------
     call save_plot
-
-    ! Calculate final error
-    
-    Error       = 0.0
-    do iBlock = 1, nBlock
-       if(Unused_B(iBlock)) CYCLE
-       CellVolume = CellVolume_B(iBlock)
-       do k = 1, nK; do j = 1, nJ; do i = 1, nI
-          Error = Error + CellVolume*abs(State_VGB(1,i,j,k,iBlock) - &
-               initial_density(Xyz_DGB(1:nDim,i,j,k,iBlock)))
-       end do; end do; end do
-    end do
-
-    if(nProc > 1)then
-       ErrorPe = Error
-       call MPI_reduce(ErrorPe, Error, 1, MPI_REAL, MPI_SUM, 0, iComm, iError)
-    endif
-    call set_total(Total_I)
-    if(iProc == 0)then
-       write(*,*)'TotalVolume, TotalVars= ',Total_I
-       write(*,*)'Error = ',Error/Total_I(0)
-    end if
+    call save_log
 
     call clean_batl
     call clean_mpi
