@@ -14,7 +14,7 @@ module BATL_lib
   private ! except
 
   ! Inherited from BATL_size
-  public:: MaxDim, nDim
+  public:: MaxDim, nDim, nDimAmr
   public:: MaxBlock, nBlock
   public:: nI, nJ, nK, nIJK_D
   public:: MinI, MaxI, MinJ, MaxJ, MinK, MaxK
