@@ -115,7 +115,7 @@ contains
     call distribute_tree(.true.)
     call create_grid
 
-    call show_tree('advect::initialize',.true.)
+    if(iProc==0)call show_tree('advect::initialize',.true.)
 
     allocate( &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock), &
