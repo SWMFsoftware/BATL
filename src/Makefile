@@ -32,7 +32,8 @@ BATL:
 	make BATL.exe
 
 BATL.exe: main.o ${OBJECTS}
-	${LINK.f90} -o BATL.exe main.o ${OBJECTS} -L${LIBDIR} -lSHARE ${Lflag1}
+	${LINK.f90} -o BATL.exe main.o ${OBJECTS} \
+		-L${LIBDIR} -lSHARE -lTIMING ${Lflag1}
 
 ADVECT:
 	make DEPEND
