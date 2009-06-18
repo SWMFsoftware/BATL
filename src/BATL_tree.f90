@@ -215,7 +215,12 @@ contains
     integer :: iChild, DiChild, iLevelChild, iProc, iBlock
     integer :: iCoord_D(nDimAmr)
     integer :: iDim, iNodeChild
+
+    character(len=*), parameter:: NameSub='refine_tree_node'
     !----------------------------------------------------------------------
+
+    if(iTree_IA(Status_, iNode) /= Used_) &
+         call CON_stop(NameSub//' trying to refine and unused block')
 
     iTree_IA(Status_, iNode) = Unused_
 
@@ -795,7 +800,7 @@ contains
     use BATL_geometry, ONLY: init_geometry, IsPeriodic_D
 
     integer, parameter:: MaxBlockTest            = 50
-    integer, parameter:: nRootTest_D(MaxDim)     = (/1,2,3/)
+    integer, parameter:: nRootTest_D(MaxDim)     = (/3,2,1/)
     logical, parameter:: IsPeriodicTest_D(MaxDim)= (/.true., .true., .false./)
     real,    parameter:: CoordTest_D(MaxDim)     = 0.99
 
@@ -837,11 +842,11 @@ contains
          write(*,*) 'set_tree_root failed, nRoot_D=',nRoot_D(1:nDim),&
          ' should be ',nRootTest_D(1:nDim)
 
-    Int_D = (/1,2,2/)
+    Int_D = (/3,1,1/)
 
-    if(any( iTree_IA(Coord1_:Coord0_+nDim,4) /= Int_D(1:nDim) )) &
+    if(any( iTree_IA(Coord1_:Coord0_+nDim,3) /= Int_D(1:nDim) )) &
          write(*,*) 'set_tree_root failed, coordinates of node four=',&
-         iTree_IA(Coord1_:Coord0_+nDim,4), ' should be ',Int_D(1:nDim)
+         iTree_IA(Coord1_:Coord0_+nDim,3), ' should be ',Int_D(1:nDim)
 
     if(DoTestMe)write(*,*)'Testing find_tree_node'
     call find_tree_node(CoordTest_D, iNode)
@@ -869,7 +874,7 @@ contains
 
     ! Refine another node
     if(DoTestMe)write(*,*)'nRoot=',nRoot
-    call refine_tree_node(nRoot-2)
+    call refine_tree_node(2)
 
     if(DoTestMe)call show_tree('after another refine_tree_node')
 
@@ -917,7 +922,7 @@ contains
     if(DoTestMe)call show_tree('after read_tree')
 
     call find_tree_node(CoordTest_D,iNode)
-    if(iNode /= nRoot)write(*,*)'ERROR: compact_tree faild, iNode=',&
+    if(iNode /= nRoot)write(*,*)'ERROR: compact_tree failed, iNode=',&
          iNode,' instead of',nRoot
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 4th'

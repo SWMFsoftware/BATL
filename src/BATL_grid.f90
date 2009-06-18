@@ -197,10 +197,10 @@ contains
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
 
     integer, parameter:: MaxBlockTest            = 50
-    integer, parameter:: nRootTest_D(MaxDim)     = (/1,2,3/)
+    integer, parameter:: nRootTest_D(MaxDim)     = (/3,2,1/)
     logical, parameter:: IsPeriodicTest_D(MaxDim)= (/.true., .true., .false./)
-    real:: DomainMin_D(MaxDim) = (/ 1.0, 2.0, 3.0 /)
-    real:: DomainMax_D(MaxDim) = (/ 4.0, 6.0, 9.0 /)
+    real:: DomainMin_D(MaxDim) = (/ 3.0, 2.0, 1.0 /)
+    real:: DomainMax_D(MaxDim) = (/ 9.0, 6.0, 4.0 /)
 
     logical:: DoTestMe
     character(len=*), parameter :: NameSub = 'test_grid'
@@ -214,7 +214,7 @@ contains
     call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
     call set_tree_root( nRootTest_D(1:nDim))
 
-    call refine_tree_node(6)
+    call refine_tree_node(3)
     call distribute_tree(.true.)
     if(DoTestMe) call show_tree('After distribute_tree')
 
