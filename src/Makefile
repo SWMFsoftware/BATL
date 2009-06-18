@@ -11,13 +11,14 @@ install:
 	touch Makefile.DEPEND
 
 OBJECTS = \
+	BATL_amr.o \
+	BATL_geometry.o \
+	BATL_grid.o \
 	BATL_lib.o  \
 	BATL_mpi.o  \
+	BATL_pass_cell.o \
 	BATL_size.o \
-	BATL_tree.o \
-	BATL_grid.o \
-	BATL_geometry.o \
-	BATL_pass_cell.o
+	BATL_tree.o
 
 ALLOBJECTS = \
 	${OBJECTS} \
