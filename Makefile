@@ -6,6 +6,7 @@ install:
 
 BATL:
 	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
 	cd src; make BATL
 
 ADVECT:
@@ -13,31 +14,52 @@ ADVECT:
 	cd ${TIMINGDIR}; make LIB
 	cd src; make ADVECT
 
-test:	test1 test2 test3
+test:	test11 test21 test22 test31 test32 test33
 	ls -l src/*.diff
 
 MPIRUN = mpirun -np 2
 
-test1:
+test11:
+	Config.pl -g=1,1,8
+	make BATL
+	cd src; ${MPIRUN} BATL.exe > test11.log
+	-@(cd src; diff test11.log test11.ref > test11.diff)
+	cd src; ls -l test11.diff
+
+test21:
+	Config.pl -g=2,1,8,4
+	make BATL
+	cd src; ${MPIRUN} BATL.exe > test21.log
+	-@(cd src; diff test21.log test21.ref > test21.diff)
+	cd src; ls -l test21.diff
+
+test22:
+	Config.pl -g=2,2,8,4
+	make BATL
+	cd src; ${MPIRUN} BATL.exe > test22.log
+	-@(cd src; diff test22.log test22.ref > test22.diff)
+	cd src; ls -l test22.diff
+
+test31:
 	Config.pl -g=3,1,8,4,2
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test1.log
-	-@(cd src; diff test1.log test1.ref > test1.diff)
-	cd src; ls -l test1.diff
+	cd src; ${MPIRUN} BATL.exe > test31.log
+	-@(cd src; diff test31.log test31.ref > test31.diff)
+	cd src; ls -l test31.diff
 
-test2:
+test32:
 	Config.pl -g=3,2,8,4,2
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test2.log
-	-@(cd src; diff test2.log test2.ref > test2.diff)
-	cd src; ls -l test2.diff
+	cd src; ${MPIRUN} BATL.exe > test32.log
+	-@(cd src; diff test32.log test32.ref > test32.diff)
+	cd src; ls -l test32.diff
 
-test3:
+test33:
 	Config.pl -g=3,3,8,4,2
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test3.log
-	-@(cd src; diff test3.log test3.ref > test3.diff)
-	cd src; ls -l test3.diff
+	cd src; ${MPIRUN} BATL.exe > test33.log
+	-@(cd src; diff test33.log test33.ref > test33.diff)
+	cd src; ls -l test33.diff
 
 rundir:
 	mkdir -p run/plots
