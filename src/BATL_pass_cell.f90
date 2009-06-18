@@ -271,8 +271,8 @@ contains
              if(iBufferR_P(iProcSend) == 0) CYCLE
              iRequestR = iRequestR + 1
 
-             write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
-                  iProc,iProcSend,iBufferR_P(iProcSend)
+             !write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
+             !     iProc,iProcSend,iBufferR_P(iProcSend)
 
              call MPI_irecv(BufferR_IP(1,iProcSend), iBufferR_P(iProcSend), &
                   MPI_REAL, iProcSend, 1, iComm, iRequestR_I(iRequestR), &
@@ -285,8 +285,8 @@ contains
              if(iBufferS_P(iProcRecv) == 0) CYCLE
              iRequestS = iRequestS + 1
 
-             write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
-                  iProcRecv,iProc,iBufferS_P(iProcRecv)
+             !write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
+             !     iProcRecv,iProc,iBufferS_P(iProcRecv)
 
              call MPI_isend(BufferS_IP(1,iProcRecv), iBufferS_P(iProcRecv), &
                   MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
@@ -330,7 +330,7 @@ contains
       kSMin = iEqualS_DII(3,kDir,Min_)
       kSMax = iEqualS_DII(3,kDir,Max_)
 
-      nSize = nVar*(iSMax-iSMin+1)*(jSMax-jSMin+1)*(kSMax-kSMin+1)
+      nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
 
       if(iSendRecv == Send_)then
          if(iProcSend == iProcRecv)then
@@ -385,7 +385,7 @@ contains
       kRMin = iRestrictR_DII(3,kRecv,Min_)
       kRMax = iRestrictR_DII(3,kRecv,Max_)
 
-      nSize = nVar*(iSMax-iSMin+1)*(jSMax-jSMin+1)*(kSMax-kSMin+1)
+      nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
 
       !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
       !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
@@ -474,7 +474,7 @@ contains
       kRMin = iProlongR_DII(3,kDir,Min_)
       kRMax = iProlongR_DII(3,kDir,Max_)
 
-      nSize = nVar*(iSMax-iSMin+1)*(jSMax-jSMin+1)*(kSMax-kSMin+1)
+      nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
 
       !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
       !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
