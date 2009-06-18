@@ -242,6 +242,8 @@ contains
     write(NameFile,'(a,i4.4,a)') trim(NameSnapshot)//'_pe',iProc,'.idl'
     open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
     do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+
        do k = 1, nK; do j = 1, nJ; do i = 1, nI
           write(UnitTmp_) CellSize_DB(1,iBlock), &
                Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock)
