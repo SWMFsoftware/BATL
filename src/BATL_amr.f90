@@ -39,39 +39,69 @@ contains
     integer :: iNodeSend, iNodeRecv, iProcSend, iProcRecv
     !-------------------------------------------------------------------------
 
-    do iSendRecv = Send_, Recv_
-       do iMorton = 1, nNodeUsed
-          iNodeSend = iNodePeano_I(iMorton)
+    do iMorton = 1, nNodeUsed
+       iNodeSend = iNodePeano_I(iMorton)
 
-          iStatus = iTree_IA(Status_,iNodeSend)
-          if(iStatus /= Coarsen_ .and. iStatus /= Refine_) CYCLE
+       iStatus = iTree_IA(Status_,iNodeSend)
+       if(iStatus /= Coarsen_ .and. iStatus /= Refine_) CYCLE
 
-          iProcSend = iTree_IA(Proc_,iNodeSend)
-          iProcRecv = iTree_IA(ProcNew_,iNodeSend)
+       ! put restricted and prolonged state into buffer
+       if(iStatus == Coarsen_)then
+          call coarsen_block_to_buffer
+       else
+          call refine_block_to_buffer
+       end if
+    end do
 
-          if(iSendRecv == Send_ .and. iProc == iProcSend)then
-             ! put restricted and prolonged state into buffer
-             if(iStatus == Coarsen_)then
-                call coarsen_block
-             else
-                call refine_block
-             end if
-          elseif(iSendRecv == Recv_ .and. iProc == iProcRecv)then
-             ! read buffers into state
-             call buffer_to_state
-          end if
+    ! message pass buffers
 
-       end do
-       if(iSendRecv == Recv_) EXIT
-       ! message pass buffers
+    do iMorton = 1, nNodeUsed
+       iNodeSend = iNodePeano_I(iMorton)
+
+       iStatus = iTree_IA(Status_,iNodeSend)
+       if(iStatus /= Coarsen_ .and. iStatus /= Refine_) CYCLE
+
+       ! put restricted and prolonged state into buffer
+       if(iStatus == Coarsen_)then
+          call buffer_to_coarse_block
+       else
+          call buffer_to_fine_block
+       end if
     end do
 
   contains
+
     !=========================================================================
-    subroutine coarsen_block
-    end subroutine coarsen_block
+    subroutine coarsen_block_to_buffer
+
+      integer :: i, j, k, iVar
+      !-----------------------------------------------------------------------
+      iProcRecv = iTree_IA(ProcNew_,iNodeSend)
+
+      iBufferS = iBufferS_P(iProcRecv)
+      do k = 1, nK, kRatio; do j = 1, nJ, jRatio; do i=1, nI, iRatio
+         do iVar = 1, nVar
+            BufferS_IP(iBufferS+iVar,iProcRecv) = &
+                 InvIjkRatio * &
+                 sum(State_VGB(iVar,i:i+iRatio-1,j:j+jRatio-1,k:k+kRatio-1,&
+                 iBlockSend))
+         end do
+         iBufferS = iBufferS + nVar
+      end do; end do; end do
+
+      iBufferR_P(iProcSend) = iBufferR_P(iProcSend) &
+           + iBufferS - iBufferS_P(iProcRecv)
+      iBufferS_P(iProcRecv) = iBufferS
+      
+    end subroutine coarsen_block_to_buffer
     !=========================================================================
     subroutine refine_block
+
+      iNodeParent = iTree_IA(Parent_,iNodeSend)
+      iNodeChild1 = iTree_IA(Child1_,iNodeSend)
+      iProcRecv   = iTree_IA(Proc_,iNodeChild1)
+
+
     end subroutine refine_block
     !=========================================================================
     subroutine buffer_to_state
