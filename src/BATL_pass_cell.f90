@@ -4,7 +4,7 @@ module BATL_pass_cell
 
   use BATL_size, ONLY: MaxBlock, &
        nI, nJ, nK, nIjk_D, nG, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
-       MaxDim, nDim, nDimAmr
+       MaxDim, nDim, nDimAmr, iRatio, jRatio, kRatio, iRatio_D, InvIjkRatio
 
   use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
 
@@ -32,15 +32,6 @@ module BATL_pass_cell
   integer:: iProlongR_DII(MaxDim,-1:1,Min_:Max_)
 
   integer :: nWidth
-
-  ! Refinement ratios in the 3 dimensions (depends on nDimAmr!)
-  integer, parameter:: &
-       iRatio = 2, jRatio = min(2,nDimAmr), kRatio = max(1,nDimAmr-1)
-
-  integer, parameter:: iRatio_D(MaxDim) = (/ iRatio, jRatio, kRatio /)
-  
-  ! Inverse volume ratio for Cartesian case !!!
-  real, parameter:: InvIjkRatio = 1.0/(iRatio*jRatio*kRatio)
 
 contains
 

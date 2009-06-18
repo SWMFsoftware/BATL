@@ -18,7 +18,7 @@ module BATL_size
   integer :: nBlock = 0
 
   ! Number of cells per block in each direction
-  integer, parameter :: nI = 8, nJ = 8, nK = 1
+  integer, parameter :: nI = 8, nJ = 4, nK = 2
 
   ! Array for block size
   integer, parameter:: &
@@ -31,6 +31,16 @@ module BATL_size
        MinI = 1 - nG, MaxI = nI + nG, &
        MinJ = 1 - nG, MaxJ = nJ + nG, &
        MinK = 1 - nG, MaxK = nK + nG
+
+  ! Refinement ratios in the 3 dimensions (depends on nDimAmr)
+  integer, parameter:: &
+       iRatio = 2, jRatio = min(2,nDimAmr), kRatio = max(1,nDimAmr-1)
+
+  ! Array of refinement ratios
+  integer, parameter:: iRatio_D(MaxDim) = (/ iRatio, jRatio, kRatio /)
+  
+  ! Inverse volume ratio for Cartesian case
+  real, parameter:: InvIjkRatio = 1.0/(iRatio*jRatio*kRatio)
 
 end module BATL_size
 
