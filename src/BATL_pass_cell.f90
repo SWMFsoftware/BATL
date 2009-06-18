@@ -311,9 +311,26 @@ contains
   contains
 
     !==========================================================================
+    subroutine buffer_to_state
+
+      ! Copy buffer into recv block of State_VGB
+
+      integer:: iBufferR, i, j, k
+      !-----------------------------------------------------------------------
+      
+      iBufferR = iBufferR_P(iProcSend)
+      do k = kRMin, kRmax; do j = jRMin, jRMax; do i = iRMin, iRmax
+         State_VGB(:,i,j,k,iBlockRecv) = &
+              BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
+         iBufferR = iBufferR + nVar
+      end do; end do; end do
+      iBufferR_P(iProcSend) = iBufferR
+
+    end subroutine buffer_to_state
+    !==========================================================================
     subroutine do_equal
 
-      integer :: iBufferS, iBufferR, i, j, k, nSize
+      integer :: iBufferS, i, j, k, nSize
       !------------------------------------------------------------------------
 
       iRMin = iEqualR_DII(1,iDir,Min_)
@@ -339,7 +356,7 @@ contains
          else
             iBufferS = iBufferS_P(iProcRecv)
             if(iProc == iProcSend)then
-               do k=kSMin,kSmax; do j=jSMin,jSMax; do i=iSMin,iSmax
+               do k = kSMin,kSmax; do j = jSMin,jSMax; do i = iSMin,iSmax
                   BufferS_IP(iBufferS+1:iBufferS+nVar,iProcRecv) = &
                        State_VGB(:,i,j,k,iBlockSend)
                   iBufferS = iBufferS + nVar
@@ -350,14 +367,7 @@ contains
             end if
          end if
       elseif(iProc == iProcRecv .and. iProc /= iProcSend)then ! Receive stage
-         iBufferR = iBufferR_P(iProcSend)
-
-         do k=kRMin,kRmax; do j=jRMin,jRMax; do i=iRMin,iRmax
-            State_VGB(:,i,j,k,iBlockRecv) = &
-                 BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
-            iBufferR = iBufferR + nVar
-         end do; end do; end do
-         iBufferR_P(iProcSend) = iBufferR
+         call buffer_to_state
       end if
 
     end subroutine do_equal
@@ -367,7 +377,7 @@ contains
     subroutine do_restrict
 
       integer :: iR, jR, kR, iS1, jS1, kS1, iS2, jS2, kS2, iVar
-      integer :: iBufferS, iBufferR, nSize
+      integer :: iBufferS, nSize
       !-----------------------------------------------------------------------
       ! Sending range depends on iDir,jDir,kDir only
       iSMin = iRestrictS_DII(1,iDir,Min_)
@@ -440,13 +450,7 @@ contains
             end if
          end if 
       elseif(iProc == iProcRecv .and. iProc /= iProcSend)then ! Receive stage
-         iBufferR = iBufferR_P(iProcSend)
-         do kR=kRMin,kRmax; do jR=jRMin,jRMax; do iR=iRMin,iRmax
-            State_VGB(:,iR,jR,kR,iBlockRecv) = &
-                 BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
-            iBufferR = iBufferR + nVar
-         end do; end do; end do
-         iBufferR_P(iProcSend) = iBufferR
+         call buffer_to_state
       end if
 
     end subroutine do_restrict
@@ -456,7 +460,7 @@ contains
     subroutine do_prolong
 
       integer :: iR, jR, kR, iS, jS, kS
-      integer :: iBufferS, iBufferR, nSize
+      integer :: iBufferS, nSize
       !-----------------------------------------------------------------------
       ! Sending range depends on iDir,jDir,kDir only
       iSMin = iProlongS_DII(1,iSend,Min_)
@@ -516,14 +520,7 @@ contains
             end if
          end if
       elseif(iProc == iProcRecv .and. iProc /= iProcSend)then ! Receive stage
-         iBufferR = iBufferR_P(iProcSend)
-
-         do kR=kRMin,kRmax; do jR=jRMin,jRMax; do iR=iRMin,iRmax
-            State_VGB(:,iR,jR,kR,iBlockRecv) = &
-                 BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
-            iBufferR = iBufferR + nVar
-         end do; end do; end do
-         iBufferR_P(iProcSend) = iBufferR
+         call buffer_to_state
       end if
 
     end subroutine do_prolong
