@@ -30,20 +30,20 @@ DEPEND:
 
 BATL:
 	make DEPEND
-	make BATL.exe
+	make ${BINDIR}/BATL.exe
 
-BATL.exe: main.o ${OBJECTS}
-	${LINK.f90} -o BATL.exe main.o ${OBJECTS} \
+${BINDIR}/BATL.exe: main.o ${OBJECTS}
+	${LINK.f90} -o ${BINDIR}/BATL.exe main.o ${OBJECTS} \
 		-L${LIBDIR} -lSHARE -lTIMING ${Lflag1}
 
 ADVECT:
 	make DEPEND
-	make ADVECT.exe
+	make ${BINDIR}/ADVECT.exe
 
-ADVECT.exe: advect_main.o ${OBJECTS}
-	${LINK.f90} -o ADVECT.exe advect_main.o ${OBJECTS} \
+${BINDIR}/ADVECT.exe: advect_main.o ${OBJECTS}
+	${LINK.f90} -o ${BINDIR}/ADVECT.exe advect_main.o ${OBJECTS} \
 		-L${LIBDIR} -lSHARE -lTIMING ${Lflag1}
 
 distclean: clean
-	rm -f *.log *.diff *.rst BATL_size.f90 Makefile.DEPEND
+	rm -f BATL_size.f90 Makefile.DEPEND
 
