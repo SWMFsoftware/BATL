@@ -4,13 +4,13 @@ module BATL_amr
 
   use BATL_size, ONLY: MaxBlock, &
        nI, nJ, nK, nIjk_D, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
-       MaxDim, nDim, nDimAmr
+       MaxDim, nDim, nDimAmr, iRatio, jRatio, kRatio, InvIjkRatio
 
   use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
 
   use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
        iTree_IA, Proc_, Block_, ProcNew_, BlockNew_, &
-       Coord1_, Coord2_, Coord3_, Status_, Refine_, Coarsen_
+       Coord1_, Coord2_, Coord3_, Status_, Refine_, RefineNew_, Coarsen_
 
   use ModMpi
 
@@ -22,7 +22,13 @@ module BATL_amr
 
   public do_amr
 
-  integer :: nWidth
+  integer :: iProcSend, iProcRecv
+  integer :: MaxBuffer
+  integer, allocatable:: iBufferR_P(:), iBufferS_P(:)
+  real, allocatable:: BufferR_IP(:,:), BufferS_IP(:,:)
+
+  integer:: iRequestR, iRequestS, iError
+  integer, allocatable:: iRequestR_I(:), iRequestS_I(:), iStatus_II(:,:)
 
 contains
 
@@ -36,21 +42,43 @@ contains
 
     integer, parameter:: Send_=1, Recv_=2
     integer :: iSendRecv, iMorton, iStatus
-    integer :: iNodeSend, iNodeRecv, iProcSend, iProcRecv
+    integer :: iNodeSend, iNodeRecv, iProcSend, iProcRecv, iBlockSend
     !-------------------------------------------------------------------------
+
+    ! Small arrays are allocated once 
+    if(.not.allocated(iBufferR_P))then
+       allocate(iBufferR_P(0:nProc-1), iBufferS_P(0:nProc-1))
+       allocate(iRequestR_I(nProc-1), iRequestS_I(nProc-1))
+       allocate(iStatus_II(MPI_STATUS_SIZE,nProc-1))
+    end if
+
+    ! Big arrays are allocated and deallocated every time (for now)
+    MaxBuffer = nVar*MaxBlock*nI*nJ*nK
+    call timing_start('msg_allocate')
+    allocate(BufferR_IP(MaxBuffer,0:nProc-1))
+    allocate(BufferS_IP(MaxBuffer,0:nProc-1))
+    call timing_stop('msg_allocate')
 
     do iMorton = 1, nNodeUsed
        iNodeSend = iNodePeano_I(iMorton)
 
        iStatus = iTree_IA(Status_,iNodeSend)
-       if(iStatus /= Coarsen_ .and. iStatus /= Refine_) CYCLE
 
        ! put restricted and prolonged state into buffer
+       if(iStatus /= Coarsen_ .and. iStatus /= RefineNew_) CYCLE
+
+       iProcSend = iTree_IA(Proc_,iNodeSend)
+       iProcRecv = iTree_IA(ProcNew_,iNodeSend)
+       if(iProc /= iProcSend .and. iProc /= iProcRecv) CYCLE
+
+       iBlockSend = iTree_IA(Block_,iNodeSend)
+
        if(iStatus == Coarsen_)then
           call coarsen_block_to_buffer
        else
           call refine_block_to_buffer
        end if
+
     end do
 
     ! message pass buffers
@@ -59,7 +87,11 @@ contains
        iNodeSend = iNodePeano_I(iMorton)
 
        iStatus = iTree_IA(Status_,iNodeSend)
-       if(iStatus /= Coarsen_ .and. iStatus /= Refine_) CYCLE
+       if(iStatus /= Coarsen_ .and. iStatus /= RefineNew_) CYCLE
+
+       iProcSend = iTree_IA(Proc_,iNodeSend)
+       iProcRecv = iTree_IA(ProcNew_,iNodeSend)
+       if(iProc /= iProcSend .and. iProc /= iProcRecv) CYCLE
 
        ! put restricted and prolonged state into buffer
        if(iStatus == Coarsen_)then
@@ -69,12 +101,14 @@ contains
        end if
     end do
 
+    deallocate(BufferR_IP, BufferS_IP)
+
   contains
 
     !=========================================================================
     subroutine coarsen_block_to_buffer
 
-      integer :: i, j, k, iVar
+      integer :: i, j, k, iVar, iBufferS
       !-----------------------------------------------------------------------
       iProcRecv = iTree_IA(ProcNew_,iNodeSend)
 
@@ -95,17 +129,15 @@ contains
       
     end subroutine coarsen_block_to_buffer
     !=========================================================================
-    subroutine refine_block
+    subroutine refine_block_to_buffer
 
-      iNodeParent = iTree_IA(Parent_,iNodeSend)
-      iNodeChild1 = iTree_IA(Child1_,iNodeSend)
-      iProcRecv   = iTree_IA(Proc_,iNodeChild1)
-
-
-    end subroutine refine_block
+    end subroutine refine_block_to_buffer
     !=========================================================================
-    subroutine buffer_to_state
-    end subroutine buffer_to_state
+    subroutine buffer_to_coarse_block
+    end subroutine buffer_to_coarse_block
+    !=========================================================================
+    subroutine buffer_to_fine_block
+    end subroutine buffer_to_fine_block
 
   end subroutine do_amr
 
