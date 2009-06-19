@@ -157,9 +157,9 @@ contains
   integer function i_node_new()
 
     ! Find a skipped element in the iTree_IA array
-
+    
     integer :: iNode
-
+    !-----------------------------------------------------------------------
     do iNode = 1, MaxNode
        if(iTree_IA(Status_, iNode) == Unset_)then
           i_node_new = iNode
@@ -167,7 +167,7 @@ contains
        end if
     end do
     ! Could not find any skipped node
-    i_node_new = -1
+    call CON_stop('i_node_new: ran out of nodes')
 
   end function i_node_new
 
