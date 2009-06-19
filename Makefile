@@ -26,7 +26,7 @@ ADVECT: bin run
 	cd src; make ADVECT
 
 test:	test11 test21 test22 test31 test32 test33
-	ls -l src/*.diff
+	ls -l *.diff
 
 MPIRUN = mpirun -np 2
 
@@ -80,8 +80,8 @@ test_advect22:
 	make test_advect22_check
 
 test_advect22_check:
-	-@(${SCRIPTDIR}/DiffNum.pl \
-		-r=1.e-8 run/advect22.log src/advect22.ref > advect22.diff)
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect22.log src/advect22.ref > advect22.diff)
 	ls -l advect22.diff
 
 clean:
