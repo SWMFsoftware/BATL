@@ -4,12 +4,23 @@ install:
 	touch src/Makefile.DEPEND
 	cp -f src/BATL_size_orig.f90 src/BATL_size.f90
 
-BATL:
+bin:
+	mkdir -p bin
+
+run:
+	mkdir -p run/plots
+	cd run; \
+		ln -s ${BINDIR}/ADVECT.exe .; \
+		ln -s ${BINDIR}/BATL.exe .; \
+		ln -s ${BINDIR}/PostIDL.exe .; \
+		ln -s ${BINDIR}/pIDL .
+
+BATL:	bin run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
 	cd src; make BATL
 
-ADVECT:
+ADVECT: bin run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
 	cd src; make ADVECT
@@ -22,54 +33,49 @@ MPIRUN = mpirun -np 2
 test11:
 	Config.pl -g=1,1,8
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test11.log
-	-@(cd src; diff test11.log test11.ref > test11.diff)
-	cd src; ls -l test11.diff
+	cd run; ${MPIRUN} BATL.exe > test11.log
+	-@(diff run/test11.log src/test11.ref > test11.diff)
+	ls -l test11.diff
 
 test21:
 	Config.pl -g=2,1,8,4
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test21.log
-	-@(cd src; diff test21.log test21.ref > test21.diff)
-	cd src; ls -l test21.diff
+	cd run; ${MPIRUN} BATL.exe > test21.log
+	-@(diff run/test21.log src/test21.ref > test21.diff)
+	ls -l test21.diff
 
 test22:
 	Config.pl -g=2,2,8,4
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test22.log
-	-@(cd src; diff test22.log test22.ref > test22.diff)
-	cd src; ls -l test22.diff
+	cd run; ${MPIRUN} BATL.exe > test22.log
+	-@(diff run/test22.log src/test22.ref > test22.diff)
+	ls -l test22.diff
 
 test31:
 	Config.pl -g=3,1,8,4,2
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test31.log
-	-@(cd src; diff test31.log test31.ref > test31.diff)
-	cd src; ls -l test31.diff
+	cd run; ${MPIRUN} BATL.exe > test31.log
+	-@(diff run/test31.log src/test31.ref > test31.diff)
+	ls -l test31.diff
 
 test32:
 	Config.pl -g=3,2,8,4,2
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test32.log
-	-@(cd src; diff test32.log test32.ref > test32.diff)
-	cd src; ls -l test32.diff
+	cd run; ${MPIRUN} BATL.exe > test32.log
+	-@(diff run/test32.log src/test32.ref > test32.diff)
+	ls -l test32.diff
 
 test33:
 	Config.pl -g=3,3,8,4,2
 	make BATL
-	cd src; ${MPIRUN} BATL.exe > test33.log
-	-@(cd src; diff test33.log test33.ref > test33.diff)
-	cd src; ls -l test33.diff
-
-rundir:
-	mkdir -p run/plots
-	cd run; ln -s ../src/ADVECT.exe .;
+	cd run; ${MPIRUN} BATL.exe > test33.log
+	-@(diff run/test33.log src/test33.ref > test33.diff)
+	ls -l test33.diff
 
 test_advect22: 
 	Config.pl -g=2,2,80,40
 	make ADVECT
-	rm -rf run
-	make rundir
+	rm -rf run/plots/* run/runlog run/advect22.log
 	cd run; ${MPIRUN} ADVECT.exe > runlog
 	make test_advect22_check
 
@@ -85,5 +91,5 @@ clean:
 allclean:
 	touch src/Makefile.DEPEND
 	cd src; make distclean
-	rm -rf run *.diff
+	rm -rf run bin *.diff
 
