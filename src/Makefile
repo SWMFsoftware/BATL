@@ -34,7 +34,7 @@ BATL:
 
 ${BINDIR}/BATL.exe: main.o ${OBJECTS}
 	${LINK.f90} -o ${BINDIR}/BATL.exe main.o ${OBJECTS} \
-		-L${LIBDIR} -lSHARE -lTIMING ${Lflag1}
+		-L${LIBDIR} -lTIMING -lSHARE ${Lflag1}
 
 ADVECT:
 	make DEPEND
@@ -42,7 +42,7 @@ ADVECT:
 
 ${BINDIR}/ADVECT.exe: advect_main.o ${OBJECTS}
 	${LINK.f90} -o ${BINDIR}/ADVECT.exe advect_main.o ${OBJECTS} \
-		-L${LIBDIR} -lSHARE -lTIMING ${Lflag1}
+		-L${LIBDIR} -lTIMING -lSHARE ${Lflag1}
 
 distclean: clean
 	rm -f BATL_size.f90 Makefile.DEPEND
