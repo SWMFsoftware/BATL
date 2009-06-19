@@ -34,42 +34,48 @@ test11:
 	Config.pl -g=1,1,8
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test11.log
-	-@(diff run/test11.log src/test11.ref > test11.diff)
+	-@(${SCRIPTDIR}/DiffNum.pl -b \
+		run/test11.log src/test11.ref > test11.diff)
 	ls -l test11.diff
 
 test21:
 	Config.pl -g=2,1,8,4
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test21.log
-	-@(diff run/test21.log src/test21.ref > test21.diff)
+	-@(${SCRIPTDIR}/DiffNum.pl -b \
+		run/test21.log src/test21.ref > test21.diff)
 	ls -l test21.diff
 
 test22:
 	Config.pl -g=2,2,8,4
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test22.log
-	-@(diff run/test22.log src/test22.ref > test22.diff)
+	-@(${SCRIPTDIR}/DiffNum.pl -b \
+		run/test22.log src/test22.ref > test22.diff)
 	ls -l test22.diff
 
 test31:
 	Config.pl -g=3,1,8,4,2
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test31.log
-	-@(diff run/test31.log src/test31.ref > test31.diff)
+	-@(${SCRIPTDIR}/DiffNum.pl -b \
+		run/test31.log src/test31.ref > test31.diff)
 	ls -l test31.diff
 
 test32:
 	Config.pl -g=3,2,8,4,2
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test32.log
-	-@(diff run/test32.log src/test32.ref > test32.diff)
+	-@(${SCRIPTDIR}/DiffNum.pl -b \
+		run/test32.log src/test32.ref > test32.diff)
 	ls -l test32.diff
 
 test33:
 	Config.pl -g=3,3,8,4,2
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test33.log
-	-@(diff run/test33.log src/test33.ref > test33.diff)
+	-@(${SCRIPTDIR}/DiffNum.pl -b \
+		run/test33.log src/test33.ref > test33.diff)
 	ls -l test33.diff
 
 test_advect22: 
