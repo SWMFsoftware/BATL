@@ -1,3 +1,9 @@
+bin
+run
 Makefile.def
 Makefile.conf
 share
+util
+*.diff
+
+
