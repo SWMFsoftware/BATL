@@ -225,6 +225,7 @@ contains
 
     if(DoTestMe) write(*,*)'Testing clean_grid'
     call clean_grid
+    call clean_tree
     
   end subroutine test_grid
 
