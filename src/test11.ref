@@ -185,3 +185,27 @@
  Xyz( 1, 1,nK)=   8.0625000000000000   0.0000000000000000   0.0000000000000000
  Xyz(nI,nJ,nK)=   8.9375000000000000   0.0000000000000000   0.0000000000000000
  Testing clean_grid
+ Starting test_pass_cell
+ test_pass_cell
+ iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
+      1     -1      0   -100   -100   -100   -100      1      1      1   -100      3      4
+      2      1      0      1      1      1      1      2      1      1   -100   -100   -100
+      3      1      1      0      1      0      1      1      1      1      1   -100   -100
+      4      1      1      0      2      0      2      2      1      1      1   -100   -100
+ nNode, nNodeUsed, nBlock= 4 3 2
+ iNodePeano_I = 3 4 2
+ IsPeriodic_D = T F F
+ DiLevelNei_IIIA(:,0,0,First)= 1 0 0
+ DiLevelNei_IIIA(0,:,0,First)= -100 0 -100
+ DiLevelNei_IIIA(0,0,:,First)= -100 0 -100
+ iNodeNei_IIIA(:,1,1,  First)= 2 3 3 4
+ iNodeNei_IIIA(1,:,1,  First)= -100 3 3 -100
+ iNodeNei_IIIA(1,1,:,  First)= -100 3 3 -100
+ DiLevelNei_IIIA(:,0,0, Last)= -1 0 -1
+ DiLevelNei_IIIA(0,:,0, Last)= -100 0 -100
+ DiLevelNei_IIIA(0,0,:, Last)= -100 0 -100
+ iNodeNei_IIIA(:,1,1,   Last)= 4 2 2 3
+ iNodeNei_IIIA(1,:,1,   Last)= -100 2 2 -100
+ iNodeNei_IIIA(1,1,:,   Last)= -100 2 2 -100
+ testing message_pass_cell with nProlongOrder= 1  DoSendCorner= F
+ testing message_pass_cell with nProlongOrder= 1  DoSendCorner= T

@@ -1,8 +1,9 @@
 program BATL_test
 
-  use BATL_mpi,  ONLY: init_mpi
-  use BATL_tree, ONLY: test_tree
-  use BATL_grid, ONLY: test_grid
+  use BATL_mpi,       ONLY: init_mpi
+  use BATL_tree,      ONLY: test_tree
+  use BATL_grid,      ONLY: test_grid
+  use BATL_pass_cell, ONLY: test_pass_cell
   use ModMpi
 
   implicit none
@@ -13,6 +14,7 @@ program BATL_test
   call init_mpi(MPI_COMM_WORLD)
   call test_tree
   call test_grid
+  call test_pass_cell
   call MPI_finalize(iError)
   
 end program BATL_test
