@@ -2,19 +2,6 @@
 
 module BATL_pass_cell
 
-  use BATL_size, ONLY: MaxBlock, &
-       nI, nJ, nK, nIjk_D, nG, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
-       MaxDim, nDim, nDimAmr, iRatio, jRatio, kRatio, iRatio_D, InvIjkRatio
-
-  use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
-
-  use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
-       iNodeNei_IIIA, DiLevelNei_IIIA, &
-       iTree_IA, Proc_, Block_, Coord1_, Coord2_, Coord3_, Status_, &
-       Unset_, Unused_
-
-  use ModMpi
-
   implicit none
 
   SAVE
@@ -22,22 +9,25 @@ module BATL_pass_cell
   private ! except
 
   public message_pass_cell
-
-  integer, parameter:: Min_=1, Max_=2
-  integer:: iEqualS_DII(MaxDim,-1:1,Min_:Max_)
-  integer:: iEqualR_DII(MaxDim,-1:1,Min_:Max_)
-  integer:: iRestrictS_DII(MaxDim,-1:1,Min_:Max_)
-  integer:: iRestrictR_DII(MaxDim,0:3,Min_:Max_)
-  integer:: iProlongS_DII(MaxDim,0:3,Min_:Max_)
-  integer:: iProlongR_DII(MaxDim,-1:1,Min_:Max_)
-
-  integer :: nWidth
+  public test_pass_cell
 
 contains
 
   subroutine message_pass_cell(nVar, State_VGB, &
        nWidthIn, nProlongOrderIn, nCoarseLayerIn, DoSendCornerIn, &
        DoRestrictFaceIn)
+
+    use BATL_size, ONLY: MaxBlock, &
+         nI, nJ, nK, nIjk_D, nG, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
+         MaxDim, nDim, nDimAmr, iRatio, jRatio, kRatio, iRatio_D, InvIjkRatio
+
+    use BATL_mpi, ONLY: iComm, nProc, iProc
+
+    use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
+         iNodeNei_IIIA, DiLevelNei_IIIA, &
+         iTree_IA, Proc_, Block_, Coord1_, Coord2_, Coord3_
+
+    use ModMpi
 
     ! Arguments
     integer, intent(in) :: nVar
@@ -53,9 +43,10 @@ contains
 
     ! Local variables
 
-    logical :: DoSendCorner
-    integer :: nProlongOrder
+    integer :: nWidth
     integer :: nCoarseLayer
+    integer :: nProlongOrder
+    logical :: DoSendCorner
     logical :: DoRestrictFace
     character(len=*), parameter:: NameSub = 'BATL_pass_cell::message_pass_cell'
 
@@ -67,6 +58,15 @@ contains
     integer :: iDir, jDir, kDir
     integer :: iNodeRecv, iNodeSend
     integer :: iBlockRecv, iProcRecv, iBlockSend, iProcSend, DiLevel
+
+    ! Fast lookup tables for index ranges per dimension
+    integer, parameter:: Min_=1, Max_=2
+    integer:: iEqualS_DII(MaxDim,-1:1,Min_:Max_)
+    integer:: iEqualR_DII(MaxDim,-1:1,Min_:Max_)
+    integer:: iRestrictS_DII(MaxDim,-1:1,Min_:Max_)
+    integer:: iRestrictR_DII(MaxDim,0:3,Min_:Max_)
+    integer:: iProlongS_DII(MaxDim,0:3,Min_:Max_)
+    integer:: iProlongR_DII(MaxDim,0:3,Min_:Max_)
 
     ! Index range for recv and send segments of the blocks
     integer :: iRMin, iRMax, jRMin, jRMax, kRMin, kRMax
@@ -97,8 +97,7 @@ contains
     nCoarseLayer = 1
     if(present(nCoarseLayerIn)) nCoarseLayer = nCoarseLayerIn
 
-!!!    DoSendCorner = .true.
-    DoSendCorner = .false.
+    DoSendCorner = .true.
     if(present(DoSendCornerIn)) DoSendCorner = DoSendCornerIn
 
     DoRestrictFace = .false.
@@ -129,8 +128,6 @@ contains
        ! second stage uses these to prolong and fill in finer ghost cells
 
        do iSendRecv = Send_, Recv_
-
-          !write(*,*)'!!! iSendRecv =',iSendRecv
 
           ! For serial run there is no need for Recv_ stage
           if(nProc==1 .and. iSendRecv == Recv_) CYCLE
@@ -222,12 +219,17 @@ contains
                            (iProlongOrder == 1 .and. DiLevel == -1) .or. &
                            (iProlongOrder == 2 .and. DiLevel >=  0)) CYCLE
 
-                      !write(*,*)'!!! iNodeS/R, iProcS/R, iBlockS/R=',&
-                      !     iNodeSend, iNodeRecv, iProcSend, iProcRecv, &
-                      !     iBlockSend, iBlockRecv
+                      !   write(*,*)'!!! iNodeS/R, iProcS/R, iBlockS/R=',&
+                      !        iNodeSend, iNodeRecv, iProcSend, iProcRecv, &
+                      !        iBlockSend, iBlockRecv
                       !
-                      !write(*,*)'!!! iProc,i,j,kSend, i,j,kDir=',&
-                      !     iProc,iSend,jSend,kSend,iDir,jDir,kDir
+                      !   write(*,*)'!!! iProc,i,j,kSend, i,j,kDir=',&
+                      !        iProc,iSend,jSend,kSend,iDir,jDir,kDir
+                      !
+                      !   write(*,*)'!!! DiLevel=',DiLevel
+                      !   write(*,*)' iDir, jDir, kDir=',iDir, jDir, kDir
+                      !   write(*,*)' DiRecv, DjRecv, DkRecv=',&
+                      !        DiRecv, DjRecv, DkRecv
 
                       if(DiLevel == 0)then
                          call timing_start('do_equal')
@@ -238,10 +240,10 @@ contains
                          ! of the sibling.
                          if(iDir == -1 .and. DiRecv==1) CYCLE
                          if(iDir == +1 .and. DiRecv==0) CYCLE
-                         if(jDir == -1 .and. DjRecv==1) CYCLE
-                         if(jDir == +1 .and. DjRecv==0) CYCLE
-                         if(kDir == -1 .and. DkRecv==1) CYCLE
-                         if(kDir == +1 .and. DkRecv==0) CYCLE
+                         if(jDir == -1 .and. DjRecv==1 .and. nDimAmr>1) CYCLE
+                         if(jDir == +1 .and. DjRecv==0 .and. nDimAmr>1) CYCLE
+                         if(kDir == -1 .and. DkRecv==1 .and. nDimAmr>2) CYCLE
+                         if(kDir == +1 .and. DkRecv==0 .and. nDimAmr>2) CYCLE
 
                          call do_restrict
                       else
@@ -293,7 +295,7 @@ contains
                call MPI_waitall(iRequestS, iRequestS_I, iStatus_II, iError)
 
           call timing_stop('send_recv')
-          
+
        end do ! iSendRecv
     end do ! iProlongOrder
 
@@ -308,7 +310,7 @@ contains
 
       integer:: iBufferR, i, j, k
       !-----------------------------------------------------------------------
-      
+
       iBufferR = iBufferR_P(iProcSend)
       do k = kRMin, kRmax; do j = jRMin, jRMax; do i = iRMin, iRmax
          State_VGB(:,i,j,k,iBlockRecv) = &
@@ -388,12 +390,17 @@ contains
 
       nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
 
-      !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
-      !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
+      !if(iNodeSend==5 .and. iNodeRecv==3)then
+      !   write(*,*)'iDir, jDir, kDir =',iDir, jDir, kDir
+      !   write(*,*)'iRecv,jRecv,kRecv=',iRecv,jRecv,kRecv
       !
-      !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
-      !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
-      
+      !   write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
+      !        iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
+      !
+      !   write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
+      !        iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
+      !end if
+
       if(iSendRecv == Send_)then
          if(iProcSend == iProcRecv)then
             do kR=kRMin,kRMax
@@ -439,7 +446,7 @@ contains
             else
                iBufferR_P(iProcSend) = iBufferR_P(iProcSend) + nSize
             end if
-         end if 
+         end if
       elseif(iProc == iProcRecv .and. iProc /= iProcSend)then ! Receive stage
          call buffer_to_state
       end if
@@ -462,20 +469,24 @@ contains
       kSMax = iProlongS_DII(3,kSend,Max_)
 
       ! Receiving range depends on iRecv,kRecv,jRecv = 0..3
-      iRMin = iProlongR_DII(1,iDir,Min_)
-      iRMax = iProlongR_DII(1,iDir,Max_)
-      jRMin = iProlongR_DII(2,jDir,Min_)
-      jRMax = iProlongR_DII(2,jDir,Max_)
-      kRMin = iProlongR_DII(3,kDir,Min_)
-      kRMax = iProlongR_DII(3,kDir,Max_)
+      iRMin = iProlongR_DII(1,iSend,Min_)
+      iRMax = iProlongR_DII(1,iSend,Max_)
+      jRMin = iProlongR_DII(2,jSend,Min_)
+      jRMax = iProlongR_DII(2,jSend,Max_)
+      kRMin = iProlongR_DII(3,kSend,Min_)
+      kRMax = iProlongR_DII(3,kSend,Max_)
 
       nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
 
-      !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
-      !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
+      !if(iNodeSend == 3 .and. iNodeRecv == 6)then
+      !   write(*,*)'iRecv, jRecv, kRecv=',iRecv, jRecv, kRecv
       !
-      !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
-      !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
+      !   write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
+      !        iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
+      !   
+      !   write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
+      !        iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
+      !end if
 
       if(iSendRecv == Send_)then
          if(iProcSend == iProcRecv)then
@@ -516,63 +527,209 @@ contains
 
     end subroutine do_prolong
 
+    !==========================================================================
+    subroutine set_range
+
+      integer:: nWidthProlongS_D(MaxDim)
+      !-----------------------------------------------------------------------
+
+      ! Indexed by iDir/jDir/kDir for sender = -1,0,1
+      iEqualS_DII(:,-1,Min_) = 1
+      iEqualS_DII(:,-1,Max_) = nWidth
+      iEqualS_DII(:, 0,Min_) = 1
+      iEqualS_DII(:, 0,Max_) = nIjk_D
+      iEqualS_DII(:, 1,Min_) = nIjk_D + 1 - nWidth
+      iEqualS_DII(:, 1,Max_) = nIjk_D
+
+      ! Indexed by iDir/jDir/kDir for sender = -1,0,1
+      iEqualR_DII(:,-1,Min_) = nIjk_D + 1
+      iEqualR_DII(:,-1,Max_) = nIjk_D + nWidth
+      iEqualR_DII(:, 0,Min_) = 1
+      iEqualR_DII(:, 0,Max_) = nIjk_D
+      iEqualR_DII(:, 1,Min_) = 1 - nWidth
+      iEqualR_DII(:, 1,Max_) = 0
+
+      ! Indexed by iDir/jDir/kDir for sender = -1,0,1
+      iRestrictS_DII(:,-1,Min_) = 1
+      iRestrictS_DII(:,-1,Max_) = iRatio_D*nWidth
+      iRestrictS_DII(:, 0,Min_) = 1
+      iRestrictS_DII(:, 0,Max_) = nIjk_D
+      iRestrictS_DII(:, 1,Min_) = nIjk_D + 1 - iRatio_D*nWidth
+      iRestrictS_DII(:, 1,Max_) = nIjk_D
+
+      ! Indexed by iRecv/jRecv/kRecv = 0..3
+      iRestrictR_DII(:,0,Min_) = 1 - nWidth
+      iRestrictR_DII(:,0,Max_) = 0
+      iRestrictR_DII(:,1,Min_) = 1
+      iRestrictR_DII(:,1,Max_) = nIjk_D/iRatio_D
+      iRestrictR_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
+      iRestrictR_DII(:,2,Max_) = nIjk_D
+      iRestrictR_DII(:,3,Min_) = nIjk_D + 1
+      iRestrictR_DII(:,3,Max_) = nIjk_D + nWidth
+
+      ! number of cells sent from fine block. Rounded up.
+      nWidthProlongS_D = 1 + (nWidth-1)/iRatio_D
+
+      ! Indexed by iSend/jSend,kSend = 0..3
+      iProlongS_DII(:,0,Min_) = 1
+      iProlongS_DII(:,0,Max_) = nWidthProlongS_D
+      iProlongS_DII(:,1,Min_) = 1
+      iProlongS_DII(:,1,Max_) = nIjk_D/iRatio_D
+      iProlongS_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
+      iProlongS_DII(:,2,Max_) = nIjk_D
+      iProlongS_DII(:,3,Min_) = nIjk_D + 1 - nWidthProlongS_D
+      iProlongS_DII(:,3,Max_) = nIjk_D
+
+      if(DoSendCorner)then
+         ! Face + one edge or edge + one corner sent together 
+         ! from fine to coarse block
+         iProlongS_DII(:,1,Max_) = iProlongS_DII(:,1,Max_) + nWidthProlongS_D
+         iProlongS_DII(:,2,Min_) = iProlongS_DII(:,2,Min_) - nWidthProlongS_D
+      end if
+
+      ! Indexed by iSend/jSend/kSend = 0,1,2,3
+      iProlongR_DII(:, 3,Min_) = 1 - nWidth
+      iProlongR_DII(:, 3,Max_) = 0
+      iProlongR_DII(:, 1,Min_) = 1
+      iProlongR_DII(:, 1,Max_) = nIjk_D
+      iProlongR_DII(:, 2,Min_) = 1
+      iProlongR_DII(:, 2,Max_) = nIjk_D
+      iProlongR_DII(:, 0,Min_) = nIjk_D + 1
+      iProlongR_DII(:, 0,Max_) = nIjk_D + nWidth
+
+      if(DoSendCorner)then
+         ! Face + one edge or edge + one corner received together
+         ! from fine to coarse block
+         iProlongR_DII(:, 1,Max_) = iProlongR_DII(:, 1,Max_) + nWidth
+         iProlongR_DII(:, 2,Min_) = iProlongR_DII(:, 2,Min_) - nWidth
+      end if
+
+    end subroutine set_range
+
   end subroutine message_pass_cell
 
-  !============================================================================
-  subroutine set_range
+  !===========================================================================
+  subroutine test_pass_cell
 
-    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
-    iEqualS_DII(:,-1,Min_) = 1
-    iEqualS_DII(:,-1,Max_) = nWidth
-    iEqualS_DII(:, 0,Min_) = 1
-    iEqualS_DII(:, 0,Max_) = nIjk_D
-    iEqualS_DII(:, 1,Min_) = nIjk_D + 1 - nWidth
-    iEqualS_DII(:, 1,Max_) = nIjk_D
+    use BATL_mpi,  ONLY: iProc
+    use BATL_size, ONLY: MaxDim, nDim, nDimAmr, &
+         MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nI, nJ, nK, nBlock
+    use BATL_tree, ONLY: init_tree, set_tree_root, refine_tree_node, &
+         distribute_tree, show_tree, clean_tree, &
+         Unused_B, iNode_B, DiLevelNei_IIIA
+    use BATL_grid, ONLY: init_grid, create_grid, clean_grid, &
+         Xyz_DGB, CellSize_DB
+    use BATL_geometry, ONLY: init_geometry
 
-    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
-    iEqualR_DII(:,-1,Min_) = nIjk_D + 1
-    iEqualR_DII(:,-1,Max_) = nIjk_D + nWidth
-    iEqualR_DII(:, 0,Min_) = 1
-    iEqualR_DII(:, 0,Max_) = nIjk_D
-    iEqualR_DII(:, 1,Min_) = 1 - nWidth
-    iEqualR_DII(:, 1,Max_) = 0
+    integer, parameter:: MaxBlockTest            = 15
+    integer, parameter:: nRootTest_D(MaxDim)     = (/2,2,2/)
+    logical, parameter:: IsPeriodicTest_D(MaxDim)= .true.
+    real, parameter:: DomainMin_D(MaxDim) = (/ 1.0, 10.0, 100.0 /)
+    real, parameter:: DomainMax_D(MaxDim) = (/ 2.0, 20.0, 200.0 /)
+    real, parameter:: DomainSize_D(MaxDim) = DomainMax_D - DomainMin_D
 
-    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
-    iRestrictS_DII(:,-1,Min_) = 1
-    iRestrictS_DII(:,-1,Max_) = iRatio_D*nWidth
-    iRestrictS_DII(:, 0,Min_) = 1
-    iRestrictS_DII(:, 0,Max_) = nIjk_D
-    iRestrictS_DII(:, 1,Min_) = nIjk_D + 1 - iRatio_D*nWidth
-    iRestrictS_DII(:, 1,Max_) = nIjk_D
+    integer, parameter:: nVar = nDim
+    real, allocatable:: State_VGB(:,:,:,:,:)
 
-    ! Indexed by iRecv/jRecv/kRecv = 0..3
-    iRestrictR_DII(:,0,Min_) = 1 - nWidth
-    iRestrictR_DII(:,0,Max_) = 0
-    iRestrictR_DII(:,1,Min_) = 1
-    iRestrictR_DII(:,1,Max_) = nIjk_D/iRatio_D
-    iRestrictR_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
-    iRestrictR_DII(:,2,Max_) = nIjk_D
-    iRestrictR_DII(:,3,Min_) = nIjk_D + 1
-    iRestrictR_DII(:,3,Max_) = nIjk_D + nWidth
+    integer:: nProlongOrder
+    integer:: iSendCorner
+    logical:: DoSendCorner
 
-    ! Indexed by iSend/jSend,kSend = 0..3
-    iProlongS_DII(:,0,Min_) = 1
-    iProlongS_DII(:,0,Max_) = 1 + (nWidth-1)/iRatio_D ! rounding up
-    iProlongS_DII(:,1,Min_) = 1
-    iProlongS_DII(:,1,Max_) = nIjk_D/iRatio_D
-    iProlongS_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
-    iProlongS_DII(:,2,Max_) = nIjk_D
-    iProlongS_DII(:,3,Min_) = nIjk_D + 1 - (1+(nWidth-1)/iRatio_D)
-    iProlongS_DII(:,3,Max_) = nIjk_D
-    
-    ! Indexed by iDir/jDir/kDir for sender = -1,0,1
-    iProlongR_DII(:,-1,Min_) = nIjk_D + 1
-    iProlongR_DII(:,-1,Max_) = nIjk_D + nWidth
-    iProlongR_DII(:, 0,Min_) = 1
-    iProlongR_DII(:, 0,Max_) = nIjk_D
-    iProlongR_DII(:, 1,Min_) = 1 - nWidth
-    iProlongR_DII(:, 1,Max_) = 0
+    real:: Xyz_D(MaxDim), Tolerance_D(nDim)
+    integer:: iNode, iBlock, i, j, k, jMin, jMax, kMin, kMax, iDim
 
-  end subroutine set_range
+    logical:: DoTestMe
+    character(len=*), parameter :: NameSub = 'test_pass_cell'
+    !-----------------------------------------------------------------------
+    DoTestMe = iProc == 0
+
+    if(DoTestMe) write(*,*) 'Starting ',NameSub
+
+    call init_tree(MaxBlockTest)
+    call init_grid( DomainMin_D(1:nDim), DomainMax_D(1:nDim) )
+    call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
+    call set_tree_root( nRootTest_D(1:nDim))
+
+    call refine_tree_node(1)
+    call distribute_tree(.true.)
+    call create_grid
+
+    if(DoTestMe) call show_tree(NameSub,.true.)
+
+    allocate(State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlockTest))
+
+    jMin =  1; if(nDim > 1) jMin = MinJ
+    kMin =  1; if(nDim > 2) kMin = MinK
+    jMax = nJ; if(nDim > 1) jMax = MaxJ
+    kMax = nK; if(nDim > 2) kMax = MaxK
+
+
+    do nProlongOrder = 1,1; do iSendCorner = 1,2
+
+       DoSendCorner = iSendCorner == 2
+
+       if(DoTestMe)write(*,*) 'testing message_pass_cell with',&
+            ' nProlongOrder=',nProlongOrder, &
+            ' DoSendCorner=',DoSendCorner
+
+
+       State_VGB = 0.0
+
+       do iBlock = 1, nBlock
+          if(Unused_B(iBlock)) CYCLE
+          State_VGB(:,1:nI,1:nJ,1:nK,iBlock) = &
+               Xyz_DGB(1:nDim,1:nI,1:nJ,1:nK,iBlock)
+       end do
+
+       call message_pass_cell(nVar, State_VGB, &
+            nProlongOrderIn=nProlongOrder, &
+            DoSendCornerIn=DoSendCorner)
+
+       do iBlock = 1, nBlock
+          if(Unused_B(iBlock)) CYCLE
+
+          Tolerance_D = 1e-6
+          if(nProlongOrder == 1) then
+             iNode = iNode_B(iBlock)
+             !write(*,*)'!!! iBlock, iNode=',iBlock,iNode
+             !write(*,*)'!!! DiLevelNei_IIIA(:,:,:,iNode)=',&
+             !     DiLevelNei_IIIA(:,:,:,iNode)
+             if(any(DiLevelNei_IIIA(:,:,:,iNode) == 1)) &
+                  Tolerance_D(1:nDimAmr) = Tolerance_D(1:nDimAmr) &
+                  + 0.5*CellSize_DB(1:nDimAmr,iBlock)
+          end if
+
+          do k = kMin, kMax; do j = jMin, jMax; do i = MinI, MaxI
+
+             if(.not.DoSendCorner)then
+                if( (i<1.or.i>nI).and.(j<1.or.j>nJ) ) CYCLE
+                if( (i<1.or.i>nI).and.(k<1.or.k>nK) ) CYCLE
+                if( (k<1.or.k>nK).and.(j<1.or.j>nJ) ) CYCLE
+             end if
+
+             Xyz_D = Xyz_DGB(:,i,j,k,iBlock)
+
+             ! Shift ghost cell coordinate into periodic domain
+             Xyz_D = DomainMin_D + modulo(Xyz_D - DomainMin_D, DomainSize_D)
+
+             do iDim = 1, nDim
+                if(abs(State_VGB(iDim,i,j,k,iBlock) - Xyz_D(iDim)) &
+                     > Tolerance_D(iDim))then
+                   write(*,*)'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=',&
+                        iProc,iBlock,i,j,k,iDim, &
+                        State_VGB(iDim,i,j,k,iBlock), &
+                        Xyz_D(iDim),Tolerance_D(iDim)
+                end if
+             end do
+          end do; end do; end do
+       end do
+
+    end do; end do ! test parameters
+    deallocate(State_VGB)
+
+    call clean_grid
+    call clean_tree
+
+  end subroutine test_pass_cell
 
 end module BATL_pass_cell
