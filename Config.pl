@@ -99,9 +99,10 @@ sub set_grid_size{
     die "$ERROR nDim=$nDim must be 1, 2 or 3\n" if $nDim < 1 or $nDim > 3;
     die "$ERROR nDimAmr=$nDimAmr must be 1 to nDim=$nDim\n" 
 	if $nDimAmr < 1 or $nDimAmr > $nDim;
-    die "$ERROR nI=$nI must be 2 or more\n" if $nI < 2;
-    die "$ERROR nJ=$nJ must be 2 or more\n" if $nJ < 2 and $nDim > 1;
-    die "$ERROR nK=$nK must be 2 or more\n" if $nK < 2 and $nDim > 2;
+
+    die "$ERROR nI=$nI must be 4 or more\n" if $nI < 4;
+    die "$ERROR nJ=$nJ must be 4 or more\n" if $nJ < 2 and $nDimAmr > 1;
+    die "$ERROR nK=$nK must be 4 or more\n" if $nK < 2 and $nDimAmr > 2;
 
     die "$ERROR nI=$nI must be an even integer\n" if $nI%2!=0;
     die "$ERROR nJ=$nJ must be an even integer\n" if $nJ%2!=0 and $nDimAmr > 1;
