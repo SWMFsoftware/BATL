@@ -604,7 +604,8 @@ contains
       iRestrictR_DII(:,3,Max_) = nIjk_D + nWidth
 
       ! number of cells sent from fine block. Rounded up.
-      nWidthProlongS_D = 1 + (nWidth-1)/iRatio_D
+      nWidthProlongS_D         = 0
+      nWidthProlongS_D(1:nDim) = 1 + (nWidth-1)/iRatio_D(1:nDim)
 
       ! Indexed by iSend/jSend,kSend = 0..3
       iProlongS_DII(:,0,Min_) = 1
@@ -617,12 +618,10 @@ contains
       iProlongS_DII(:,3,Max_) = nIjk_D
 
       if(DoSendCorner)then
-         ! Face + one edge or edge + one corner sent together 
+         ! Face + two edges + corner or edge + one corner sent together 
          ! from fine to coarse block
-         iProlongS_DII(1:nDim,2,Min_) = iProlongS_DII(1:nDim,2,Min_) &
-              - nWidthProlongS_D(1:nDim)
-         iProlongS_DII(1:nDim,1,Max_) = iProlongS_DII(1:nDim,1,Max_) &
-              + nWidthProlongS_D(1:nDim)
+         iProlongS_DII(:,1,Max_) = iProlongS_DII(:,1,Max_) + nWidthProlongS_D
+         iProlongS_DII(:,2,Min_) = iProlongS_DII(:,2,Min_) - nWidthProlongS_D
       end if
 
       ! Indexed by iRecv/jRecv/kRecv = 0,1,2,3
@@ -638,8 +637,8 @@ contains
       if(DoSendCorner)then
          ! Face + one edge or edge + one corner received together
          ! from fine to coarse block
-         iProlongR_DII(1:nDim,2,Min_) = iProlongR_DII(1:nDim,2,Min_) - nWidth
          iProlongR_DII(1:nDim,1,Max_) = iProlongR_DII(1:nDim,1,Max_) + nWidth
+         iProlongR_DII(1:nDim,2,Min_) = iProlongR_DII(1:nDim,2,Min_) - nWidth
       end if
 
     end subroutine set_range
