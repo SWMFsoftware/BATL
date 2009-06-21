@@ -754,7 +754,25 @@ contains
                   + 0.5*CellSize_DB(1:nDimAmr,iBlock)
           end if
 
-          do k = kMin, kMax; do j = jMin, jMax; do i = MinI, MaxI
+          do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
+
+             Xyz_D = Xyz_DGB(:,i,j,k,iBlock)
+
+             ! Check that no info is send in the non-used dimensions,
+             ! i.e. for all iDim: nDim+1 < iDim < MaxDim
+             if(j<jMin .or. j>jMax .or. k<kMin .or. k>kMax)then
+                do iDim = 1, nDim
+                   if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
+                      write(*,*)'Face should not be set: ', &
+                           'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=', &
+                           iProc,iBlock,i,j,k,iDim, &
+                           State_VGB(iDim,i,j,k,iBlock), &
+                           Xyz_D(iDim),Tolerance_D(iDim)
+                   end if
+                end do
+
+                CYCLE
+             end if
 
              ! if we do not need to send corners and edges, check that the
              ! State_VGB in these cells is still the unset value
@@ -776,7 +794,6 @@ contains
                 CYCLE
              end if
 
-             Xyz_D = Xyz_DGB(:,i,j,k,iBlock)
 
              ! Shift ghost cell coordinate into periodic domain
              Xyz_D = DomainMin_D + modulo(Xyz_D - DomainMin_D, DomainSize_D)
