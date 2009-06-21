@@ -1,6 +1,25 @@
 !^CFG COPYRIGHT UM
 module BATL_pass_cell
 
+  ! Possible improvements:
+  ! (1) Instead of sending the receiving block number
+  !     and the 2**nDim range limits, we can send only the tag which
+  !     we would use in a block to block communication:
+  !        iTag = 100*iBlockRecv + iRecv + 4*(jRecv + 4*kRecv)
+  !     There are 2 advantages:
+  !     (a) The amount of info reduces: 1+2**nDim numbers --> 1 number (iTag)
+  !     (b) This procedure allows to send for 1st order prolongation only
+  !         one copy per 2**nDim cells
+  ! (2) Instead of waiting for receiving buffers from ALL processors, we
+  !     we can wait for ANY receiving and already start unpacking
+  ! (3) Instead of determining the receive (and send) buffer size during
+  !     the message_pass_cell, we can determining the sizes a priori:
+  !     (a) We can then allocate a small known buffer size
+  !     (b) we do at least two times message_pass_cell per time iteration,
+  !         each time determining the buffer size. This would be reduced to
+  !         only once (there is a small complication with operatore split
+  !         schemes)
+
   implicit none
 
   SAVE
@@ -739,10 +758,24 @@ contains
 
           do k = kMin, kMax; do j = jMin, jMax; do i = MinI, MaxI
 
-             if(.not.DoSendCorner)then
-                if( (i<1.or.i>nI).and.(j<1.or.j>nJ) ) CYCLE
-                if( (i<1.or.i>nI).and.(k<1.or.k>nK) ) CYCLE
-                if( (k<1.or.k>nK).and.(j<1.or.j>nJ) ) CYCLE
+             ! if we do not need to send corners and edges, check that the
+             ! State_VGB in these cells is still the unset value
+             if(.not.DoSendCorner.and. ( &
+                  (i<1.or.i>nI).and.(j<1.or.j>nJ) .or. &
+                  (i<1.or.i>nI).and.(k<1.or.k>nK) .or. &
+                  (k<1.or.k>nK).and.(j<1.or.j>nJ) ))then
+
+                do iDim = 1, nDim
+                   if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
+                      write(*,*)'corner/edge should not be set: ', &
+                           'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=', &
+                           iProc,iBlock,i,j,k,iDim, &
+                           State_VGB(iDim,i,j,k,iBlock), &
+                           Xyz_D(iDim),Tolerance_D(iDim)
+                   end if
+                end do
+
+                CYCLE
              end if
 
              Xyz_D = Xyz_DGB(:,i,j,k,iBlock)
@@ -753,7 +786,7 @@ contains
              do iDim = 1, nDim
                 if(abs(State_VGB(iDim,i,j,k,iBlock) - Xyz_D(iDim)) &
                      > Tolerance_D(iDim))then
-                   write(*,*)'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=',&
+                   write(*,*)'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=', &
                         iProc,iBlock,i,j,k,iDim, &
                         State_VGB(iDim,i,j,k,iBlock), &
                         Xyz_D(iDim),Tolerance_D(iDim)
