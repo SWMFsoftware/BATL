@@ -26,7 +26,7 @@ module BATL_lib
   ! Inherited from BATL_tree
   public:: nNodeUsed
   public:: Unused_B
-  public:: DiLevelNei_IIIA, iNodeNei_IIIA
+  public:: DiLevelNei_IIIB, iNodeNei_IIIB
 
   ! Inherited from BATL_geometry
   public:: TypeGeometry, IsPeriodic_D

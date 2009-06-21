@@ -42,7 +42,7 @@ contains
     use BATL_mpi, ONLY: iComm, nProc, iProc
 
     use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
-         iNodeNei_IIIA, DiLevelNei_IIIA, Unused_B, iNode_B, &
+         iNodeNei_IIIB, DiLevelNei_IIIB, Unused_B, iNode_B, &
          iTree_IA, Proc_, Block_, Coord1_, Coord2_, Coord3_
 
     use ModMpi
@@ -171,7 +171,7 @@ contains
                    if(.not.DoSendCorner .and. iDir /= 0 .and. &
                         (jDir /= 0 .or.  kDir /= 0)) CYCLE
 
-                   DiLevel = DiLevelNei_IIIA(iDir,jDir,kDir,iNodeSend)
+                   DiLevel = DiLevelNei_IIIB(iDir,jDir,kDir,iBlockSend)
                    
                    ! Do prolongation in the second stage if nProlongOrder is 2
                    if(nProlongOrder == 2 .and. &
@@ -305,7 +305,7 @@ contains
       jSend = (3*jDir + 3)/2
       kSend = (3*kDir + 3)/2
 
-      iNodeRecv  = iNodeNei_IIIA(iSend,jSend,kSend,iNodeSend)
+      iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
       iProcRecv  = iTree_IA(Proc_,iNodeRecv)
       iBlockRecv = iTree_IA(Block_,iNodeRecv)
 
@@ -398,7 +398,7 @@ contains
       !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
       !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
 
-      iNodeRecv  = iNodeNei_IIIA(iSend,jSend,kSend,iNodeSend)
+      iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
       iProcRecv  = iTree_IA(Proc_,iNodeRecv)
       iBlockRecv = iTree_IA(Block_,iNodeRecv)
 
@@ -507,19 +507,17 @@ contains
                kRMin = iProlongR_DII(3,kRecv,Min_)
                kRMax = iProlongR_DII(3,kRecv,Max_)
 
-               iNodeRecv  = iNodeNei_IIIA(iSend,jSend,kSend,iNodeSend)
+               iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
                iProcRecv  = iTree_IA(Proc_,iNodeRecv)
                iBlockRecv = iTree_IA(Block_,iNodeRecv)
 
-               !if(iNodeSend == 3 .and. iNodeRecv == 6)then
-               !   write(*,*)'iRecv, jRecv, kRecv=',iRecv, jRecv, kRecv
+               !write(*,*)'iRecv, jRecv, kRecv=',iRecv, jRecv, kRecv
                !
-               !   write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
-               !        iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
-               !   
-               !   write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
-               !        iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
-               !end if
+               !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
+               !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
+               !
+               !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
+               !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
 
                if(iProc == iProcRecv)then
                   do kR=kRMin,kRMax
@@ -673,7 +671,7 @@ contains
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nI, nJ, nK, nBlock
     use BATL_tree, ONLY: init_tree, set_tree_root, refine_tree_node, &
          distribute_tree, show_tree, clean_tree, &
-         Unused_B, iNode_B, DiLevelNei_IIIA
+         Unused_B, iNode_B, DiLevelNei_IIIB
     use BATL_grid, ONLY: init_grid, create_grid, clean_grid, &
          Xyz_DGB, CellSize_DB
     use BATL_geometry, ONLY: init_geometry
@@ -747,11 +745,11 @@ contains
 
           Tolerance_D = 1e-6
           if(nProlongOrder == 1) then
-             iNode = iNode_B(iBlock)
+             !iNode = iNode_B(iBlock)
              !write(*,*)'!!! iBlock, iNode=',iBlock,iNode
-             !write(*,*)'!!! DiLevelNei_IIIA(:,:,:,iNode)=',&
-             !     DiLevelNei_IIIA(:,:,:,iNode)
-             if(any(DiLevelNei_IIIA(:,:,:,iNode) == 1)) &
+             !write(*,*)'!!! DiLevelNei_IIIB(:,:,:,iBlock)=',&
+             !     DiLevelNei_IIIB(:,:,:,iBlock)
+             if(any(DiLevelNei_IIIB(:,:,:,iBlock) == 1)) &
                   Tolerance_D(1:nDimAmr) = Tolerance_D(1:nDimAmr) &
                   + 0.5*CellSize_DB(1:nDimAmr,iBlock)
           end if

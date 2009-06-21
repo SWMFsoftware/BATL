@@ -23,18 +23,12 @@
  nNode, nNodeUsed, nBlock= 6 6 3
  iNodePeano_I = 1 2 3 4 5 6
  IsPeriodic_D = T T F
- DiLevelNei_IIIA(:,0,0,First)= 0 0 0
- DiLevelNei_IIIA(0,:,0,First)= 0 0 0
- DiLevelNei_IIIA(0,0,:,First)= -100 0 -100
- iNodeNei_IIIA(:,1,1,  First)= 3 1 1 2
- iNodeNei_IIIA(1,:,1,  First)= 4 1 1 4
- iNodeNei_IIIA(1,1,:,  First)= -100 1 1 -100
- DiLevelNei_IIIA(:,0,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,:,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,0,:, Last)= -100 0 -100
- iNodeNei_IIIA(:,1,1,   Last)= 5 6 6 4
- iNodeNei_IIIA(1,:,1,   Last)= 3 6 6 3
- iNodeNei_IIIA(1,1,:,   Last)= -100 6 6 -100
+ DiLevelNei_IIIB(:,0,0,First)= 0 0 0
+ DiLevelNei_IIIB(0,:,0,First)= 0 0 0
+ DiLevelNei_IIIB(0,0,:,First)= -100 0 -100
+ iNodeNei_IIIB(:,1,1,  First)= 3 1 1 2
+ iNodeNei_IIIB(1,:,1,  First)= 4 1 1 4
+ iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
  Testing refine_tree_node
  Testing distribute_tree 2nd
  after distribute_tree 2nd
@@ -50,18 +44,12 @@
  nNode, nNodeUsed, nBlock= 8 7 4
  iNodePeano_I = 1 2 3 4 5 7 8
  IsPeriodic_D = T T F
- DiLevelNei_IIIA(:,0,0,First)= 0 0 0
- DiLevelNei_IIIA(0,:,0,First)= 0 0 0
- DiLevelNei_IIIA(0,0,:,First)= -100 0 -100
- iNodeNei_IIIA(:,1,1,  First)= 3 1 1 2
- iNodeNei_IIIA(1,:,1,  First)= 4 1 1 4
- iNodeNei_IIIA(1,1,:,  First)= -100 1 1 -100
- DiLevelNei_IIIA(:,0,0, Last)= 0 0 1
- DiLevelNei_IIIA(0,:,0, Last)= 1 0 1
- DiLevelNei_IIIA(0,0,:, Last)= -100 0 -100
- iNodeNei_IIIA(:,1,1,   Last)= 7 8 8 4
- iNodeNei_IIIA(1,:,1,   Last)= 3 8 8 3
- iNodeNei_IIIA(1,1,:,   Last)= -100 8 8 -100
+ DiLevelNei_IIIB(:,0,0,First)= 0 0 0
+ DiLevelNei_IIIB(0,:,0,First)= 0 0 0
+ DiLevelNei_IIIB(0,0,:,First)= -100 0 -100
+ iNodeNei_IIIB(:,1,1,  First)= 3 1 1 2
+ iNodeNei_IIIB(1,:,1,  First)= 4 1 1 4
+ iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
  nRoot= 6
  after another refine_tree_node
  iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
@@ -102,18 +90,12 @@
  nNode, nNodeUsed, nBlock= 8 7 4
  iNodePeano_I = 1 7 8 3 4 5 6
  IsPeriodic_D = T T F
- DiLevelNei_IIIA(:,0,0,First)= 0 0 -1
- DiLevelNei_IIIA(0,:,0,First)= 0 0 0
- DiLevelNei_IIIA(0,0,:,First)= -100 0 -100
- iNodeNei_IIIA(:,1,1,  First)= 3 1 1 7
- iNodeNei_IIIA(1,:,1,  First)= 4 1 1 4
- iNodeNei_IIIA(1,1,:,  First)= -100 1 1 -100
- DiLevelNei_IIIA(:,0,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,:,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,0,:, Last)= -100 0 -100
- iNodeNei_IIIA(:,1,1,   Last)= 5 6 6 4
- iNodeNei_IIIA(1,:,1,   Last)= 3 6 6 3
- iNodeNei_IIIA(1,1,:,   Last)= -100 6 6 -100
+ DiLevelNei_IIIB(:,0,0,First)= 0 0 -1
+ DiLevelNei_IIIB(0,:,0,First)= 0 0 0
+ DiLevelNei_IIIB(0,0,:,First)= -100 0 -100
+ iNodeNei_IIIB(:,1,1,  First)= 3 1 1 7
+ iNodeNei_IIIB(1,:,1,  First)= 4 1 1 4
+ iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
  Testing write_tree_file
  Testing read_tree_file
  after read_tree
@@ -140,18 +122,12 @@
  nNode, nNodeUsed, nBlock= 8 7 4
  iNodePeano_I = 1 7 8 3 4 5 6
  IsPeriodic_D = T T F
- DiLevelNei_IIIA(:,0,0,First)= 0 0 -1
- DiLevelNei_IIIA(0,:,0,First)= 0 0 0
- DiLevelNei_IIIA(0,0,:,First)= -100 0 -100
- iNodeNei_IIIA(:,1,1,  First)= 3 1 1 7
- iNodeNei_IIIA(1,:,1,  First)= 4 1 1 4
- iNodeNei_IIIA(1,1,:,  First)= -100 1 1 -100
- DiLevelNei_IIIA(:,0,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,:,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,0,:, Last)= -100 0 -100
- iNodeNei_IIIA(:,1,1,   Last)= 5 6 6 4
- iNodeNei_IIIA(1,:,1,   Last)= 3 6 6 3
- iNodeNei_IIIA(1,1,:,   Last)= -100 6 6 -100
+ DiLevelNei_IIIB(:,0,0,First)= 0 0 -1
+ DiLevelNei_IIIB(0,:,0,First)= 0 0 0
+ DiLevelNei_IIIB(0,0,:,First)= -100 0 -100
+ iNodeNei_IIIB(:,1,1,  First)= 3 1 1 7
+ iNodeNei_IIIB(1,:,1,  First)= 4 1 1 4
+ iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
  Testing clean_tree
  MaxNode= 0
  Testing init_grid
@@ -257,17 +233,11 @@
  nNode, nNodeUsed, nBlock= 6 5 3
  iNodePeano_I = 5 6 2 3 4
  IsPeriodic_D = T T F
- DiLevelNei_IIIA(:,0,0,First)= 1 0 0
- DiLevelNei_IIIA(0,:,0,First)= 1 0 1
- DiLevelNei_IIIA(0,0,:,First)= -100 0 -100
- iNodeNei_IIIA(:,1,1,  First)= 2 5 5 6
- iNodeNei_IIIA(1,:,1,  First)= 3 5 5 3
- iNodeNei_IIIA(1,1,:,  First)= -100 5 5 -100
- DiLevelNei_IIIA(:,0,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,:,0, Last)= 0 0 0
- DiLevelNei_IIIA(0,0,:, Last)= -100 0 -100
- iNodeNei_IIIA(:,1,1,   Last)= 3 4 4 3
- iNodeNei_IIIA(1,:,1,   Last)= 2 4 4 2
- iNodeNei_IIIA(1,1,:,   Last)= -100 4 4 -100
+ DiLevelNei_IIIB(:,0,0,First)= 1 0 0
+ DiLevelNei_IIIB(0,:,0,First)= 1 0 1
+ DiLevelNei_IIIB(0,0,:,First)= -100 0 -100
+ iNodeNei_IIIB(:,1,1,  First)= 2 5 5 6
+ iNodeNei_IIIB(1,:,1,  First)= 3 5 5 3
+ iNodeNei_IIIB(1,1,:,  First)= -100 5 5 -100
  testing message_pass_cell with nProlongOrder= 1  DoSendCorner= F
  testing message_pass_cell with nProlongOrder= 1  DoSendCorner= T
