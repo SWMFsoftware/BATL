@@ -1,5 +1,6 @@
 program BATL_test
 
+  use BATL_amr,       ONLY: test_amr
   use BATL_mpi,       ONLY: init_mpi
   use BATL_tree,      ONLY: test_tree
   use BATL_grid,      ONLY: test_grid
@@ -12,9 +13,13 @@ program BATL_test
   !--------------------------------------------------------------------------
   call MPI_init(iError)
   call init_mpi(MPI_COMM_WORLD)
-  call test_tree
-  call test_grid
-  call test_pass_cell
+
+  call test_amr
+
+  !call test_tree
+  !call test_grid
+  !call test_pass_cell
+
   call MPI_finalize(iError)
   
 end program BATL_test
