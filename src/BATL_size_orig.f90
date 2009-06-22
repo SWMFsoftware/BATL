@@ -20,6 +20,9 @@ module BATL_size
   ! Number of cells per block in each direction
   integer, parameter :: nI = 8, nJ = 4, nK = 2
 
+  ! Number of cells per block
+  integer, parameter :: nIJK = nI*nJ*nK
+
   ! Array for block size
   integer, parameter:: &
        nIJK_D(MaxDim) = (/ nI, nJ, nK /)
