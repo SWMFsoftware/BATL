@@ -15,6 +15,7 @@ module BATL_tree
   public:: get_tree_position
   public:: find_tree_node
   public:: distribute_tree
+  public:: move_tree
   public:: write_tree_file
   public:: read_tree_file
   public:: show_tree
