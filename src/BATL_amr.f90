@@ -20,8 +20,8 @@ contains
          nI, nJ, nK, nIJK
     use BATL_mpi,  ONLY: iComm, nProc, iProc
 
-    use BATL_tree, ONLY: nNodeUsed, Unused_B, &
-         iTree_IA, Proc_, Block_, ProcNew_, &
+    use BATL_tree, ONLY: nNodeUsed, Unused_BP, &
+         iTree_IA, iProcNew_A, Proc_, Block_, &
          Status_, Child1_, ChildLast_, Used_, Refine_, CoarsenNew_
 
     use ModMpi
@@ -33,7 +33,6 @@ contains
 
     real,    allocatable :: BufferS_I(:), BufferR_I(:)
     integer, allocatable :: iBlockAvailable_P(:)
-    logical, allocatable :: Unused_BP(:,:)
 
     integer :: iNodeSend, iNodeRecv
     integer :: iProcSend, iProcRecv, iBlockSend, iBlockRecv
@@ -50,14 +49,9 @@ contains
     ! Small arrays are allocated once 
     if(.not.allocated(iBlockAvailable_P))then
        allocate(iBlockAvailable_P(0:nProc-1))
-       allocate(Unused_BP(MaxBlock,0:nProc-1))
     end if
 
     allocate(BufferS_I(nVar*nIJK), BufferR_I(nVar*nIJK))
-
-    ! Set Unused_BP
-    call MPI_allgather(Unused_B, MaxBlock, MPI_LOGICAL, &
-         Unused_BP, MaxBlock, MPI_LOGICAL, iComm, iError)
 
     ! Set iBlockAvailable_P to first available block
     iBlockAvailable_P = -1
@@ -98,7 +92,7 @@ contains
        if(iTree_IA(Status_,iNodeSend) /= Used_) CYCLE
 
        iProcSend = iTree_IA(Proc_,iNodeSend)
-       iProcRecv = iTree_IA(ProcNew_,iNodeSend)
+       iProcRecv = iProcNew_A(iNodeSend)
 
        if(iProcRecv == iProcSend) CYCLE
 
@@ -134,9 +128,6 @@ contains
 
        call make_block_available(iBlockSend, iProcSend)
     end do
-
-    ! Update local Unused_B array
-    Unused_B = Unused_BP(:,iProc)
 
     deallocate(BufferR_I, BufferS_I)
 
@@ -267,7 +258,7 @@ contains
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nI, nJ, nK, nBlock
     use BATL_tree, ONLY: init_tree, set_tree_root, refine_tree_node, &
          distribute_tree, move_tree, show_tree, clean_tree, iTree_IA, &
-         Unused_B, ProcNew_
+         iProcNew_A, Unused_B
     use BATL_grid, ONLY: init_grid, create_grid, clean_grid, Xyz_DGB
     use BATL_geometry, ONLY: init_geometry
 
@@ -310,8 +301,8 @@ contains
                Xyz_DGB(1:nDim,:,:,:,iBlock)
     end do
 
-    ! Artificially move node 1
-    iTree_IA(ProcNew_,1) = nProc-1
+    ! Artificially move node 1 to the last processor
+    iProcNew_A(1) = nProc-1
 
     call do_amr(nVar, State_VGB)
 
