@@ -69,7 +69,7 @@ contains
     character(len=*), parameter:: NameSub = 'BATL_pass_cell::message_pass_cell'
 
     integer :: iProlongOrder, iSendRecv, iPeano
-    integer :: iSend, jSend, kSend, iRecv, jRecv, kRecv, DiRecv, DjRecv, DkRecv
+    integer :: iSend, jSend, kSend, iRecv, jRecv, kRecv, iSide, jSide, kSide
     integer :: iDir, jDir, kDir
     integer :: iNodeRecv, iNodeSend
     integer :: iBlockRecv, iProcRecv, iBlockSend, iProcSend, DiLevel
@@ -353,21 +353,21 @@ contains
       ! the coordinate parity of the sender block tells 
       ! if the receiver block fills into the 
       ! lower (D*Recv = 0) or upper (D*Rev=1) half of the block
-      DiRecv = modulo(iTree_IA(Coord1_,iNodeSend)-1, 2)
-      DjRecv = modulo(iTree_IA(Coord2_,iNodeSend)-1, 2)
-      DkRecv = modulo(iTree_IA(Coord3_,iNodeSend)-1, 2)
+      iSide = modulo(iTree_IA(Coord1_,iNodeSend)-1, 2)
+      jSide = modulo(iTree_IA(Coord2_,iNodeSend)-1, 2)
+      kSide = modulo(iTree_IA(Coord3_,iNodeSend)-1, 2)
 
       ! Do not restrict diagonally in the direction of the sibling.
-      if(iDir == -1 .and. DiRecv==1) RETURN
-      if(iDir == +1 .and. DiRecv==0) RETURN
-      if(jDir == -1 .and. DjRecv==1 .and. nDimAmr>1) RETURN
-      if(jDir == +1 .and. DjRecv==0 .and. nDimAmr>1) RETURN
-      if(kDir == -1 .and. DkRecv==1 .and. nDimAmr>2) RETURN
-      if(kDir == +1 .and. DkRecv==0 .and. nDimAmr>2) RETURN
+      if(iDir == -1 .and. iSide==1) RETURN
+      if(iDir == +1 .and. iSide==0) RETURN
+      if(jDir == -1 .and. jSide==1 .and. nDimAmr>1) RETURN
+      if(jDir == +1 .and. jSide==0 .and. nDimAmr>1) RETURN
+      if(kDir == -1 .and. kSide==1 .and. nDimAmr>2) RETURN
+      if(kDir == +1 .and. kSide==0 .and. nDimAmr>2) RETURN
 
-      iSend = (3*iDir + 3 + DiRecv)/2
-      jSend = (3*jDir + 3 + DjRecv)/2
-      kSend = (3*kDir + 3 + DkRecv)/2
+      iSend = (3*iDir + 3 + iSide)/2
+      jSend = (3*jDir + 3 + jSide)/2
+      kSend = (3*kDir + 3 + kSide)/2
 
       iRecv = iSend - 3*iDir
       jRecv = jSend - 3*jDir
@@ -481,14 +481,14 @@ contains
       !------------------------------------------------------------------------
 
       ! Loop through the subfaces or subedges
-      do DkRecv = (1-kDir)/2, 1-(1+kDir)/2, 3-kRatio
-         kSend = (3*kDir + 3 + DkRecv)/2
+      do kSide = (1-kDir)/2, 1-(1+kDir)/2, 3-kRatio
+         kSend = (3*kDir + 3 + kSide)/2
          kRecv = kSend - 3*kDir
-         do DjRecv = (1-jDir)/2, 1-(1+jDir)/2, 3-jRatio
-            jSend = (3*jDir + 3 + DjRecv)/2
+         do jSide = (1-jDir)/2, 1-(1+jDir)/2, 3-jRatio
+            jSend = (3*jDir + 3 + jSide)/2
             jRecv = jSend - 3*jDir
-            do DiRecv = (1-iDir)/2, 1-(1+iDir)/2
-               iSend = (3*iDir + 3 + DiRecv)/2
+            do iSide = (1-iDir)/2, 1-(1+iDir)/2
+               iSend = (3*iDir + 3 + iSide)/2
                iRecv = iSend - 3*iDir
 
                ! Sending range depends on iSend,jSend,kSend = 0..3
