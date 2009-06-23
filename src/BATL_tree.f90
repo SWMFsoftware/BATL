@@ -23,6 +23,7 @@ module BATL_tree
 
   integer, public, parameter :: nChild = 2**nDimAmr
 
+  ! Global tree information
   integer, public, allocatable :: iTree_IA(:,:)
 
   integer, public, parameter :: &
@@ -30,7 +31,7 @@ module BATL_tree
        Level_    =  2, &
        Proc_     =  3, & ! processor index
        Block_    =  4, & ! block index
-       ProcNew_  =  5, & ! minimum level allowed
+       MinLevel_ =  5, & ! minimum level allowed
        MaxLevel_ =  6, & ! maximum level allowed
        Coord0_   =  6, &
        Coord1_   =  7, &
@@ -65,11 +66,14 @@ module BATL_tree
        'Child7   ', &
        'Child8   ' /)
 
+  ! New processor index of a given node after next load balance
+  integer, public, allocatable :: iProcNew_A(:)
+
   ! Mapping from local block index to global node index
   integer, public, allocatable :: iNode_B(:)
 
   logical, public, allocatable :: &
-       Unused_B(:)                   ! Unused blocks on the local processor
+       Unused_B(:), Unused_BP(:,:)   ! Unused blocks on local/all processors
 
   integer, public, allocatable :: &
        DiLevelNei_IIIB(:,:,:,:),  &  ! Level difference relative to neighbors 
@@ -136,8 +140,10 @@ contains
     ! Allocate and initialize all elements of tree as unset
     allocate(iTree_IA(nInfo, MaxNode));                 iTree_IA       = Unset_
     allocate(iNodePeano_I(MaxNode));                    iNodePeano_I   = Unset_
+    allocate(iProcNew_A(MaxNode));                      iProcNew_A     = Unset_
     allocate(iNode_B(MaxBlock));                        iNode_B        = Unset_
     allocate(Unused_B(MaxBlock));                       Unused_B       = .true.
+    allocate(Unused_BP(MaxBlock,0:nProc-1));            Unused_BP      = .true.
     allocate(iNodeNei_IIIB(0:3,0:3,0:3,MaxBlock));      iNodeNei_IIIB  = Unset_
     allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock)); DiLevelNei_IIIB= Unset_
 
@@ -147,7 +153,8 @@ contains
   subroutine clean_tree
 
     if(.not.allocated(iTree_IA)) RETURN
-    deallocate(iTree_IA, iNodePeano_I, iNode_B, Unused_B, &
+    deallocate(iTree_IA, iNodePeano_I, iProcNew_A, iNode_B, &
+         Unused_B, Unused_BP, &
          iNodeNei_IIIB, DiLevelNei_IIIB)
 
     MaxNode = 0
@@ -632,8 +639,10 @@ contains
   !==========================================================================
   subroutine distribute_tree(DoMove)
 
-    ! Assign tree nodes to processors and blocks
-    ! If DoMove is true,
+    ! Order tree with the space filling curve then
+    ! - if DoMove=T, assign tree nodes to processors and blocks immediately
+    ! - if DoMove=F, set iProcNew_A only with future processor index
+    ! To be generalized for multiple block types !!!
 
     use BATL_mpi, ONLY: iProc, nProc
 
@@ -642,13 +651,10 @@ contains
 
     integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo
     !------------------------------------------------------------------------
+    if(DoMove)Unused_BP = .true.
 
     ! Initialize processor and block indexes
-    iTree_IA(ProcNew_,:) = Unset_
-    if(DoMove)then
-       iTree_IA(Proc_:Block_,:) = Unset_  !!! not a good idea
-       Unused_B                 = .true.
-    end if
+    iProcNew_A = Unset_
 
     ! Create iNodePeano_I
     call order_tree
@@ -660,12 +666,17 @@ contains
        iNode = iNodePeano_I(iPeano)
 
        iProcTo  = (iPeano-1)/nNodePerProc
-!!! iBlockTo should be set in a smarter way !!!
-       iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
 
-       ! Assign new processor to node
-       iTree_IA(ProcNew_, iNode) = iProcTo
-       iTree_IA(Block_,   iNode) = iBlockTo
+       ! Assign future processor index for node
+       iProcNew_A(iNode) = iProcTo
+
+       if(DoMove)then
+          ! Assign block index right away
+          iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
+          iTree_IA(Block_,iNode) = iBlockTo
+          Unused_BP(iBlockTo,iProcTo) = .false.
+       end if
+
     end do
 
     if(DoMove) call move_tree
@@ -674,17 +685,24 @@ contains
   !==========================================================================
   subroutine move_tree
 
+    ! Finish the load balancing (with or without data movement)
+    ! Set status for newly used and unused/unset nodes.
+    ! Then compact the tree and find all the neighbors
+
     use BATL_mpi, ONLY: iProc
 
     integer:: iPeano, iNode, iNodeChild, iNodeParent, iChild, iBlock
     !-----------------------------------------------------------------------
-    nBlock = 0
+    ! Update local Unused_B array
+    Unused_B = Unused_BP(:,iProc)
 
+    ! Update nBlock too as we loop through the used blocks
+    nBlock = 0
     do iPeano = 1, nNodeUsed
        iNode = iNodePeano_I(iPeano)
 
        ! Move the node to new processor/node
-       iTree_IA(Proc_,iNode) = iTree_IA(ProcNew_,iNode)
+       iTree_IA(Proc_,iNode) = iProcNew_A(iNode)
 
        if(iTree_IA(Status_,iNode) == CoarsenNew_) then
           ! Remove the children of newly coarsened blocks from the tree
@@ -710,7 +728,6 @@ contains
        if(iProc == iTree_IA(Proc_,iNode))then
           iBlock = iTree_IA(Block_,iNode)
           iNode_B(iBlock)  = iNode
-          Unused_B(iBlock) = iTree_IA(Status_,iNode) == Unused_
           if(.not.Unused_B(iBlock)) nBlock = max(nBlock, iBlock)
        end if
 
