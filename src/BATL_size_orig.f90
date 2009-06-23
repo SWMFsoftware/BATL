@@ -41,9 +41,12 @@ module BATL_size
 
   ! Array of refinement ratios
   integer, parameter:: iRatio_D(MaxDim) = (/ iRatio, jRatio, kRatio /)
+
+  ! Ratio of cells in coarsening and prolongation
+  integer, parameter:: IjkRatio = iRatio*jRatio*kRatio
   
   ! Inverse volume ratio for Cartesian case
-  real, parameter:: InvIjkRatio = 1.0/(iRatio*jRatio*kRatio)
+  real, parameter:: InvIjkRatio = 1.0/IjkRatio
 
 end module BATL_size
 
