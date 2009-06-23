@@ -28,10 +28,10 @@ module BATL_tree
   integer, public, parameter :: &
        Status_   =  1, &
        Level_    =  2, &
-       Proc_     =  3, & ! Proc_ must be
-       Block_    =  4, & ! just before Block_
-       ProcNew_  =  5, & ! ProcNew_ must be
-       BlockNew_ =  6, & ! just before BlockNew_
+       Proc_     =  3, & ! processor index
+       Block_    =  4, & ! block index
+       ProcNew_  =  5, & ! minimum level allowed
+       MaxLevel_ =  6, & ! maximum level allowed
        Coord0_   =  6, &
        Coord1_   =  7, &
        Coord2_   =  8, &
@@ -50,8 +50,8 @@ module BATL_tree
        'Level    ', &
        'Proc     ', &
        'Block    ', &
-       'ProcNew  ', &
-       'BlockNew ', &
+       'MinLevel ', &
+       'MaxLevel ', &
        'Coord1   ', &
        'Coord2   ', &
        'Coord3   ', &
@@ -644,7 +644,7 @@ contains
     !------------------------------------------------------------------------
 
     ! Initialize processor and block indexes
-    iTree_IA(ProcNew_:BlockNew_,:) = Unset_
+    iTree_IA(ProcNew_,:) = Unset_
     if(DoMove)then
        iTree_IA(Proc_:Block_,:) = Unset_  !!! not a good idea
        Unused_B                 = .true.
@@ -663,9 +663,9 @@ contains
 !!! iBlockTo should be set in a smarter way !!!
        iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
 
-       ! Assign new processor and node
+       ! Assign new processor to node
        iTree_IA(ProcNew_, iNode) = iProcTo
-       iTree_IA(BlockNew_,iNode) = iBlockTo
+       iTree_IA(Block_,   iNode) = iBlockTo
     end do
 
     if(DoMove) call move_tree
@@ -678,11 +678,13 @@ contains
 
     integer:: iPeano, iNode, iNodeChild, iNodeParent, iChild, iBlock
     !-----------------------------------------------------------------------
+    nBlock = 0
+
     do iPeano = 1, nNodeUsed
        iNode = iNodePeano_I(iPeano)
 
        ! Move the node to new processor/node
-       iTree_IA(Proc_:Block_,iNode) = iTree_IA(ProcNew_:BlockNew_,iNode)
+       iTree_IA(Proc_,iNode) = iTree_IA(ProcNew_,iNode)
 
        if(iTree_IA(Status_,iNode) == CoarsenNew_) then
           ! Remove the children of newly coarsened blocks from the tree
@@ -709,11 +711,10 @@ contains
           iBlock = iTree_IA(Block_,iNode)
           iNode_B(iBlock)  = iNode
           Unused_B(iBlock) = iTree_IA(Status_,iNode) == Unused_
+          if(.not.Unused_B(iBlock)) nBlock = max(nBlock, iBlock)
        end if
 
     end do
-
-    nBlock = maxval(iTree_IA(Block_, :))
 
     ! Now that we removed children of coarsened blocks, compact the tree
     call compact_tree
@@ -721,7 +722,6 @@ contains
     ! Set neighbor info
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
-
        call find_neighbor(iBlock)
     end do
 
