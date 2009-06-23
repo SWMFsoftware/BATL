@@ -3,17 +3,17 @@
  Testing i_node_new()
  Testing set_tree_root
  after set_tree_root
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
       1      1      0   -100   -100   -100   -100      1      1      1   -100   -100   -100
       2      1      0   -100   -100   -100   -100      2      1      1   -100   -100   -100
       3      1      0   -100   -100   -100   -100      3      1      1   -100   -100   -100
  Testing find_tree_node
  Testing distribute_tree 1st
  after distribute_tree 1st
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
-      2      1      0      0      2      0      2      2      1      1   -100   -100   -100
-      3      1      0      1      1      1      1      3      1      1   -100   -100   -100
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
+      2      1      0      0      2      0   -100      2      1      1   -100   -100   -100
+      3      1      0      1      1      1   -100      3      1      1   -100   -100   -100
  nNode, nNodeUsed, nBlock= 3 3 2
  iNodePeano_I = 1 2 3
  IsPeriodic_D = T F F
@@ -26,12 +26,12 @@
  Testing refine_tree_node
  Testing distribute_tree 2nd
  after distribute_tree 2nd
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
-      2      1      0      0      2      0      2      2      1      1   -100   -100   -100
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
+      2      1      0      0      2      0   -100      2      1      1   -100   -100   -100
       3     -1      0   -100   -100   -100   -100      3      1      1   -100      4      5
-      4      1      1      1      1      1      1      5      1      1      3   -100   -100
-      5      1      1      1      2      1      2      6      1      1      3   -100   -100
+      4      1      1      1      1      1   -100      5      1      1      3   -100   -100
+      5      1      1      1      2      1   -100      6      1      1      3   -100   -100
  nNode, nNodeUsed, nBlock= 5 4 2
  iNodePeano_I = 1 2 4 5
  IsPeriodic_D = T F F
@@ -43,32 +43,32 @@
  iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
  nRoot= 3
  after another refine_tree_node
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
-      2     -2      0      0      2      0      2      2      1      1   -100      6      7
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
+      2     -2      0      0      2      0   -100      2      1      1   -100      6      7
       3     -1      0   -100   -100   -100   -100      3      1      1   -100      4      5
-      4      1      1      1      1      1      1      5      1      1      3   -100   -100
-      5      1      1      1      2      1      2      6      1      1      3   -100   -100
+      4      1      1      1      1      1   -100      5      1      1      3   -100   -100
+      5      1      1      1      2      1   -100      6      1      1      3   -100   -100
       6      2      1      0      2   -100   -100      3      1      1      2   -100   -100
       7      2      1      0      2   -100   -100      4      1      1      2   -100   -100
  Testing coarsen_tree_node
  after coarsen_tree_node
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
-      2     -2      0      0      2      0      2      2      1      1   -100      6      7
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
+      2     -2      0      0      2      0   -100      2      1      1   -100      6      7
       3      3      0   -100   -100   -100   -100      3      1      1   -100      4      5
-      4     -3      1      1      1      1      1      5      1      1      3   -100   -100
-      5     -3      1      1      2      1      2      6      1      1      3   -100   -100
+      4     -3      1      1      1      1   -100      5      1      1      3   -100   -100
+      5     -3      1      1      2      1   -100      6      1      1      3   -100   -100
       6      2      1      0      2   -100   -100      3      1      1      2   -100   -100
       7      2      1      0      2   -100   -100      4      1      1      2   -100   -100
  Testing distribute_tree 3rd
  after distribute_tree 3rd
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
       2     -1      0   -100   -100   -100   -100      2      1      1   -100      4      5
-      3      1      0      1      2      1      2      3      1      1   -100   -100   -100
-      4      1      1      0      2      0      2      3      1      1      2   -100   -100
-      5      1      1      1      1      1      1      4      1      1      2   -100   -100
+      3      1      0      1      2      1   -100      3      1      1   -100   -100   -100
+      4      1      1      0      2      0   -100      3      1      1      2   -100   -100
+      5      1      1      1      1      1   -100      4      1      1      2   -100   -100
  nNode, nNodeUsed, nBlock= 5 4 2
  iNodePeano_I = 1 4 5 3
  IsPeriodic_D = T F F
@@ -81,20 +81,20 @@
  Testing write_tree_file
  Testing read_tree_file
  after read_tree
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
       2     -1      0   -100   -100   -100   -100      2      1      1   -100      4      5
-      3      1      0      1      2      1      2      3      1      1   -100   -100   -100
-      4      1      1      0      2      0      2      3      1      1      2   -100   -100
-      5      1      1      1      1      1      1      4      1      1      2   -100   -100
+      3      1      0      1      2      1   -100      3      1      1   -100   -100   -100
+      4      1      1      0      2      0   -100      3      1      1      2   -100   -100
+      5      1      1      1      1      1   -100      4      1      1      2   -100   -100
  Testing distribute_tree 4th
  after distribute_tree 4th
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
       2     -1      0   -100   -100   -100   -100      2      1      1   -100      4      5
-      3      1      0      1      2      1      2      3      1      1   -100   -100   -100
-      4      1      1      0      2      0      2      3      1      1      2   -100   -100
-      5      1      1      1      1      1      1      4      1      1      2   -100   -100
+      3      1      0      1      2      1   -100      3      1      1   -100   -100   -100
+      4      1      1      0      2      0   -100      3      1      1      2   -100   -100
+      5      1      1      1      1      1   -100      4      1      1      2   -100   -100
  nNode, nNodeUsed, nBlock= 5 4 2
  iNodePeano_I = 1 4 5 3
  IsPeriodic_D = T F F
@@ -109,12 +109,12 @@
  Testing init_grid
  nDimAmr, nIJK_D= 1 8 1 1
  After distribute_tree
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      1      0      0      1      0      1      1      1      1   -100   -100   -100
-      2      1      0      0      2      0      2      2      1      1   -100   -100   -100
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
+      2      1      0      0      2      0   -100      2      1      1   -100   -100   -100
       3     -1      0   -100   -100   -100   -100      3      1      1   -100      4      5
-      4      1      1      1      1      1      1      5      1      1      3   -100   -100
-      5      1      1      1      2      1      2      6      1      1      3   -100   -100
+      4      1      1      1      1      1   -100      5      1      1      3   -100   -100
+      5      1      1      1      2      1   -100      6      1      1      3   -100   -100
  Testing create_grid
  show_grid_block for iProc, iBlock= 0 1
  CoordMin  =   3.0000000000000000  -0.5000000000000000  -0.5000000000000000
@@ -163,11 +163,11 @@
  Testing clean_grid
  Starting test_pass_cell
  test_pass_cell
- iNode  Status Level  Proc   Block  ProcNe BlockN Coord1 Coord2 Coord3 Parent Child1 Child2
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
       1     -1      0   -100   -100   -100   -100      1      1      1   -100      3      4
-      2      1      0      1      1      1      1      2      1      1   -100   -100   -100
-      3      1      1      0      1      0      1      1      1      1      1   -100   -100
-      4      1      1      0      2      0      2      2      1      1      1   -100   -100
+      2      1      0      1      1      1   -100      2      1      1   -100   -100   -100
+      3      1      1      0      1      0   -100      1      1      1      1   -100   -100
+      4      1      1      0      2      0   -100      2      1      1      1   -100   -100
  nNode, nNodeUsed, nBlock= 4 3 2
  iNodePeano_I = 3 4 2
  IsPeriodic_D = T F F
@@ -179,3 +179,22 @@
  iNodeNei_IIIB(1,1,:,  First)= -100 3 3 -100
  testing message_pass_cell with nProlongOrder= 1  DoSendCorner= F
  testing message_pass_cell with nProlongOrder= 1  DoSendCorner= T
+ Starting test_amr
+ after create_grid
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      0      1      0   -100      1      1      1   -100   -100   -100
+      2      1      0      0      2      0   -100      2      1      1   -100   -100   -100
+      3      1      0      1      1      1   -100      3      1      1   -100   -100   -100
+ after do_amr
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      1      2      1   -100      1      1      1   -100   -100   -100
+      2      1      0      0      2      0   -100      2      1      1   -100   -100   -100
+      3      1      0      1      1      1   -100      3      1      1   -100   -100   -100
+ after move_tree
+ iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
+      1      1      0      1      2      1   -100      1      1      1   -100   -100   -100
+      2      1      0      0      2      0   -100      2      1      1   -100   -100   -100
+      3      1      0      1      1      1   -100      3      1      1   -100   -100   -100
+ iProc, iBlock, State(:,1,1,1,iBlock)= 0 2   1.3541666666666665
+ iProc, iBlock, State(:,1,1,1,iBlock)= 1 1   1.6874999999999998
+ iProc, iBlock, State(:,1,1,1,iBlock)= 1 2   1.0208333333333333
