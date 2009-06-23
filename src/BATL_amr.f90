@@ -38,7 +38,14 @@ contains
     integer :: iNodeSend, iNodeRecv
     integer :: iProcSend, iProcRecv, iBlockSend, iBlockRecv
     integer :: iChild, iError
+
+    character(len=*), parameter:: NameSub = 'BATL_AMR::do_amr'
+    logical, parameter:: DoTestMe = .false.
     !-------------------------------------------------------------------------
+
+    ! DoTestMe = iProc == 0
+
+    if(DoTestMe)write(*,*) NameSub,' starting'
 
     ! Small arrays are allocated once 
     if(.not.allocated(iBlockAvailable_P))then
@@ -48,15 +55,29 @@ contains
 
     allocate(BufferS_I(nVar*nIJK), BufferR_I(nVar*nIJK))
 
+    ! Set Unused_BP
     call MPI_allgather(Unused_B, MaxBlock, MPI_LOGICAL, &
          Unused_BP, MaxBlock, MPI_LOGICAL, iComm, iError)
 
+    ! Set iBlockAvailable_P to first available block
+    iBlockAvailable_P = -1
+    do iProcRecv = 0, nProc-1
+       do iBlockRecv = 1, MaxBlock
+          if(Unused_BP(iBlockRecv, iProcRecv))then
+             iBlockAvailable_P(iProcRecv) = iBlockRecv
+             EXIT
+          end if
+       end do
+    end do
+
     ! Coarsen and move blocks
     do iNodeRecv = 1, nNodeUsed
-       if(iTree_IA(Status_,iNodeSend) /= CoarsenNew_) CYCLE
+       if(iTree_IA(Status_,iNodeRecv) /= CoarsenNew_) CYCLE
+
+       if(DoTestMe) write(*,*)NameSub,' CoarsenNew iNode=',iNodeRecv
 
        iProcRecv  = iTree_IA(Proc_,iNodeRecv)
-       iBlockRecv = i_block_available(iProcRecv)
+       iBlockRecv = i_block_available(iProcRecv, iNodeRecv)
 
        do iChild = Child1_, ChildLast_
           iNodeSend = iTree_IA(iChild,iNodeRecv)
@@ -73,15 +94,19 @@ contains
 
     ! Move blocks
     do iNodeSend = 1, nNodeUsed
+
        if(iTree_IA(Status_,iNodeSend) /= Used_) CYCLE
 
-       iProcSend = iTree_IA(Status_,Proc_)
-       iProcRecv = iTree_IA(Status_,ProcNew_)
+       iProcSend = iTree_IA(Proc_,iNodeSend)
+       iProcRecv = iTree_IA(ProcNew_,iNodeSend)
 
        if(iProcRecv == iProcSend) CYCLE
 
        iBlockSend = iTree_IA(Block_,iNodeSend)
-       iBlockRecv = i_block_available(iProcRecv)
+       iBlockRecv = i_block_available(iProcRecv, iNodeSend)
+
+       if(DoTestMe) write(*,*)NameSub,' node to move iNode,iProcS/R,iBlockS/R=',&
+            iNodeSend, iProcSend, iProcRecv, iBlockSend, iBlockRecv
 
        if(iProc == iProcSend) call send_block
        if(iProc == iProcRecv) call recv_block
@@ -102,7 +127,7 @@ contains
           iNodeRecv = iTree_IA(iChild,iNodeSend)
 
           iProcRecv  = iTree_IA(Proc_,iNodeRecv)
-          iBlockRecv = i_block_available(iProcRecv)
+          iBlockRecv = i_block_available(iProcRecv, iNodeRecv)
 
           if(iProc == iProcRecv) call recv_refined_block
        end do
@@ -110,22 +135,36 @@ contains
        call make_block_available(iBlockSend, iProcSend)
     end do
 
+    ! Update local Unused_B array
+    Unused_B = Unused_BP(:,iProc)
+
     deallocate(BufferR_I, BufferS_I)
 
   contains
 
     !==========================================================================
-    integer function i_block_available(iProcRecv)
+    integer function i_block_available(iProcRecv, iNodeRecv)
 
-      integer, intent(in):: iProcRecv
+      integer, intent(in):: iProcRecv, iNodeRecv
       integer :: iBlock
       !-----------------------------------------------------------------------
-      iBlock = iBlockAvailable_P(iProcRecv)
+      ! Assign the processor index
+      iTree_IA(Proc_,iNodeRecv) = iProcRecv
 
+      ! Find and assign the block index
+      iBlock = iBlockAvailable_P(iProcRecv)
+      iTree_IA(Block_,iNodeRecv) = iBlock
+
+      ! Return the block index
       i_block_available = iBlock
+
+      ! Make the new block used
       Unused_BP(iBlock,iProcRecv) = .false.
+
+      ! Find next available block
       do
          iBlock = iBlock + 1
+         if(iBlock > MaxBlock)EXIT
          if(Unused_BP(iBlock,iProcRecv))EXIT
       end do
 
@@ -169,7 +208,7 @@ contains
       !------------------------------------------------------------------------
 
       iBufferR = nIJK*nVar
-      call MPI_recv(BufferR_I, iBufferR, MPI_REAL, iProcRecv, 1, iComm, &
+      call MPI_recv(BufferR_I, iBufferR, MPI_REAL, iProcSend, 1, iComm, &
            Status_I, iError)
 
       iBufferR = 0
@@ -223,7 +262,7 @@ contains
 
   subroutine test_amr
 
-    use BATL_mpi,  ONLY: iProc, nProc
+    use BATL_mpi,  ONLY: iProc, nProc, barrier_mpi
     use BATL_size, ONLY: MaxDim, nDim, &
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nI, nJ, nK, nBlock
     use BATL_tree, ONLY: init_tree, set_tree_root, refine_tree_node, &
@@ -232,8 +271,11 @@ contains
     use BATL_grid, ONLY: init_grid, create_grid, clean_grid, Xyz_DGB
     use BATL_geometry, ONLY: init_geometry
 
+    use ModIoUnit,    ONLY: STDOUT_
+    use ModUtilities, ONLY: flush_unit
+
     integer, parameter:: MaxBlockTest            = 15
-    integer, parameter:: nRootTest_D(MaxDim)     = (/2,2,2/)
+    integer, parameter:: nRootTest_D(MaxDim)     = (/3,3,3/)
     logical, parameter:: IsPeriodicTest_D(MaxDim)= .true.
     real, parameter:: DomainMin_D(MaxDim) = (/ 1.0, 10.0, 100.0 /)
     real, parameter:: DomainMax_D(MaxDim) = (/ 2.0, 20.0, 200.0 /)
@@ -242,7 +284,7 @@ contains
     integer, parameter:: nVar = nDim
     real, allocatable:: State_VGB(:,:,:,:,:)
 
-    integer:: iBlock
+    integer:: iBlock, iProcShow
 
     logical:: DoTestMe
     character(len=*), parameter :: NameSub = 'test_amr'
@@ -258,7 +300,7 @@ contains
     call distribute_tree(.true.)
     call create_grid
 
-    if(DoTestMe) call show_tree(NameSub,.true.)
+    if(DoTestMe) call show_tree('after create_grid')
 
     allocate(State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlockTest))
 
@@ -273,10 +315,23 @@ contains
 
     call do_amr(nVar, State_VGB)
 
+    if(DoTestMe) call show_tree('after do_amr')
+
     call move_tree
 
-    if(DoTestMe) call show_tree(NameSub,.true.)
+    if(DoTestMe) call show_tree('after move_tree')
 
+    do iProcShow = 0, nProc - 1
+       if(iProc == iProcShow)then
+          do iBlock = 1, nBlock
+             if(Unused_B(iBlock)) CYCLE
+             write(*,*)'iProc, iBlock, State(:,1,1,1,iBlock)=', &
+                  iProc, iBlock, State_VGB(:,1,1,1,iBlock)
+          end do
+          call flush_unit(STDOUT_)
+       end if
+       call barrier_mpi
+    end do
     deallocate(State_VGB)
 
     call clean_grid
