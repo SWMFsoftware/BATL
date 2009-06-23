@@ -87,8 +87,8 @@ module BATL_tree
        Unused_=-1, Refine_=-2, Coarsen_=-3, &     ! unused or to be unused
        Used_=1, RefineNew_=2, CoarsenNew_=3    ! used or to be used
 
-  ! Number of used nodes (leaves of the node tree)
-  integer, public :: nNodeUsed = 0
+  ! Number of total and used nodes (leaves of the node tree)
+  integer, public :: nNode = 0, nNodeUsed = 0
 
   ! Ordering along the Peano-Hilbert space filling curve
   integer, public, allocatable :: iNodePeano_I(:)
@@ -110,9 +110,6 @@ module BATL_tree
 
   ! Maximum number of nodes including unused and skipped ones
   integer :: MaxNode = 0
-
-  ! Number of nodes in the tree (some may not be used)
-  integer :: nNode = 0
 
   ! Number of levels below root in level (that has occured at any time)
   integer :: nLevel = 0
