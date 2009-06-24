@@ -5,6 +5,9 @@ program advect
 
   implicit none
 
+  ! Square of the radius of the sphere
+  real, parameter :: Radius2 = 25.0
+
   ! Final simulation time, frequency of plots
   real, parameter :: TimeMax = 10.0, DtPlot = 1.0
 
@@ -27,7 +30,7 @@ program advect
   integer :: iStep
   real :: Time, TimePlot, Dt
 
-  integer, parameter:: nVar = 1
+  integer, parameter:: nVar = 1, Rho_ = 1
 
   ! Cell centered state
   real, allocatable :: State_VGB(:,:,:,:,:), StateOld_VCB(:,:,:,:,:)
@@ -59,6 +62,10 @@ program advect
      call advance_explicit
      call timing_stop('explicit')
 
+     call timing_start('amr')
+     call adapt_grid
+     call timing_stop('amr')
+
      ! Update time
      iStep = iStep + 1
      Time  = Time + Dt
@@ -76,6 +83,34 @@ program advect
 contains
 
   !===========================================================================
+  subroutine adapt_grid
+
+    use BATL_lib, ONLY: nBlock, Unused_B, iNode_B, &
+         iStatusNew_A, Refine_, Coarsen_
+
+    use BATL_tree, ONLY: adapt_tree, distribute_tree, move_tree
+    use BATL_amr, ONLY: do_amr
+    use BATL_grid, ONLY: create_grid
+
+    integer:: iBlock
+    !------------------------------------------------------------------------
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       if(maxval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))>1.1)then
+          iStatusNew_A(iNode_B(iBlock)) = Refine_
+       elseif(minval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))<1.05)then
+          iStatusNew_A(iNode_B(iBlock)) = Coarsen_
+       end if
+    end do
+
+    call adapt_tree
+    call distribute_tree(.false.)
+    call do_amr(nVar,State_VGB)
+    call move_tree
+    call create_grid
+
+  end subroutine adapt_grid
+  !===========================================================================
   real function exact_density(Xyz_D)
 
     use ModNumConst, ONLY: cHalfPi
@@ -85,7 +120,6 @@ contains
     ! Square of the radius of the circle/sphere
     real:: XyzShift_D(nDim)
 
-    real, parameter :: Radius2 = 25.0
     real :: r2
 
     real, parameter:: DomainSize_D(nDim) = &
@@ -111,7 +145,11 @@ contains
   subroutine initialize
 
     use BATL_lib, ONLY: init_mpi, init_batl, iProc, &
-         MaxBlock, nBlock, Unused_B, Xyz_DGB
+         MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
+         iTree_IA, iStatusNew_A, MaxLevel_, Refine_
+
+    use BATL_tree, ONLY: adapt_tree, distribute_tree !!!
+    use BATL_grid, ONLY: create_grid
 
     ! Should be called through BATL_lib::refine
     use BATL_tree, ONLY: refine_tree_node, distribute_tree, show_tree
@@ -122,17 +160,28 @@ contains
 
     call init_mpi
     call init_batl( &
-         MaxBlockIn     = 10, &          
+         MaxBlockIn     = 2000, &          
          CoordMinIn_D   = DomainMin_D, &
          CoordMaxIn_D   = DomainMax_D, &
-         nRootIn_D      = (/2,2,1/),   & 
+         nRootIn_D      = (/4,4,1/),   & 
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
 
-    call refine_tree_node(1)
+    ! Allow only one level of refinement
+    iTree_IA(MaxLevel_,:) = 1
+
+    LOOPBLOCK: do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       do k = 1, nK; do j = 1, nJ; do i = 1, nI
+          if(sum(Xyz_DGB(:,i,j,k,iBlock)**2) < Radius2)then !!!
+             iStatusNew_A(iNode_B(iBlock)) = Refine_
+             CYCLE LOOPBLOCK
+          end if
+       end do; end do; end do
+    end do LOOPBLOCK
+
+    call adapt_tree
     call distribute_tree(.true.)
     call create_grid
-
-    if(iProc==0)call show_tree('advect::initialize',.true.)
 
     ! Initial time step and time
     iStep    = 0
@@ -193,7 +242,7 @@ contains
        do k=1,nK; do j=1,nJ; do i=1,nI
           Total_I(Error_) = Total_I(Error_) &
                + CellVolume_B(iBlock) &
-               *abs(State_VGB(1,i,j,k,iBlock)  &
+               *abs(State_VGB(Rho_,i,j,k,iBlock)  &
                -    exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock)))
        end do; end do; end do
     end do
@@ -230,7 +279,7 @@ contains
   subroutine save_plot
 
     use BATL_lib, ONLY: MaxDim, nNodeUsed, nBlock, Unused_B, &
-         iComm, nProc, iProc, &
+         iComm, nProc, iProc, iNode_B, &
          TypeGeometry, CellSize_DB, Xyz_DGB
     use ModMpi,    ONLY: MPI_REAL, MPI_MIN, MPI_reduce
     use ModIoUnit, ONLY: UnitTmp_
@@ -268,10 +317,10 @@ contains
        write(UnitTmp_,'(6(1pe18.10),i10,a)') &
             -1.0, -1.0, -1.0, &
             CellSizeMinAll_D, nCellAll,            ' plot_dx, dxmin, ncell'
-       write(UnitTmp_,'(i8,a)')     nVar,          ' nplotvar'
+       write(UnitTmp_,'(i8,a)')     nVar+4,        ' nplotvar'
        write(UnitTmp_,'(i8,a)')     1,             ' neqpar'
        write(UnitTmp_,'(10es13.5)') 0.0            ! eqpar
-       write(UnitTmp_,'(a)')        'rho none'     ! varnames
+       write(UnitTmp_,'(a)')        'rho dx node proc block none' ! varnames
        write(UnitTmp_,'(a)')        '1 1 1'        ! units
        write(UnitTmp_,'(l8,a)')     .true.         ! save binary .idl files
        write(UnitTmp_,'(i8,a)')     nByteReal,     ' nByteReal'
@@ -288,7 +337,9 @@ contains
 
        do k = 1, nK; do j = 1, nJ; do i = 1, nI
           write(UnitTmp_) CellSize_DB(1,iBlock), &
-               Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock)
+               Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock), &
+               CellSize_DB(1,iBlock), real(iNode_B(iBlock)), &
+               real(iProc), real(iBlock)
        end do; end do; end do
     end do
     close(UnitTmp_)
