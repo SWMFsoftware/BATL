@@ -33,9 +33,12 @@ contains
     real, intent(inout) :: &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
 
+    ! Dynamic arrays
     real,    allocatable :: Buffer_I(:), StateP_VG(:,:,:,:)
     real,    allocatable :: SlopeL_V(:), SlopeR_V(:), Slope_V(:)
-    integer, allocatable :: iBlockAvailable_P(:)
+
+    ! Permanently allocated array
+    integer, save, allocatable :: iBlockAvailable_P(:)
 
     integer :: iNodeSend, iNodeRecv
     integer :: iProcSend, iProcRecv, iBlockSend, iBlockRecv
@@ -149,6 +152,7 @@ contains
 
       integer, intent(in):: iProcRecv, iNodeRecv
       integer :: iBlock
+      character(len=*), parameter:: NameSub = 'BATL_amr::i_block_available'
       !-----------------------------------------------------------------------
       ! Assign the processor index
       iTree_IA(Proc_,iNodeRecv) = iProcRecv
@@ -166,7 +170,7 @@ contains
       ! Find next available block
       do
          iBlock = iBlock + 1
-         if(iBlock > MaxBlock)EXIT
+         if(iBlock > MaxBlock) call CON_stop(NameSub//' ran out of blocks')
          if(Unused_BP(iBlock,iProcRecv))EXIT
       end do
 
@@ -489,7 +493,6 @@ contains
     call create_grid
 
     if(DoTestMe) call show_tree('after move_tree')
-    call show_state
 
     call check_state
 
@@ -505,7 +508,6 @@ contains
     if(DoTestMe) call show_tree('after do_amr')
     call move_tree
     if(DoTestMe) call show_tree('after move_tree')
-    call show_state
 
     ! Update grid variables
     call create_grid
