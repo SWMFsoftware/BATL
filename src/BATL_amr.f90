@@ -11,6 +11,8 @@ module BATL_amr
   public do_amr
   public test_amr
 
+  real, public:: BetaProlong = 1.5
+
 contains
 
   !===========================================================================
@@ -31,7 +33,8 @@ contains
     real, intent(inout) :: &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
 
-    real,    allocatable :: BufferS_I(:), BufferR_I(:), Coarse_VC(:,:,:,:)
+    real,    allocatable :: Buffer_I(:), StateP_VG(:,:,:,:)
+    real,    allocatable :: SlopeL_V(:), SlopeR_V(:), Slope_V(:)
     integer, allocatable :: iBlockAvailable_P(:)
 
     integer :: iNodeSend, iNodeRecv
@@ -42,6 +45,10 @@ contains
 
     character(len=*), parameter:: NameSub = 'BATL_AMR::do_amr'
     logical, parameter:: DoTestMe = .false.
+
+    integer, parameter:: iMinP = 2-iRatio, iMaxP = nI/iRatio + iRatio - 1
+    integer, parameter:: jMinP = 2-jRatio, jMaxP = nJ/jRatio + jRatio - 1
+    integer, parameter:: kMinP = 2-kRatio, kMaxP = nK/kRatio + kRatio - 1
     !-------------------------------------------------------------------------
 
     ! DoTestMe = iProc == 0
@@ -53,8 +60,9 @@ contains
        allocate(iBlockAvailable_P(0:nProc-1))
     end if
 
-    allocate(BufferS_I(nVar*nIJK), BufferR_I(nVar*nIJK), &
-         Coarse_VC(nVar,nI,nJ,nK))
+    allocate(Buffer_I(nVar*nIJK), &
+         StateP_VG(nVar,iMinP:iMaxP,jMinP:jMaxP,kMinP:kMaxP), &
+         SlopeL_V(nVar), SlopeR_V(nVar), Slope_V(nVar))
 
     ! Set iBlockAvailable_P to first available block
     iBlockAvailable_P = -1
@@ -132,7 +140,7 @@ contains
        call make_block_available(iBlockSend, iProcSend)
     end do
 
-    deallocate(BufferR_I, BufferS_I, Coarse_VC)
+    deallocate(Buffer_I, StateP_VG, SlopeL_V, SlopeR_V, Slope_V)
 
   contains
 
@@ -180,16 +188,17 @@ contains
 
       ! Copy buffer into recv block of State_VGB
 
-      integer:: iBufferS, i, j, k
+      integer:: iBuffer, i, j, k
       !------------------------------------------------------------------------
 
-      iBufferS = 0
+      iBuffer = 0
       do k = 1, nK; do j = 1, nJ; do i = 1, nI
-         BufferS_I(iBufferS+1:iBufferS+nVar) = State_VGB(:,i,j,k,iBlockSend)
-         iBufferS = iBufferS + nVar
+         Buffer_I(iBuffer+1:iBuffer+nVar) = State_VGB(:,i,j,k,iBlockSend)
+         iBuffer = iBuffer + nVar
       end do; end do; end do
 
-      call MPI_send(BufferS_I, iBufferS, MPI_REAL, iProcRecv, 1, iComm, iError)
+      ! Put more things into buffer here if necessary !!!
+      call MPI_send(Buffer_I, iBuffer, MPI_REAL, iProcRecv, 1, iComm, iError)
 
     end subroutine send_block
     !==========================================================================
@@ -197,17 +206,17 @@ contains
 
       ! Copy buffer into recv block of State_VGB
 
-      integer:: iBufferR, i, j, k
+      integer:: iBuffer, i, j, k
       !------------------------------------------------------------------------
 
-      iBufferR = nIJK*nVar
-      call MPI_recv(BufferR_I, iBufferR, MPI_REAL, iProcSend, 1, iComm, &
+      iBuffer = nIJK*nVar
+      call MPI_recv(Buffer_I, iBuffer, MPI_REAL, iProcSend, 1, iComm, &
            Status_I, iError)
 
-      iBufferR = 0
+      iBuffer = 0
       do k = 1, nK; do j = 1, nJ; do i = 1, nI
-         State_VGB(:,i,j,k,iBlockRecv) = BufferR_I(iBufferR+1:iBufferR+nVar)
-         iBufferR = iBufferR + nVar
+         State_VGB(:,i,j,k,iBlockRecv) = Buffer_I(iBuffer+1:iBuffer+nVar)
+         iBuffer = iBuffer + nVar
       end do; end do; end do
 
     end subroutine recv_block
@@ -217,19 +226,20 @@ contains
 
       use BATL_size, ONLY: InvIjkRatio
 
-      integer :: i, j, k, iVar, iBufferS
+      integer :: i, j, k, iVar, iBuffer
       !-----------------------------------------------------------------------
-      iBufferS = 0
+      iBuffer = 0
       do k = 1, nK, kRatio; do j = 1, nJ, jRatio; do i=1, nI, iRatio
          do iVar = 1, nVar
-            BufferS_I(iBufferS+iVar) = InvIjkRatio * &
+            Buffer_I(iBuffer+iVar) = InvIjkRatio * &
                  sum(State_VGB(iVar,i:i+iRatio-1,j:j+jRatio-1,k:k+kRatio-1,&
                  iBlockSend))
          end do
-         iBufferS = iBufferS + nVar
+         iBuffer = iBuffer + nVar
       end do; end do; end do
 
-      call MPI_send(BufferS_I, iBufferS, MPI_REAL, iProcRecv, 1, iComm, iError)
+      if(iProcRecv /= iProcSend) &
+           call MPI_send(Buffer_I, iBuffer, MPI_REAL, iProcRecv, 1, iComm, iError)
 
     end subroutine send_coarsened_block
     !==========================================================================
@@ -237,14 +247,16 @@ contains
 
       use BATL_size, ONLY: IjkRatio
 
-      integer:: iBufferR, iSide, jSide, kSide
+      integer:: iBuffer, iSide, jSide, kSide
       integer:: iMin, jMin, kMin, iMax, jMax, kMax
       integer:: i, j, k
       !----------------------------------------------------------------------
 
-      iBufferR = nIJK*nVar/IjkRatio
-      call MPI_recv(BufferR_I, iBufferR, MPI_REAL, iProcSend, 1, iComm, &
-           Status_I, iError)
+      if(iProcRecv /= iProcSend)then
+         iBuffer = nIJK*nVar/IjkRatio
+         call MPI_recv(Buffer_I, iBuffer, MPI_REAL, iProcSend, 1, iComm, &
+              Status_I, iError)
+      end if
 
       ! Find the part of the block to be written into
       iSide = modulo(iTree_IA(Coord1_,iNodeSend)-1, iRatio)
@@ -255,10 +267,10 @@ contains
       jMin = 1 + jSide*nJ/2; jMax = jMin + nJ/jRatio - 1
       kMin = 1 + kSide*nK/2; kMax = kMin + nK/kRatio - 1
 
-      iBufferR = 0
+      iBuffer = 0
       do k = kMin, kMax; do j = jMin, jMax; do i = iMin, iMax
-         State_VGB(:,i,j,k,iBlockRecv) = BufferR_I(iBufferR+1:iBufferR+nVar)
-         iBufferR = iBufferR + nVar
+         State_VGB(:,i,j,k,iBlockRecv) = Buffer_I(iBuffer+1:iBuffer+nVar)
+         iBuffer = iBuffer + nVar
       end do; end do; end do
 
     end subroutine recv_coarsened_block
@@ -267,7 +279,7 @@ contains
 
       integer:: iSide, jSide, kSide
       integer:: iMin, jMin, kMin, iMax, jMax, kMax
-      integer:: i, j, k, iBufferS
+      integer:: i, j, k, iBuffer
       !----------------------------------------------------------------------
 
       ! Find the part of the block to be prolonged
@@ -292,12 +304,14 @@ contains
          kMin = 1; kMax = nK
       end if
 
-      iBufferS = 0
+      iBuffer = 0
       do k = kMin, kMax; do j = jMin, jMax; do i = iMin, iMax
-         BufferS_I(iBufferS+1:iBufferS+nVar) = State_VGB(:,i,j,k,iBlockSend)
-         iBufferS = iBufferS + nVar
+         Buffer_I(iBuffer+1:iBuffer+nVar) = State_VGB(:,i,j,k,iBlockSend)
+         iBuffer = iBuffer + nVar
       enddo; end do; end do
-      call MPI_send(BufferS_I, iBufferS, MPI_REAL, iProcRecv, 1, iComm, iError)
+
+      if(iProcRecv /= iProcSend) &
+           call MPI_send(Buffer_I, iBuffer, MPI_REAL, iProcRecv, 1, iComm, iError)
 
     end subroutine send_refined_block
     !==========================================================================
@@ -306,39 +320,102 @@ contains
       ! Copy buffer into recv block of State_VGB
 
       integer:: iSize = 1, jSize = 1, kSize = 1
-      integer:: iBufferR, i, j, k
+      integer:: iBuffer, i, j, k
 
-      integer:: iS, jS, kS, iR, kR, jR, Di, Dj, Dk
+      integer:: iP, jP, kP, iR, jR, kR, Di, Dj, Dk
       !------------------------------------------------------------------------
-      iSize = nI/iRatio; if(iRatio == 2) iSize = iSize + 2
-      jSize = nJ/jRatio; if(jRatio == 2) jSize = jSize + 2
-      kSize = nK/kRatio; if(kRatio == 2) kSize = kSize + 2
+      if(iProcRecv /= iProcSend)then
+         iBuffer = iSize*jSize*kSize*nVar
+         call MPI_recv(Buffer_I, iBuffer, MPI_REAL, iProcSend, 1, iComm, &
+              Status_I, iError)
+      end if
 
-      iBufferR = iSize*jSize*kSize*nVar
-      call MPI_recv(BufferR_I, iBufferR, MPI_REAL, iProcSend, 1, iComm, &
-           Status_I, iError)
-
-      iBufferR = 0
-      do kS = 1, kSize; do jS = 1, jSize; do iS = 1, iSize
-         Coarse_VC(:,iS,jS,kS) = BufferR_I(iBufferR+1:iBufferR+nVar)
-         iBufferR = iBufferR + nVar
+      iBuffer = 0
+      do kP = kMinP, kMaxP; do jP = jMinP, jMaxP; do iP = iMinP, iMaxP
+         StateP_VG(:,iP,jP,kP) = Buffer_I(iBuffer+1:iBuffer+nVar)
+         iBuffer = iBuffer + nVar
       end do; end do; end do
 
-      Dk = 0; if(kRatio == 2) Dk = 3
-      Dj = 0; if(jRatio == 2) Dj = 3
-      Di = 0; if(iRatio == 2) Di = 3
+      
+      Dk = 0; if(kRatio == 2) Dk = 1
+      Dj = 0; if(jRatio == 2) Dj = 1
+      Di = 0; if(iRatio == 2) Di = 1
       
       do kR = 1, nK
-         kS = (kR + Dk)/kRatio
+         kP = (kR + Dk)/kRatio
          do jR = 1, nJ
-            jS = (jR + Dj)/jRatio
+            jP = (jR + Dj)/jRatio
             do iR = 1, nI
-               iS = (iR + Di)/iRatio
-               State_VGB(:,iR,jR,kR,iBlockRecv) = Coarse_VC(:,iS,jS,kS)
+               iP = (iR + Di)/iRatio
+               State_VGB(:,iR,jR,kR,iBlockRecv) = StateP_VG(:,iP,jP,kP)
             end do
          end do
       end do
 
+      do kP = 1, nK/kRatio
+         kR = kRatio*(kP - 1) + 1
+         do jP = 1, nJ/jRatio
+            jR = jRatio*(jP - 1) + 1
+            do iP = 1, nI/iRatio
+               iR = iRatio*(iP - 1) + 1
+
+               if(iRatio == 2)then
+
+                  SlopeL_V = StateP_VG(:,iP  ,jP,kP)-StateP_VG(:,iP-1,jP,kP)
+                  SlopeR_V = StateP_VG(:,iP+1,jP,kP)-StateP_VG(:,iP  ,jP,kP)
+                  Slope_V  = &
+                       (sign(0.125,SlopeL_V)+sign(0.125,SlopeR_V))*min( &
+                       BetaProlong*abs(SlopeL_V), &
+                       BetaProlong*abs(SlopeR_V), &
+                       0.5*abs(SlopeL_V+SlopeR_V))
+                  do k = kR, kR+Dk; do j = jR, jR+Dj
+                     State_VGB(:,iR,j,k,iBlockRecv) = &
+                          State_VGB(:,iR,j,k,iBlockRecv) - Slope_V
+                     State_VGB(:,iR+1,j,k,iBlockRecv) = &
+                          State_VGB(:,iR+1,j,k,iBlockRecv) + Slope_V
+                  end do; end do
+
+               end if
+
+               if(jRatio == 2)then
+
+                  SlopeL_V = StateP_VG(:,iP,jP  ,kP)-StateP_VG(:,iP,jP-1,kP)
+                  SlopeR_V = StateP_VG(:,iP,jP+1,kP)-StateP_VG(:,iP,jP  ,kP)
+                  Slope_V  = &
+                       (sign(0.125,SlopeL_V)+sign(0.125,SlopeR_V))*min( &
+                       BetaProlong*abs(SlopeL_V), &
+                       BetaProlong*abs(SlopeR_V), &
+                       0.5*abs(SlopeL_V+SlopeR_V))
+                  do k = kR, kR+Dk; do i = iR, iR+Di
+                     State_VGB(:,i,jR,k,iBlockRecv) = &
+                          State_VGB(:,i,jR,k,iBlockRecv) - Slope_V
+                     State_VGB(:,i,jR+1,k,iBlockRecv) = &
+                          State_VGB(:,i,jR+1,k,iBlockRecv) + Slope_V
+                  end do; end do
+
+               end if
+
+               if(kRatio == 2)then
+
+                  SlopeL_V = StateP_VG(:,iP,jP,kP  )-StateP_VG(:,iP,jP,kP-1)
+                  SlopeR_V = StateP_VG(:,iP,jP,kP+1)-StateP_VG(:,iP,jP,kP)
+                  Slope_V  = &
+                       (sign(0.125,SlopeL_V)+sign(0.125,SlopeR_V))*min( &
+                       BetaProlong*abs(SlopeL_V), &
+                       BetaProlong*abs(SlopeR_V), &
+                       0.5*abs(SlopeL_V+SlopeR_V))
+                  do j = jR, jR+Dj; do i = iR, iR+Di
+                     State_VGB(:,i,j,kR,iBlockRecv) = &
+                          State_VGB(:,i,j,kR,iBlockRecv) - Slope_V
+                     State_VGB(:,i,j,kR+1,iBlockRecv) = &
+                          State_VGB(:,i,j,kR+1,iBlockRecv) + Slope_V
+                  end do; end do
+
+               end if
+
+            end do
+         end do
+      end do
     end subroutine recv_refined_block
 
   end subroutine do_amr
@@ -395,13 +472,14 @@ contains
        State_VGB(:,:,:,:,iBlock)    = Xyz_DGB(1:nDim,:,:,:,iBlock)
     end do
 
-    write(*,*)'test prolong and balance'
+    if(DoTestMe) write(*,*)'test prolong and balance'
     call refine_tree_node(1)
     if(DoTestMe) call show_tree('after refine_tree_node')
     call distribute_tree(.false.)
-    if(DoTestMe) call show_tree('after distribute_tree(.false.)')
-
-    write(*,*)'iProc, iProcNew_A=',iProc, iProcNew_A(1:nNode)
+    if(DoTestMe)then
+       call show_tree('after distribute_tree(.false.)')
+       write(*,*)'iProc, iProcNew_A=',iProc, iProcNew_A(1:nNode)
+    end if
 
     call do_amr(nVar, State_VGB)
     if(DoTestMe) call show_tree('after do_amr')
@@ -415,14 +493,14 @@ contains
 
     call check_state
 
-    write(*,*)'test restrict and balance'
+    if(DoTestMe) write(*,*)'test restrict and balance'
     call coarsen_tree_node(1)
     if(DoTestMe) call show_tree('after coarsen_tree_node')
     call distribute_tree(.false.)
-    if(DoTestMe) call show_tree('after distribute_tree(.false.)')
-
-    write(*,*)'iProc, iProcNew_A=',iProc, iProcNew_A(1:nNode)
-
+    if(DoTestMe)then
+       call show_tree('after distribute_tree(.false.)')
+       write(*,*)'iProc, iProcNew_A=',iProc, iProcNew_A(1:nNode)
+    end if
     call do_amr(nVar, State_VGB)
     if(DoTestMe) call show_tree('after do_amr')
     call move_tree
@@ -433,19 +511,6 @@ contains
     call create_grid
 
     call check_state
-
-    ! Artificially move node 1 to the last processor
-    !iProcNew_A(1) = nProc-1
-    !
-    !call do_amr(nVar, State_VGB)
-    !
-    !if(DoTestMe) call show_tree('after do_amr')
-    !
-    !call move_tree
-    !
-    !if(DoTestMe) call show_tree('after move_tree')
-    !
-    !call show_state
 
     deallocate(State_VGB)
 
@@ -474,6 +539,9 @@ contains
     subroutine show_state
 
       integer :: iBlock, iDim, iProcShow
+
+      call flush_unit(STDOUT_)
+      call barrier_mpi
 
       do iProcShow = 0, nProc - 1
          if(iProc == iProcShow)then
