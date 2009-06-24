@@ -91,11 +91,11 @@ contains
     integer, parameter:: nGhostCell = &
          (MaxI-MinI+1)*(MaxJ-MinJ+1)*(MaxK-MinK+1) - nI*nJ*nK
     integer :: MaxBuffer
-    integer, allocatable:: iBufferR_P(:), iBufferS_P(:)
+    integer, allocatable, save:: iBufferR_P(:), iBufferS_P(:)
     real, allocatable:: BufferR_IP(:,:), BufferS_IP(:,:)
 
     integer:: iRequestR, iRequestS, iError
-    integer, allocatable:: iRequestR_I(:), iRequestS_I(:), iStatus_II(:,:)
+    integer, allocatable, save:: iRequestR_I(:), iRequestS_I(:), iStatus_II(:,:)
 
     logical :: DoTest = .false., DoTestMe = .false.
     !--------------------------------------------------------------------------
