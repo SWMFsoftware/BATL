@@ -368,7 +368,7 @@ contains
     real, parameter:: DomainSize_D(MaxDim) = DomainMax_D - DomainMin_D
 
     integer, parameter:: nVar = nDim
-    real, allocatable:: State_VGB(:,:,:,:,:), StateOld_VCB(:,:,:,:,:)
+    real, allocatable:: State_VGB(:,:,:,:,:)
 
     integer:: iBlock
 
@@ -388,13 +388,11 @@ contains
 
     if(DoTestMe) call show_tree('after create_grid')
 
-    allocate(State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlockTest), &
-         StateOld_VCB(nVar,nI,nJ,nK,MaxBlockTest))
+    allocate(State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlockTest))
 
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
        State_VGB(:,:,:,:,iBlock)    = Xyz_DGB(1:nDim,:,:,:,iBlock)
-       StateOld_VCB(:,:,:,:,iBlock) = Xyz_DGB(1:nDim,1:nI,1:nJ,1:nK,iBlock)
     end do
 
     write(*,*)'test prolong and balance'
@@ -408,9 +406,14 @@ contains
     call do_amr(nVar, State_VGB)
     if(DoTestMe) call show_tree('after do_amr')
     call move_tree
+
+    ! Update grid variables
+    call create_grid
+
     if(DoTestMe) call show_tree('after move_tree')
     call show_state
 
+    call check_state
 
     write(*,*)'test restrict and balance'
     call coarsen_tree_node(1)
@@ -426,17 +429,10 @@ contains
     if(DoTestMe) call show_tree('after move_tree')
     call show_state
 
-    do iBlock = 1, nBlock
-       if(Unused_B(iBlock)) CYCLE
+    ! Update grid variables
+    call create_grid
 
-       if(any(abs(State_VGB(:,1:nI,1:nJ,1:nK,iBlock) &
-            -     StateOld_VCB(:,:,:,:,iBlock)) > 1e-6))then
-          write(*,*)NameSub,' error for iProc,iBlock,maxloc=',iProc,iBlock,&
-               maxloc(abs(State_VGB(:,1:nI,1:nJ,1:nK,iBlock) &
-            -     StateOld_VCB(:,:,:,:,iBlock)))
-       end if
-    end do
-
+    call check_state
 
     ! Artificially move node 1 to the last processor
     !iProcNew_A(1) = nProc-1
@@ -451,13 +447,30 @@ contains
     !
     !call show_state
 
-    deallocate(State_VGB, StateOld_VCB)
+    deallocate(State_VGB)
 
     call clean_grid
     call clean_tree
 
   contains
+    !==========================================================================
+    subroutine check_state
 
+      integer :: iBlcok
+      !-----------------------------------------------------------------------
+      do iBlock = 1, nBlock
+         if(Unused_B(iBlock)) CYCLE
+
+         if(any(abs(State_VGB(:,1:nI,1:nJ,1:nK,iBlock) &
+              -     Xyz_DGB(1:nDim,1:nI,1:nJ,1:nK,iBlock)) > 1e-6))then
+            write(*,*)NameSub,' error for iProc,iBlock,maxloc=',iProc,iBlock,&
+                 maxloc(abs(State_VGB(:,1:nI,1:nJ,1:nK,iBlock) &
+                 -    Xyz_DGB(1:nDim,1:nI,1:nJ,1:nK,iBlock)))
+         end if
+      end do
+
+    end subroutine check_state
+    !==========================================================================
     subroutine show_state
 
       integer :: iBlock, iDim, iProcShow
