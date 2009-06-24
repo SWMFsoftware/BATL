@@ -12,6 +12,7 @@ module BATL_tree
   public:: set_tree_root
   public:: refine_tree_node
   public:: coarsen_tree_node
+  public:: adapt_tree
   public:: get_tree_position
   public:: find_tree_node
   public:: distribute_tree
@@ -65,6 +66,9 @@ module BATL_tree
        'Child6   ', &
        'Child7   ', &
        'Child8   ' /)
+
+  ! New status (refine, coarsen etc) requested for nodes
+  integer, public, allocatable :: iStatusNew_A(:)
 
   ! New processor index of a given node after next load balance
   integer, public, allocatable :: iProcNew_A(:)
@@ -137,6 +141,7 @@ contains
     ! Allocate and initialize all elements of tree as unset
     allocate(iTree_IA(nInfo, MaxNode));                 iTree_IA       = Unset_
     allocate(iNodePeano_I(MaxNode));                    iNodePeano_I   = Unset_
+    allocate(iStatusNew_A(MaxNode));                    iStatusNew_A   = Unset_
     allocate(iProcNew_A(MaxNode));                      iProcNew_A     = Unset_
     allocate(iNode_B(MaxBlock));                        iNode_B        = Unset_
     allocate(Unused_B(MaxBlock));                       Unused_B       = .true.
@@ -144,13 +149,17 @@ contains
     allocate(iNodeNei_IIIB(0:3,0:3,0:3,MaxBlock));      iNodeNei_IIIB  = Unset_
     allocate(DiLevelNei_IIIB(-1:1,-1:1,-1:1,MaxBlock)); DiLevelNei_IIIB= Unset_
 
+    ! Initialize minimum and maximum levels of refinement
+    iTree_IA(MinLevel_,:) = 0;
+    iTree_IA(MaxLevel_,:) = MaxLevel
+
   end subroutine init_tree
 
   !==========================================================================
   subroutine clean_tree
 
     if(.not.allocated(iTree_IA)) RETURN
-    deallocate(iTree_IA, iNodePeano_I, iProcNew_A, iNode_B, &
+    deallocate(iTree_IA, iNodePeano_I, iStatusNew_A, iProcNew_A, iNode_B, &
          Unused_B, Unused_BP, &
          iNodeNei_IIIB, DiLevelNei_IIIB)
 
@@ -250,6 +259,8 @@ contains
 
        iTree_IA(Status_,   iNodeChild) = RefineNew_
        iTree_IA(Level_,    iNodeChild) = iLevelChild
+       iTree_IA(MinLevel_, iNodeChild) = iTree_IA(MinLevel_,iNode)
+       iTree_IA(MaxLevel_, iNodeChild) = iTree_IA(MaxLevel_,iNode)
        iTree_IA(Parent_,   iNodeChild) = iNode
        iTree_IA(Child1_:ChildLast_, iNodeChild) = Unset_
 
@@ -299,6 +310,75 @@ contains
 
   end subroutine coarsen_tree_node
 
+  !===========================================================================
+
+  subroutine adapt_tree
+
+    use BATL_mpi, ONLY: iComm, nProc, iProc
+    use ModMpi, ONLY: MPI_allreduce, MPI_INTEGER, MPI_MAX
+
+    ! All processors can request some status changes in iStatusNew_A.
+    ! Here we collect requests, check for proper nesting !!!, 
+    ! limitations on level, number of blocks, etc, and set iTree_IA.
+    ! Possibly load balance different type of blocks !!!
+
+    ! This array is needed for MPI_allreduce
+    integer:: iStatusAll_A(MaxNode)
+
+    integer:: nNodeUsedNow, iMorton, iNode, iStatus, iNodeParent, iError
+    integer:: iChild, iNodeChild, iNodeChild_I(nChild)
+    !------------------------------------------------------------------------
+    if(nProc > 1)then
+       call MPI_allreduce(iStatusNew_A, iStatusAll_A, nNode, MPI_INTEGER, &
+            MPI_MAX, iComm, iError)
+    else
+       iStatusAll_A = iStatusNew_A
+    end if
+
+    nNodeUsedNow = nNodeUsed
+
+    ! Coarsen first to reduce number of nodes and used blocks
+    do iMorton = 1, nNodeUsedNow
+       iNode   = iNodePeano_I(iMorton)
+       iStatus = iStatusAll_A(iNode)
+
+       if(iStatus /= Coarsen_) CYCLE
+
+       ! Check level
+       if(iTree_IA(Level_,iNode) <= iTree_IA(MinLevel_,iNode))CYCLE
+
+       ! Check if all siblings want to be coarsened
+       iNodeParent = iTree_IA(Parent_,iNode)
+       iNodeChild_I = iTree_IA(Child1_:ChildLast_,iNodeParent)
+       if(all(iStatusAll_A(iNodeChild_I) == Coarsen_))then
+          ! Coarsen tree node
+          call coarsen_tree_node(iNodeParent)
+       else
+          ! Cancel coarsening requests for all siblings
+          where(iStatusAll_A(iNodeChild_I) == Coarsen_) &
+               iStatusAll_A(iNodeChild_I) = Unset_
+       end if
+    end do
+
+    ! Refine next
+    do iMorton = 1, nNodeUsedNow
+       iNode   = iNodePeano_I(iMorton)
+       iStatus = iStatusAll_A(iNode)
+
+       if(iStatus /= Refine_) CYCLE
+       ! Check level
+       if(iTree_IA(Level_,iNode) >= iTree_IA(MaxLevel_,iNode))CYCLE
+
+       ! Refine tree node
+       call refine_tree_node(iNode)
+
+       if(nNodeUsed > MaxBlock*nProc) EXIT
+
+    end do
+
+    iStatusNew_A = Unset_
+
+  end subroutine adapt_tree
   !==========================================================================
   subroutine get_tree_position(iNode, PositionMin_D, PositionMax_D)
 
@@ -513,7 +593,7 @@ contains
 
     ! Amount of shift for each node
     integer, allocatable:: iNodeNew_A(:)
-    integer :: iNode, iNodeSkipped, iNodeOld, i
+    integer :: iNode, iNodeSkipped, iNodeOld, i, iBlock
     !-------------------------------------------------------------------------
 
     allocate(iNodeNew_A(MaxNode))
@@ -543,14 +623,12 @@ contains
 
     ! Apply shifts
     do iNode = 1, MaxNode
-
        if(iTree_IA(Status_, iNode) == Unset_) EXIT
        do i = Parent_, ChildLast_
           iNodeOld = iTree_IA(i, iNode)
           if(iNodeOld /= Unset_) &
                iTree_IA(i, iNode) = iNodeNew_A(iNodeOld)
        end do
-
     end do
 
     ! Set number of nodes in the tree (note the EXIT above)
@@ -560,6 +638,13 @@ contains
     do iPeano = 1, nNodeUsed
        iNodeOld = iNodePeano_I(iPeano)
        iNodePeano_I(iPeano) = iNodeNew_A(iNodeOld)
+    end do
+    
+    ! Fix iNode_B indexes
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       iNodeOld = iNode_B(iBlock)
+       iNode_B(iBlock) = iNodeNew_A(iNodeOld)
     end do
 
   end subroutine compact_tree
