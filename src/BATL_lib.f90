@@ -26,7 +26,10 @@ module BATL_lib
   ! Inherited from BATL_tree
   public:: nNodeUsed
   public:: Unused_B
+  public:: iNode_B
   public:: DiLevelNei_IIIB, iNodeNei_IIIB
+  public:: iStatusNew_A, Refine_, Coarsen_
+  public:: iTree_IA, MinLevel_, MaxLevel_
 
   ! Inherited from BATL_geometry
   public:: TypeGeometry, IsPeriodic_D
