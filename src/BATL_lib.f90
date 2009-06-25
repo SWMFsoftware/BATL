@@ -22,7 +22,7 @@ module BATL_lib
   ! Inherited from BATL_size
   public:: MaxDim, nDim, nDimAmr
   public:: MaxBlock, nBlock
-  public:: nI, nJ, nK, nIJK_D
+  public:: nI, nJ, nK, nIJK, nIJK_D
   public:: MinI, MaxI, MinJ, MaxJ, MinK, MaxK
 
   ! Inherited from BATL_mpi
