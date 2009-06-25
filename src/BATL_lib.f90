@@ -13,6 +13,12 @@ module BATL_lib
 
   private ! except
 
+  ! Public methods of this module
+  public:: init_batl
+  public:: clean_batl
+  public:: init_grid_batl
+  public:: regrid_batl
+
   ! Inherited from BATL_size
   public:: MaxDim, nDim, nDimAmr
   public:: MaxBlock, nBlock
@@ -43,10 +49,6 @@ module BATL_lib
   ! Inherited from BATL_pass_cell
   public:: message_pass_cell
 
-  ! Public methods of this module
-  public:: init_batl
-  public:: clean_batl
-
 contains
   !============================================================================
   subroutine init_batl(&
@@ -73,6 +75,40 @@ contains
     call clean_grid
     call clean_tree
   end subroutine clean_batl
+
   !============================================================================
+
+  subroutine init_grid_batl
+
+    use BATL_tree, ONLY: adapt_tree, distribute_tree
+    use BATL_grid, ONLY: create_grid
+    !------------------------------------------------------------------------
+
+    call adapt_tree
+    call distribute_tree(DoMove=.true.)
+    call create_grid
+
+  end subroutine init_grid_batl
+
+  !============================================================================
+
+  subroutine regrid_batl(nVar, State_VGB)
+
+    use BATL_tree, ONLY: adapt_tree, distribute_tree, move_tree
+    use BATL_amr,  ONLY: do_amr
+    use BATL_grid, ONLY: create_grid
+
+    integer, intent(in)   :: nVar
+    real,    intent(inout):: &
+         State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
+    !------------------------------------------------------------------------
+
+    call adapt_tree
+    call distribute_tree(DoMove=.false.)
+    call do_amr(nVar,State_VGB)
+    call move_tree
+    call create_grid
+
+  end subroutine regrid_batl
 
 end module BATL_lib

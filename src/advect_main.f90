@@ -111,13 +111,8 @@ contains
   !===========================================================================
   subroutine adapt_grid
 
-    use BATL_lib, ONLY: nBlock, Unused_B, iNode_B, &
+    use BATL_lib, ONLY: regrid_batl, nBlock, Unused_B, iNode_B, &
          iStatusNew_A, Refine_, Coarsen_
-
-    use BATL_tree, ONLY: adapt_tree, distribute_tree, move_tree
-
-    use BATL_amr, ONLY: do_amr
-    use BATL_grid, ONLY: create_grid
 
     integer:: iBlock
     !------------------------------------------------------------------------
@@ -130,11 +125,7 @@ contains
        end if
     end do
 
-    call adapt_tree
-    call distribute_tree(.false.)
-    call do_amr(nVar,State_VGB)
-    call move_tree
-    call create_grid
+    call regrid_batl(nVar,State_VGB)
 
   end subroutine adapt_grid
   !===========================================================================
@@ -171,16 +162,9 @@ contains
   !===========================================================================
   subroutine initialize
 
-    use BATL_lib, ONLY: init_mpi, init_batl, iProc, &
-         MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
+    use BATL_lib, ONLY: init_mpi, init_batl, init_grid_batl, &
+         iProc, MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
          iTree_IA, iStatusNew_A, MaxLevel_, Refine_
-
-    use BATL_tree, ONLY: adapt_tree, distribute_tree !!!
-    use BATL_grid, ONLY: create_grid
-
-    ! Should be called through BATL_lib::refine
-    use BATL_tree, ONLY: refine_tree_node, distribute_tree, show_tree
-    use BATL_grid, ONLY: create_grid
 
     integer :: i, j, k, iBlock, iError
     !------------------------------------------------------------------------
@@ -206,9 +190,7 @@ contains
        end do; end do; end do
     end do LOOPBLOCK
 
-    call adapt_tree
-    call distribute_tree(.true.)
-    call create_grid
+    call init_grid_batl
 
     ! Initial time step and time
     iStep    = 0
