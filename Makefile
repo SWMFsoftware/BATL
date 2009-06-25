@@ -79,7 +79,7 @@ test33:
 	ls -l test33.diff
 
 test_advect22: 
-	Config.pl -g=2,2,80,40
+	Config.pl -g=2,2,4,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect22.log
 	cd run; ${MPIRUN} ADVECT.exe > runlog
