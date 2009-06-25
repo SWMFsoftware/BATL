@@ -16,11 +16,11 @@ module BATL_amr
 contains
 
   !===========================================================================
-  subroutine do_amr(nVar, State_VGB)
+  subroutine do_amr(nVar, State_VGB, DoTestIn)
 
     use BATL_size, ONLY: MaxBlock, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
          nI, nJ, nK, nIJK, iRatio, jRatio, kRatio
-    use BATL_mpi,  ONLY: iComm, nProc, iProc
+    use BATL_mpi,  ONLY: iComm, nProc, iProc, barrier_mpi
 
     use BATL_tree, ONLY: nNode, nNodeUsed, Unused_BP, &
          iTree_IA, iProcNew_A, Proc_, Block_, Coord1_, Coord2_, Coord3_, &
@@ -32,6 +32,8 @@ contains
     integer, intent(in) :: nVar
     real, intent(inout) :: &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
+
+    logical, optional:: DoTestIn
 
     ! Dynamic arrays
     real,    allocatable :: Buffer_I(:), StateP_VG(:,:,:,:)
@@ -47,16 +49,18 @@ contains
     integer:: Status_I(MPI_STATUS_SIZE), iError
 
     character(len=*), parameter:: NameSub = 'BATL_AMR::do_amr'
-    logical, parameter:: DoTestMe = .false.
+    logical:: DoTest
 
     integer, parameter:: iMinP = 2-iRatio, iMaxP = nI/iRatio + iRatio - 1
     integer, parameter:: jMinP = 2-jRatio, jMaxP = nJ/jRatio + jRatio - 1
     integer, parameter:: kMinP = 2-kRatio, kMaxP = nK/kRatio + kRatio - 1
+    integer, parameter:: nSizeP = &
+         (iMaxP-iMinP+1)*(jMaxP-jMinP+1)*(kMaxP-kMinP+1)
     !-------------------------------------------------------------------------
+    DoTest = .false.
+    if(present(DoTestIn)) DoTest = DoTestIn
 
-    ! DoTestMe = iProc == 0
-
-    if(DoTestMe)write(*,*) NameSub,' starting'
+    if(DoTest)write(*,*) NameSub,' starting'
 
     ! Small arrays are allocated once 
     if(.not.allocated(iBlockAvailable_P))then
@@ -82,7 +86,7 @@ contains
     do iNodeRecv = 1, nNode
        if(iTree_IA(Status_,iNodeRecv) /= CoarsenNew_) CYCLE
 
-       if(DoTestMe) write(*,*)NameSub,' CoarsenNew iNode=',iNodeRecv
+       if(DoTest) write(*,*)NameSub,' CoarsenNew iNode=',iNodeRecv
 
        iProcRecv  = iProcNew_A(iNodeRecv)
        iBlockRecv = i_block_available(iProcRecv, iNodeRecv)
@@ -113,7 +117,7 @@ contains
        iBlockSend = iTree_IA(Block_,iNodeSend)
        iBlockRecv = i_block_available(iProcRecv, iNodeSend)
 
-       if(DoTestMe) write(*,*)NameSub, &
+       if(DoTest) write(*,*)NameSub, &
             ' node to move iNode,iProcS/R,iBlockS/R=',&
             iNodeSend, iProcSend, iProcRecv, iBlockSend, iBlockRecv
 
@@ -130,11 +134,16 @@ contains
        iProcSend  = iTree_IA(Proc_,iNodeSend)
        iBlockSend = iTree_IA(Block_,iNodeSend)
 
+       if(DoTest) write(*,*)NameSub,' Refine iNode=',iNodeSend
+
        do iChild = Child1_, ChildLast_
           iNodeRecv = iTree_IA(iChild,iNodeSend)
 
           iProcRecv  = iProcNew_A(iNodeRecv)
           iBlockRecv = i_block_available(iProcRecv, iNodeRecv)
+
+
+          if(DoTest) write(*,*)NameSub,' iChild,iNodeRecv=',iChild,iNodeRecv
 
           if(iProc == iProcSend) call send_refined_block
           if(iProc == iProcRecv) call recv_refined_block
@@ -329,8 +338,7 @@ contains
       integer:: iP, jP, kP, iR, jR, kR, Di, Dj, Dk
       !------------------------------------------------------------------------
       if(iProcRecv /= iProcSend)then
-         iBuffer = iSize*jSize*kSize*nVar
-         call MPI_recv(Buffer_I, iBuffer, MPI_REAL, iProcSend, 1, iComm, &
+         call MPI_recv(Buffer_I, nSizeP, MPI_REAL, iProcSend, 1, iComm, &
               Status_I, iError)
       end if
 
