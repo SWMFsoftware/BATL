@@ -78,6 +78,13 @@ test33:
 		run/test33.ref src/test33.ref > test33.diff)
 	ls -l test33.diff
 
+test_advect11: 
+	Config.pl -g=1,1,4
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect11.log
+	cd run; ${MPIRUN} ADVECT.exe > runlog
+	make test_advect11_check
+
 test_advect22: 
 	Config.pl -g=2,2,4,4
 	make ADVECT
@@ -85,10 +92,27 @@ test_advect22:
 	cd run; ${MPIRUN} ADVECT.exe > runlog
 	make test_advect22_check
 
+test_advect33: 
+	Config.pl -g=3,3,4,4,4
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect33.log
+	cd run; ${MPIRUN} ADVECT.exe > runlog
+	make test_advect33_check
+
+test_advect11_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect11.log src/advect11.ref > advect11.diff)
+	ls -l advect11.diff
+
 test_advect22_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
 		run/advect22.log src/advect22.ref > advect22.diff)
 	ls -l advect22.diff
+
+test_advect33_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect33.log src/advect33.ref > advect33.diff)
+	ls -l advect33.diff
 
 clean:
 	cd share; make clean
