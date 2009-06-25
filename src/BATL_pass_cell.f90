@@ -33,13 +33,13 @@ contains
 
   subroutine message_pass_cell(nVar, State_VGB, &
        nWidthIn, nProlongOrderIn, nCoarseLayerIn, DoSendCornerIn, &
-       DoRestrictFaceIn)
+       DoRestrictFaceIn, DoTestIn)
 
     use BATL_size, ONLY: MaxBlock, &
          nBlock, nI, nJ, nK, nIjk_D, nG, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
          MaxDim, nDim, nDimAmr, iRatio, jRatio, kRatio, iRatio_D, InvIjkRatio
 
-    use BATL_mpi, ONLY: iComm, nProc, iProc
+    use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
 
     use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
          iNodeNei_IIIB, DiLevelNei_IIIB, Unused_B, iNode_B, &
@@ -58,6 +58,7 @@ contains
     integer, optional, intent(in) :: nProlongOrderIn
     logical, optional, intent(in) :: DoSendCornerIn
     logical, optional, intent(in) :: DoRestrictFaceIn
+    logical, optional, intent(in) :: DoTestIn
 
     ! Local variables
 
@@ -66,7 +67,6 @@ contains
     integer :: nProlongOrder
     logical :: DoSendCorner
     logical :: DoRestrictFace
-    character(len=*), parameter:: NameSub = 'BATL_pass_cell::message_pass_cell'
 
     integer :: iProlongOrder, iSendRecv, iPeano
     integer :: iSend, jSend, kSend, iRecv, jRecv, kRecv, iSide, jSide, kSide
@@ -97,9 +97,11 @@ contains
     integer:: iRequestR, iRequestS, iError
     integer, allocatable, save:: iRequestR_I(:), iRequestS_I(:), iStatus_II(:,:)
 
-    logical :: DoTest = .false., DoTestMe = .false.
+    logical:: DoTest, DoTestMe
+    character(len=*), parameter:: NameSub = 'BATL_pass_cell::message_pass_cell'
     !--------------------------------------------------------------------------
-    if(DoTestMe)write(*,*)NameSub,' starting with nVar=',nVar
+    DoTest = .false.; if(present(DoTestIn)) DoTest = DoTestIn
+    if(DoTest)write(*,*)NameSub,' starting with nVar=',nVar
 
     ! Set values or defaults for optional arguments
     nWidth = nG
@@ -117,8 +119,6 @@ contains
 
     DoRestrictFace = .false.
     if(present(DoRestrictFaceIn)) DoRestrictFace = DoRestrictFaceIn
-
-    ! if(nProc>1)call show_tree('BATL_pass_cell',.true.)
 
     call set_range
 
@@ -150,6 +150,7 @@ contains
 
        ! Loop through all nodes
        do iBlockSend = 1, nBlock
+
           if(Unused_B(iBlockSend)) CYCLE
 
           iNodeSend = iNode_B(iBlockSend)
@@ -172,7 +173,7 @@ contains
                         (jDir /= 0 .or.  kDir /= 0)) CYCLE
 
                    DiLevel = DiLevelNei_IIIB(iDir,jDir,kDir,iBlockSend)
-                   
+
                    ! Do prolongation in the second stage if nProlongOrder is 2
                    if(nProlongOrder == 2 .and. &
                         (iProlongOrder == 1 .and. DiLevel == -1) .or. &
@@ -194,6 +195,7 @@ contains
        if(nProc == 1) CYCLE
 
        call timing_start('send_recv')
+
        ! post requests
        iRequestR = 0
        do iProcSend = 0, nProc - 1
@@ -221,7 +223,7 @@ contains
                MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
                iError)
        end do
-
+      
        ! wait for all requests to be completed
        if(iRequestR > 0) &
             call MPI_waitall(iRequestR, iRequestR_I, iStatus_II, iError)
@@ -337,6 +339,7 @@ contains
          ! is the same as sent for equal levels
          nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
          iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) + 1 + 2*nDim + nSize
+
       end if
 
     end subroutine do_equal
@@ -468,6 +471,7 @@ contains
 
          nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
          iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) + 1 + 2*nDim + nSize
+
       end if
 
     end subroutine do_restrict
@@ -511,13 +515,19 @@ contains
                iProcRecv  = iTree_IA(Proc_,iNodeRecv)
                iBlockRecv = iTree_IA(Block_,iNodeRecv)
 
-               !write(*,*)'iRecv, jRecv, kRecv=',iRecv, jRecv, kRecv
+               !if(DoTestMe)then
+               !   write(*,*)'!!! iNodeRecv, iProcRecv, iBlovkRecv=', &
+               !        iNodeRecv, iProcRecv, iBlockRecv
+               !   write(*,*)'!!! kSide,jSide,iSide=',kSide,jSide,iSide
+               !   write(*,*)'!!! kSend,jSend,iSend=',kSend,jSend,iSend
+               !   write(*,*)'!!! kRecv,jRecv,iRecv=',kRecv,jRecv,iRecv
+	       !
+               !   write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
+               !        iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
                !
-               !write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
-               !     iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
-               !
-               !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
-               !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
+               !   write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
+               !        iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
+               !end if
 
                if(iProc == iProcRecv)then
                   do kR=kRMin,kRMax
@@ -572,6 +582,7 @@ contains
                   nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
                   iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) &
                        + 1 + 2*nDim + nSize
+
                end if
             end do
          end do

@@ -1,7 +1,7 @@
 program advect
 
   use BATL_lib, ONLY: nDim, nI, nJ, nK, &
-       MinI, MaxI, MinJ, MaxJ, MinK, MaxK
+       MinI, MaxI, MinJ, MaxJ, MinK, MaxK, iProc, barrier_mpi
 
   implicit none
 
@@ -40,31 +40,55 @@ program advect
 
   ! Total initial mass
   real:: TotalIni_I(0:nVar) = -1.0
+
+  logical, parameter :: DoTest = .false.
+  character(len=*), parameter:: NameSub = 'advect_main'
   !--------------------------------------------------------------------------
   call initialize
 
+  if(DoTest)write(*,*)NameSub,' starting iProc=',iProc
+  if(DoTest)call barrier_mpi
+
   call timing_start('ADVECT')
   do
+     if(DoTest)write(*,*)NameSub,' advance iProc, iStep=',iProc,iStep
+
      ! Save plot at required frequency
      if( Time >= TimePlot - 1e-10 )then
+
+        if(DoTest)write(*,*)NameSub,' saving plots iProc=',iProc
+
         call timing_start('save_plot')
         call save_plot
         call timing_stop('save_plot')
+
+        if(DoTest)write(*,*)NameSub,' save logfile iProc=',iProc
 
         call timing_start('save_log')
         call save_log
         call timing_stop('save_log')
 
+        if(DoTest)write(*,*)NameSub,' finished plots iProc=',iProc
+
         TimePlot = TimePlot + DtPlot
      end if
+
+     if(DoTest)write(*,*)NameSub,' advance_expl iProc=',iProc
+     if(DoTest)call barrier_mpi
 
      call timing_start('explicit')
      call advance_explicit
      call timing_stop('explicit')
 
+     if(DoTest)write(*,*)NameSub,' adapt grid iProc=',iProc
+     if(DoTest)call barrier_mpi
+
      call timing_start('amr')
      call adapt_grid
      call timing_stop('amr')
+
+     if(DoTest)write(*,*)NameSub,' update time iProc=',iProc
+     if(DoTest)call barrier_mpi
 
      ! Update time
      iStep = iStep + 1
@@ -78,6 +102,8 @@ program advect
   call timing_stop('ADVECT')
   call timing_report_total
 
+  if(DoTest)write(*,*)NameSub,' finalize iProc=',iProc
+
   call finalize
 
 contains
@@ -89,6 +115,7 @@ contains
          iStatusNew_A, Refine_, Coarsen_
 
     use BATL_tree, ONLY: adapt_tree, distribute_tree, move_tree
+
     use BATL_amr, ONLY: do_amr
     use BATL_grid, ONLY: create_grid
 
@@ -471,6 +498,9 @@ contains
 
     integer:: iStage, iDim, iBlock, i, j, k, Di, Dj, Dk, iError
     real:: DtPe
+
+    logical, parameter:: DoTest = .false.
+    character(len=*), parameter:: NameSub = 'advance_explicit'
     !--------------------------------------------------------------------------
     Dt = 1e30
     do iBlock = 1, nBlock
@@ -491,9 +521,13 @@ contains
 
     do iStage = 1, nOrder
 
+       if(DoTest)write(*,*)NameSub,' advance_expl iProc, iStage=',iProc,iStage       
+
        call timing_start('message_pass')
-       call message_pass_cell(nVar, State_VGB)
+       call message_pass_cell(nVar, State_VGB, DoSendCornerIn=.true.)
        call timing_stop('message_pass')
+
+       if(DoTest)write(*,*)NameSub,' finished message_pass iProc=',iProc
 
        call timing_start('update')
        do iBlock = 1, nBlock
