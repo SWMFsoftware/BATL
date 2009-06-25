@@ -50,8 +50,12 @@ contains
   !==========================================================================
   subroutine barrier_mpi
 
+    use ModUtilities, ONLY: flush_unit
+    use ModIoUnit,    ONLY: STDOUT_
+
     integer:: iError
     !-----------------------------------------------------------------------
+    call flush_unit(STDOUT_)
     call MPI_barrier(iComm, iError)
 
   end subroutine barrier_mpi
