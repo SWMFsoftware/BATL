@@ -23,7 +23,7 @@ program advect
 
   ! Size of the computational domain
   real, parameter :: &
-       DomainMax_D(3) = (/ 10.0, 5.0, 2.0 /), &
+       DomainMax_D(3) = (/ 10.0, 5.0, 5.0 /), &
        DomainMin_D(3) = -DomainMax_D
 
   ! Time step counter and simulation time
@@ -287,10 +287,11 @@ contains
 
   subroutine save_plot
 
-    use BATL_lib, ONLY: MaxDim, nNodeUsed, nBlock, Unused_B, &
+    use BATL_lib, ONLY: MaxDim, nIJK, nBlock, Unused_B, &
          iComm, nProc, iProc, iNode_B, &
-         TypeGeometry, CellSize_DB, Xyz_DGB
-    use ModMpi,    ONLY: MPI_REAL, MPI_MIN, MPI_reduce
+         TypeGeometry, CellSize_DB, Xyz_DGB, CoordMin_DB, CoordMax_DB
+
+    use ModMpi,    ONLY: MPI_REAL, MPI_INTEGER, MPI_MIN, MPI_SUM, MPI_reduce
     use ModIoUnit, ONLY: UnitTmp_
     use ModKind,   ONLY: nByteReal
 
@@ -298,9 +299,30 @@ contains
     real:: CellSizeMin_D(MaxDim), CellSizeMinAll_D(MaxDim)
     real:: PlotMax_D(MaxDim), PlotMin_D(MaxDim)
     integer :: iDim, iBlock, i, j, k, iError
-    integer :: nCellAll
+    integer :: nCell, nCellAll, nPlotDim
     !-----------------------------------------------------------------------
     write(NameSnapshot,'(a,i7.7)') 'plots/cut_var_1_n',iStep
+
+    ! write data from all processors into separate files
+    write(NameFile,'(a,i4.4,a)') trim(NameSnapshot)//'_pe',iProc,'.idl'
+    open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
+    nCell = 0
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       if(CoordMin_DB(3,iBlock) > 1e-6) CYCLE
+       if(CoordMax_DB(3,iBlock) <-1e-6) CYCLE
+       do k = 1, nK; 
+          if(abs(Xyz_DGB(3,1,1,k,iBlock)) > 0.51*CellSize_DB(3,iBlock)) CYCLE
+          do j = 1, nJ; do i = 1, nI
+             nCell = nCell + 1
+             write(UnitTmp_) CellSize_DB(1,iBlock), &
+                  Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock), &
+                  CellSize_DB(1,iBlock), real(iNode_B(iBlock)), &
+                  real(iProc), real(iBlock)
+          end do; end do; 
+       end do
+    end do
+    close(UnitTmp_)
 
     do iDim = 1, MaxDim
        CellSizeMin_D(iDim) = &
@@ -309,11 +331,12 @@ contains
     call MPI_reduce(CellSizeMin_D, CellSizeMinAll_D, MaxDim, MPI_REAL, &
          MPI_MIN, 0, iComm, iError)
 
-    nCellAll = nNodeUsed*nI*nJ*nK
+    call MPI_reduce(nCell, nCellAll, 1, MPI_INTEGER, MPI_SUM, 0, iComm, iError)
 
     if(iProc == 0)then
-       PlotMin_D = -1e-10; PlotMin_D(1:nDim) = DomainMin_D(1:nDim)
-       PlotMax_D = +1e-10; PlotMax_D(1:nDim) = DomainMax_D(1:nDim)
+       nPlotDim = min(2,nDim)
+       PlotMin_D = -1e-10; PlotMin_D(1:nPlotDim) = DomainMin_D(1:nPlotDim)
+       PlotMax_D = +1e-10; PlotMax_D(1:nPlotDim) = DomainMax_D(1:nPlotDim)
 
        NameFile = trim(NameSnapshot)//'.h'
        open(UnitTmp_,file=NameFile,status="replace")
@@ -337,21 +360,6 @@ contains
        write(UnitTmp_,'(a)')        'real4'        ! type of .out file
        close(UnitTmp_)
     end if
-
-    ! write data from all processors into separate files
-    write(NameFile,'(a,i4.4,a)') trim(NameSnapshot)//'_pe',iProc,'.idl'
-    open(UnitTmp_, file=NameFile, status='replace', form='unformatted')
-    do iBlock = 1, nBlock
-       if(Unused_B(iBlock)) CYCLE
-
-       do k = 1, nK; do j = 1, nJ; do i = 1, nI
-          write(UnitTmp_) CellSize_DB(1,iBlock), &
-               Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock), &
-               CellSize_DB(1,iBlock), real(iNode_B(iBlock)), &
-               real(iProc), real(iBlock)
-       end do; end do; end do
-    end do
-    close(UnitTmp_)
 
   end subroutine save_plot
   !===========================================================================
