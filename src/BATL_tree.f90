@@ -122,6 +122,9 @@ module BATL_tree
   ! recursive subroutine order_children 
   integer :: iPeano
 
+  ! Needed for compact_tree
+  integer, allocatable:: iNodeNew_A(:)
+
 contains
 
   subroutine init_tree(MaxBlockIn)
@@ -143,6 +146,7 @@ contains
     allocate(iNodePeano_I(MaxNode));                    iNodePeano_I   = Unset_
     allocate(iStatusNew_A(MaxNode));                    iStatusNew_A   = Unset_
     allocate(iProcNew_A(MaxNode));                      iProcNew_A     = Unset_
+    allocate(iNodeNew_A(MaxNode));                      iNodeNew_A     = Unset_
     allocate(iNode_B(MaxBlock));                        iNode_B        = Unset_
     allocate(Unused_B(MaxBlock));                       Unused_B       = .true.
     allocate(Unused_BP(MaxBlock,0:nProc-1));            Unused_BP      = .true.
@@ -159,8 +163,8 @@ contains
   subroutine clean_tree
 
     if(.not.allocated(iTree_IA)) RETURN
-    deallocate(iTree_IA, iNodePeano_I, iStatusNew_A, iProcNew_A, iNode_B, &
-         Unused_B, Unused_BP, &
+    deallocate(iTree_IA, iNodePeano_I, iStatusNew_A, iProcNew_A, iNodeNew_A,&
+         iNode_B, Unused_B, Unused_BP, &
          iNodeNei_IIIB, DiLevelNei_IIIB)
 
     MaxNode = 0
@@ -592,14 +596,9 @@ contains
     ! Eliminate holes from the tree
 
     ! Amount of shift for each node
-    integer, allocatable:: iNodeNew_A(:)
     integer :: iNode, iNodeSkipped, iNodeOld, i, iBlock
     !-------------------------------------------------------------------------
-
-    allocate(iNodeNew_A(MaxNode))
-
-    ! Set impossible initial values
-    iNodeNew_A = Unset_
+    ! Set impossible initial value
     iNodeSkipped = MaxNode + 1
 
     do iNode = 1, MaxNode !!! nNode ???
@@ -646,6 +645,9 @@ contains
        iNodeOld = iNode_B(iBlock)
        iNode_B(iBlock) = iNodeNew_A(iNodeOld)
     end do
+
+    ! Reset iNodeNew_A
+    iNodeNew_A = Unset_
 
   end subroutine compact_tree
 
