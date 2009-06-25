@@ -22,7 +22,7 @@ contains
          nI, nJ, nK, nIJK, iRatio, jRatio, kRatio
     use BATL_mpi,  ONLY: iComm, nProc, iProc
 
-    use BATL_tree, ONLY: nNodeUsed, Unused_BP, &
+    use BATL_tree, ONLY: nNode, nNodeUsed, Unused_BP, &
          iTree_IA, iProcNew_A, Proc_, Block_, Coord1_, Coord2_, Coord3_, &
          Status_, Child1_, ChildLast_, Used_, Refine_, CoarsenNew_
 
@@ -79,7 +79,7 @@ contains
     end do
 
     ! Coarsen and move blocks
-    do iNodeRecv = 1, nNodeUsed
+    do iNodeRecv = 1, nNode
        if(iTree_IA(Status_,iNodeRecv) /= CoarsenNew_) CYCLE
 
        if(DoTestMe) write(*,*)NameSub,' CoarsenNew iNode=',iNodeRecv
@@ -101,7 +101,7 @@ contains
     end do
 
     ! Move blocks
-    do iNodeSend = 1, nNodeUsed
+    do iNodeSend = 1, nNode
 
        if(iTree_IA(Status_,iNodeSend) /= Used_) CYCLE
 
@@ -124,7 +124,7 @@ contains
     end do
 
     ! Prolong and move blocks
-    do iNodeSend = 1, nNodeUsed
+    do iNodeSend = 1, nNode
        if(iTree_IA(Status_,iNodeSend) /= Refine_) CYCLE
 
        iProcSend  = iTree_IA(Proc_,iNodeSend)
