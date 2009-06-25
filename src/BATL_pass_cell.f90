@@ -92,7 +92,7 @@ contains
          (MaxI-MinI+1)*(MaxJ-MinJ+1)*(MaxK-MinK+1) - nI*nJ*nK
     integer :: MaxBuffer
     integer, allocatable, save:: iBufferR_P(:), iBufferS_P(:)
-    real, allocatable:: BufferR_IP(:,:), BufferS_IP(:,:)
+    real, allocatable, save:: BufferR_IP(:,:), BufferS_IP(:,:)
 
     integer:: iRequestR, iRequestS, iError
     integer, allocatable, save:: iRequestR_I(:), iRequestS_I(:), iStatus_II(:,:)
@@ -129,11 +129,18 @@ contains
           allocate(iRequestR_I(nProc-1), iRequestS_I(nProc-1))
           allocate(iStatus_II(MPI_STATUS_SIZE,nProc-1))
        end if
-       ! Big arrays are allocated and deallocated every time (for now)
+       ! Arrays with size dependent on input parameter
+       ! are allocated and reallocated if needed
        MaxBuffer = nVar*MaxBlock*nGhostCell
        call timing_start('msg_allocate')
-       allocate(BufferR_IP(MaxBuffer,0:nProc-1))
-       allocate(BufferS_IP(MaxBuffer,0:nProc-1))
+       if(allocated(BufferR_IP))then
+          if(MaxBuffer*nProc > size(BufferR_IP)) &
+             deallocate(BufferR_IP)
+       end if
+       if(.not.allocated(BufferR_IP))then
+          allocate(BufferR_IP(MaxBuffer,0:nProc-1))
+          allocate(BufferS_IP(MaxBuffer,0:nProc-1))
+       end if
        call timing_stop('msg_allocate')
     end if
 
@@ -239,8 +246,6 @@ contains
        call timing_stop('buffer_to_state')
 
     end do ! iProlongOrder
-
-    if(nProc>1)deallocate(BufferR_IP, BufferS_IP)
 
   contains
 
