@@ -174,7 +174,7 @@ contains
          MaxBlockIn     = 2000, &          
          CoordMinIn_D   = DomainMin_D, &
          CoordMaxIn_D   = DomainMax_D, &
-         nRootIn_D      = (/4,4,1/),   & 
+         nRootIn_D      = (/4,4,2/),   & 
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
 
     ! Allow only one level of refinement
