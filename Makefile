@@ -26,7 +26,10 @@ ADVECT: bin run
 	cd src; make ADVECT
 
 test:	test11 test21 test22 test31 test32 test33
-	ls -l *.diff
+	ls -l test??.diff
+
+test_advect:	test_advect11 test_advect21 test_advect22 test_advect31 test_advect32 test_advect33
+	ls -l advect??.diff
 
 MPIRUN = mpirun -np 2
 
@@ -85,12 +88,33 @@ test_advect11:
 	cd run; ${MPIRUN} ADVECT.exe > runlog
 	make test_advect11_check
 
+test_advect21:
+	Config.pl -g=2,1,4,4
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect21.log
+	cd run; ${MPIRUN} ADVECT.exe > runlog
+	make test_advect21_check
+
 test_advect22: 
 	Config.pl -g=2,2,4,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect22.log
 	cd run; ${MPIRUN} ADVECT.exe > runlog
 	make test_advect22_check
+
+test_advect31: 
+	Config.pl -g=3,1,4,4,4
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect31.log
+	cd run; ${MPIRUN} ADVECT.exe > runlog
+	make test_advect31_check
+
+test_advect32:
+	Config.pl -g=3,2,4,4,4
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect32.log
+	cd run; ${MPIRUN} ADVECT.exe > runlog
+	make test_advect32_check
 
 test_advect33: 
 	Config.pl -g=3,3,4,4,4
@@ -104,10 +128,25 @@ test_advect11_check:
 		run/advect11.log src/advect11.ref > advect11.diff)
 	ls -l advect11.diff
 
+test_advect21_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect21.log src/advect21.ref > advect21.diff)
+	ls -l advect21.diff
+
 test_advect22_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
 		run/advect22.log src/advect22.ref > advect22.diff)
 	ls -l advect22.diff
+
+test_advect31_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect31.log src/advect31.ref > advect31.diff)
+	ls -l advect31.diff
+
+test_advect32_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect32.log src/advect32.ref > advect32.diff)
+	ls -l advect32.diff
 
 test_advect33_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
