@@ -362,8 +362,8 @@ contains
       ! if the receiver block fills into the 
       ! lower (D*Recv = 0) or upper (D*Rev=1) half of the block
       iSide = modulo(iTree_IA(Coord1_,iNodeSend)-1, 2)
-      jSide = modulo(iTree_IA(Coord2_,iNodeSend)-1, 2)
-      kSide = modulo(iTree_IA(Coord3_,iNodeSend)-1, 2)
+      jSide = 0; if(jRatio==2) jSide = modulo(iTree_IA(Coord2_,iNodeSend)-1, 2)
+      kSide = 0; if(kRatio==2) kSide = modulo(iTree_IA(Coord3_,iNodeSend)-1, 2)
 
       ! Do not restrict diagonally in the direction of the sibling.
       if(iDir == -1 .and. iSide==1) RETURN
