@@ -287,7 +287,7 @@ contains
 
   subroutine save_plot
 
-    use BATL_lib, ONLY: MaxDim, nIJK, nBlock, Unused_B, &
+    use BATL_lib, ONLY: MaxDim, nDimAmr, nIJK, nBlock, Unused_B, &
          iComm, nProc, iProc, iNode_B, &
          TypeGeometry, CellSize_DB, Xyz_DGB, CoordMin_DB, CoordMax_DB
 
@@ -296,7 +296,8 @@ contains
     use ModKind,   ONLY: nByteReal
 
     character(len=100):: NameSnapshot, NameFile
-    real:: CellSizeMin_D(MaxDim), CellSizeMinAll_D(MaxDim)
+    real:: CellSizeMin_D(MaxDim), CellSizeMinAll_D(MaxDim), &
+         CellSizePlot_D(MaxDim)
     real:: PlotMax_D(MaxDim), PlotMin_D(MaxDim)
     integer :: iDim, iBlock, i, j, k, iError
     integer :: nCell, nCellAll, nPlotDim
@@ -335,6 +336,9 @@ contains
 
     if(iProc == 0)then
        nPlotDim = min(2,nDim)
+       CellSizePlot_D = CellSizeMinAll_D
+       CellSizePlot_D(1:nDimAmr) = -1.0
+
        PlotMin_D = -1e-10; PlotMin_D(1:nPlotDim) = DomainMin_D(1:nPlotDim)
        PlotMax_D = +1e-10; PlotMax_D(1:nPlotDim) = DomainMax_D(1:nPlotDim)
 
@@ -347,7 +351,7 @@ contains
        write(UnitTmp_,'(6(1pe18.10),a)') &
             (PlotMin_D(iDim),PlotMax_D(iDim),iDim=1,MaxDim),' plot_range'
        write(UnitTmp_,'(6(1pe18.10),i10,a)') &
-            -1.0, -1.0, -1.0, &
+            CellSizePlot_D, &
             CellSizeMinAll_D, nCellAll,            ' plot_dx, dxmin, ncell'
        write(UnitTmp_,'(i8,a)')     nVar+4,        ' nplotvar'
        write(UnitTmp_,'(i8,a)')     1,             ' neqpar'
