@@ -324,7 +324,8 @@ contains
       enddo; end do; end do
 
       if(iProcRecv /= iProcSend) &
-           call MPI_send(Buffer_I, iBuffer, MPI_REAL, iProcRecv, 1, iComm, iError)
+           call MPI_send(Buffer_I, iBuffer, MPI_REAL, iProcRecv, 1, &
+           iComm, iError)
 
     end subroutine send_refined_block
     !==========================================================================
@@ -335,7 +336,8 @@ contains
       integer:: iSize = 1, jSize = 1, kSize = 1
       integer:: iBuffer, i, j, k
 
-      integer:: iP, jP, kP, iR, jR, kR, Di, Dj, Dk
+      integer:: iP, jP, kP, iR, jR, kR
+      integer, parameter:: Di=iRatio-1, Dj=jRatio-1, Dk=kRatio-1
       !------------------------------------------------------------------------
       if(iProcRecv /= iProcSend)then
          call MPI_recv(Buffer_I, nSizeP, MPI_REAL, iProcSend, 1, iComm, &
@@ -347,11 +349,6 @@ contains
          StateP_VG(:,iP,jP,kP) = Buffer_I(iBuffer+1:iBuffer+nVar)
          iBuffer = iBuffer + nVar
       end do; end do; end do
-
-      
-      Dk = 0; if(kRatio == 2) Dk = 1
-      Dj = 0; if(jRatio == 2) Dj = 1
-      Di = 0; if(iRatio == 2) Di = 1
       
       do kR = 1, nK
          kP = (kR + Dk)/kRatio
