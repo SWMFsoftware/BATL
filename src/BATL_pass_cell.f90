@@ -95,7 +95,10 @@ contains
     real, allocatable, save:: BufferR_IP(:,:), BufferS_IP(:,:)
 
     integer:: iRequestR, iRequestS, iError
-    integer, allocatable, save:: iRequestR_I(:), iRequestS_I(:), iStatus_II(:,:)
+    integer, allocatable, save:: iRequestR_I(:), iRequestS_I(:), &
+         iStatus_II(:,:)
+
+    real, allocatable:: SlopeL_V(:), SlopeR_V(:), Slope_VG(:,:,:,:)
 
     logical:: DoTest, DoTestMe
     character(len=*), parameter:: NameSub = 'BATL_pass_cell::message_pass_cell'
@@ -144,6 +147,11 @@ contains
        call timing_stop('msg_allocate')
     end if
 
+    if(nProlongOrder > 1) allocate(SlopeL_V(nVar), SlopeR_V(nVar))
+    allocate(Slope_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK))
+    ! Set to zero so we can add it for first order prolongation too
+    Slope_VG = 0.0
+
     do iProlongOrder = 1, nProlongOrder
        ! Second order prolongation needs two stages: 
        ! first stage fills in equal and coarser ghost cells
@@ -182,9 +190,9 @@ contains
                    DiLevel = DiLevelNei_IIIB(iDir,jDir,kDir,iBlockSend)
 
                    ! Do prolongation in the second stage if nProlongOrder is 2
-                   if(nProlongOrder == 2 .and. &
-                        (iProlongOrder == 1 .and. DiLevel == -1) .or. &
-                        (iProlongOrder == 2 .and. DiLevel >=  0)) CYCLE
+                   ! We still need to call restriction and prolongation in
+                   ! both stages to calculate the number of received elements
+                   if(iProlongOrder == 2 .and. DiLevel == 0) CYCLE
 
                    if(DiLevel == 0)then
                       call do_equal
@@ -246,6 +254,9 @@ contains
        call timing_stop('buffer_to_state')
 
     end do ! iProlongOrder
+
+    if(nProlongOrder > 1) deallocate(SlopeL_V, SlopeR_V)
+    deallocate(Slope_VG)
 
   contains
 
@@ -377,6 +388,30 @@ contains
       jSend = (3*jDir + 3 + jSide)/2
       kSend = (3*kDir + 3 + kSide)/2
 
+      iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
+      iProcRecv  = iTree_IA(Proc_,iNodeRecv)
+      iBlockRecv = iTree_IA(Block_,iNodeRecv)
+
+      if(iProc /= iProcRecv .and. iProlongOrder == nProlongOrder)then
+         ! This processor will receive a prolonged buffer from
+         ! the other processor and the "recv" direction of the prolongations
+         ! will be the same as the "send" direction for this restriction:
+         ! iSend,kSend,jSend = 0..3
+         iRMin = iProlongR_DII(1,iSend,Min_)
+         iRMax = iProlongR_DII(1,iSend,Max_)
+         jRMin = iProlongR_DII(2,jSend,Min_)
+         jRMax = iProlongR_DII(2,jSend,Max_)
+         kRMin = iProlongR_DII(3,kSend,Min_)
+         kRMax = iProlongR_DII(3,kSend,Max_)
+
+         nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
+         iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) + 1 + 2*nDim + nSize
+
+      end if
+
+      ! If this is the pure prolongation stage, all we did was counting
+      if(iProlongOrder == 2) RETURN
+
       iRecv = iSend - 3*iDir
       jRecv = jSend - 3*jDir
       kRecv = kSend - 3*kDir
@@ -405,10 +440,6 @@ contains
       !
       !write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
       !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
-
-      iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
-      iProcRecv  = iTree_IA(Proc_,iNodeRecv)
-      iBlockRecv = iTree_IA(Block_,iNodeRecv)
 
       if(iProc == iProcRecv)then
          do kR=kRMin,kRMax
@@ -462,21 +493,6 @@ contains
          end do
          iBufferS_P(iProcRecv) = iBufferS
 
-
-         ! This processor will receive a prolonged buffer from
-         ! the other processor and the "recv" direction of the prolongations
-         ! will be the same as the "send" direction for this restriction:
-         ! iSend,kSend,jSend = 0..3
-         iRMin = iProlongR_DII(1,iSend,Min_)
-         iRMax = iProlongR_DII(1,iSend,Max_)
-         jRMin = iProlongR_DII(2,jSend,Min_)
-         jRMax = iProlongR_DII(2,jSend,Max_)
-         kRMin = iProlongR_DII(3,kSend,Min_)
-         kRMax = iProlongR_DII(3,kSend,Max_)
-
-         nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
-         iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) + 1 + 2*nDim + nSize
-
       end if
 
     end subroutine do_restrict
@@ -485,8 +501,9 @@ contains
 
     subroutine do_prolong
 
-      integer :: iR, jR, kR, iS, jS, kS
+      integer :: iR, jR, kR, iS, jS, kS, i, j, k
       integer :: iBufferS, nSize
+      integer, parameter:: Di=iRatio-1, Dj=jRatio-1, Dk=kRatio-1
       !------------------------------------------------------------------------
 
       ! Loop through the subfaces or subedges
@@ -499,6 +516,32 @@ contains
             do iSide = (1-iDir)/2, 1-(1+iDir)/2
                iSend = (3*iDir + 3 + iSide)/2
                iRecv = iSend - 3*iDir
+
+               iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
+               iProcRecv  = iTree_IA(Proc_,iNodeRecv)
+               iBlockRecv = iTree_IA(Block_,iNodeRecv)
+               
+               if(iProc /= iProcRecv .and. iProlongOrder == 1)then
+                  ! This processor will receive a restricted buffer from
+                  ! the other processor and the "recv" direction of the
+                  ! restriction will be the same as the "send" direction for
+                  ! this prolongation: iSend,kSend,jSend = 0..3
+                  iRMin = iRestrictR_DII(1,iSend,Min_)
+                  iRMax = iRestrictR_DII(1,iSend,Max_)
+                  jRMin = iRestrictR_DII(2,jSend,Min_)
+                  jRMax = iRestrictR_DII(2,jSend,Max_)
+                  kRMin = iRestrictR_DII(3,kSend,Min_)
+                  kRMax = iRestrictR_DII(3,kSend,Max_)
+
+                  nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
+                  iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) &
+                       + 1 + 2*nDim + nSize
+                  
+               end if
+
+               ! For 2nd order prolongation no prolongation is done in stage 1
+               ! But we keep counting received restricted variables
+               if(iProlongOrder < nProlongOrder) CYCLE
 
                ! Sending range depends on iSend,jSend,kSend = 0..3
                iSMin = iProlongS_DII(1,iSend,Min_)
@@ -516,16 +559,12 @@ contains
                kRMin = iProlongR_DII(3,kRecv,Min_)
                kRMax = iProlongR_DII(3,kRecv,Max_)
 
-               iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
-               iProcRecv  = iTree_IA(Proc_,iNodeRecv)
-               iBlockRecv = iTree_IA(Block_,iNodeRecv)
-
                !if(DoTestMe)then
-               !   write(*,*)'!!! iNodeRecv, iProcRecv, iBlovkRecv=', &
+               !   write(*,*)'iNodeRecv, iProcRecv, iBlovkRecv=', &
                !        iNodeRecv, iProcRecv, iBlockRecv
-               !   write(*,*)'!!! kSide,jSide,iSide=',kSide,jSide,iSide
-               !   write(*,*)'!!! kSend,jSend,iSend=',kSend,jSend,iSend
-               !   write(*,*)'!!! kRecv,jRecv,iRecv=',kRecv,jRecv,iRecv
+               !   write(*,*)'kSide,jSide,iSide=',kSide,jSide,iSide
+               !   write(*,*)'kSend,jSend,iSend=',kSend,jSend,iSend
+               !   write(*,*)'kRecv,jRecv,iRecv=',kRecv,jRecv,iRecv
 	       !
                !   write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
                !        iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
@@ -533,6 +572,67 @@ contains
                !   write(*,*)'iRMin,iRmax,jRMin,jRMax,kRMin,kRmax=',&
                !        iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
                !end if
+
+               if(nProlongOrder == 2)then
+                  ! Add up 2nd order corrections for all AMR dimensions
+                  ! Use simple interpolation, should be OK for ghost cells
+                  Slope_VG(:,iRMin:iRmax,jRMin:jRMax,kRMin:kRMax) = 0.0
+                  do kS = kSMin, kSMax
+                     kR = kRatio*(kS - kSMin) + kRMin
+                     do jS = jSMin, jSmax
+                        jR = jRatio*(jS - jSMin) + jRMin
+                        do iS = iSMin, iSMax
+                           iR = iRatio*(iS - iSMin) + iRMin
+
+                           if(iRatio == 2)then
+                              SlopeL_V = 0.25* &
+                                   ( State_VGB(:,iS  ,jS,kS,iBlockSend) &
+                                   - State_VGB(:,iS-1,jS,kS,iBlockSend) )
+                              SlopeR_V = 0.25* &
+                                   ( State_VGB(:,iS+1,jS,kS,iBlockSend) &
+                                   - State_VGB(:,iS  ,jS,kS,iBlockSend) )
+                              do k = kR, kR+Dk; do j = jR, jR+Dj
+                                 Slope_VG(:,iR,j,k) = &
+                                      Slope_VG(:,iR,j,k) - SlopeL_V
+                                 Slope_VG(:,iR+1,j,k) = &
+                                      Slope_VG(:,iR+1,j,k) + SlopeR_V
+                              end do; end do
+                           end if
+
+                           if(jRatio == 2)then
+                              SlopeL_V = 0.25* &
+                                   ( State_VGB(:,iS,jS  ,kS,iBlockSend) &
+                                   - State_VGB(:,iS,jS-1,kS,iBlockSend) )
+                              SlopeR_V = 0.25* &
+                                   ( State_VGB(:,iS,jS+1,kS,iBlockSend) &
+                                   - State_VGB(:,iS,jS  ,kS,iBlockSend) )
+                              do k = kR, kR+Dk; do i = iR, iR+Di
+                                 Slope_VG(:,i,jR,k) = &
+                                      Slope_VG(:,i,jR,k) - SlopeL_V
+                                 Slope_VG(:,i,jR+1,k) = &
+                                      Slope_VG(:,i,jR+1,k) + SlopeR_V
+                              end do; end do
+                           end if
+
+                           if(kRatio == 2)then
+                              SlopeL_V = 0.25* &
+                                   ( State_VGB(:,iS,jS,kS  ,iBlockSend) &
+                                   - State_VGB(:,iS,jS,kS-1,iBlockSend) )
+                              SlopeR_V = 0.25* &
+                                   ( State_VGB(:,iS,jS,kS+1,iBlockSend) &
+                                   - State_VGB(:,iS,jS,kS  ,iBlockSend) )
+                              do j = jR, jR+Dj; do i = iR, iR+Di
+                                 Slope_VG(:,i,j,kR) = &
+                                      Slope_VG(:,i,j,kR) - SlopeL_V
+                                 Slope_VG(:,i,j,kR+1) = &
+                                      Slope_VG(:,i,j,kR+1) + SlopeR_V
+                              end do; end do
+                           end if
+
+                        end do
+                     end do
+                  end do
+               end if
 
                if(iProc == iProcRecv)then
                   do kR=kRMin,kRMax
@@ -542,7 +642,8 @@ contains
                         do iR=iRMin,iRMax
                            iS = iSMin + (iR-iRMin)/iRatio
                            State_VGB(:,iR,jR,kR,iBlockRecv) = &
-                                State_VGB(:,iS,jS,kS,iBlockSend)
+                                State_VGB(:,iS,jS,kS,iBlockSend) &
+                                + Slope_VG(:,iR,jR,kR)
                         end do
                      end do
                   end do
@@ -566,27 +667,14 @@ contains
                         do iR=iRMin,iRMax
                            iS = iSMin + (iR-iRMin)/iRatio
                            BufferS_IP(iBufferS+1:iBufferS+nVar,iProcRecv)= &
-                                State_VGB(:,iS,jS,kS,iBlockSend)
+                                State_VGB(:,iS,jS,kS,iBlockSend) &
+                                + Slope_VG(:,iR,jR,kR)
                            iBufferS = iBufferS + nVar
                         end do
                      end do
                   end do
+
                   iBufferS_P(iProcRecv) = iBufferS
-
-                  ! This processor will receive a restricted buffer from
-                  ! the other processor and the "recv" direction of the
-                  ! restriction will be the same as the "send" direction for
-                  ! this restriction: iSend,kSend,jSend = 0..3
-                  iRMin = iRestrictR_DII(1,iSend,Min_)
-                  iRMax = iRestrictR_DII(1,iSend,Max_)
-                  jRMin = iRestrictR_DII(2,jSend,Min_)
-                  jRMax = iRestrictR_DII(2,jSend,Max_)
-                  kRMin = iRestrictR_DII(3,kSend,Min_)
-                  kRMax = iRestrictR_DII(3,kSend,Max_)
-
-                  nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
-                  iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) &
-                       + 1 + 2*nDim + nSize
 
                end if
             end do
@@ -599,7 +687,7 @@ contains
 
     subroutine set_range
 
-      integer:: nWidthProlongS_D(MaxDim)
+      integer:: nWidthProlongS_D(MaxDim), iDim
       !------------------------------------------------------------------------
 
       ! Indexed by iDir/jDir/kDir for sender = -1,0,1
@@ -650,13 +738,6 @@ contains
       iProlongS_DII(:,3,Min_) = nIjk_D + 1 - nWidthProlongS_D
       iProlongS_DII(:,3,Max_) = nIjk_D
 
-      if(DoSendCorner)then
-         ! Face + two edges + corner or edge + one corner sent together 
-         ! from fine to coarse block
-         iProlongS_DII(:,1,Max_) = iProlongS_DII(:,1,Max_) + nWidthProlongS_D
-         iProlongS_DII(:,2,Min_) = iProlongS_DII(:,2,Min_) - nWidthProlongS_D
-      end if
-
       ! Indexed by iRecv/jRecv/kRecv = 0,1,2,3
       iProlongR_DII(:, 0,Min_) = 1 - nWidth
       iProlongR_DII(:, 0,Max_) = 0
@@ -668,10 +749,17 @@ contains
       iProlongR_DII(:, 3,Max_) = nIjk_D + nWidth
 
       if(DoSendCorner)then
-         ! Face + one edge or edge + one corner received together
-         ! from fine to coarse block
-         iProlongR_DII(1:nDim,1,Max_) = iProlongR_DII(1:nDim,1,Max_) + nWidth
-         iProlongR_DII(1:nDim,2,Min_) = iProlongR_DII(1:nDim,2,Min_) - nWidth
+         ! Face + two edges + corner or edge + one corner 
+         ! are sent/recv together from fine to coarse block
+         do iDim=1,nDim
+            if(iRatio_D(iDim)==1)CYCLE
+            iProlongS_DII(iDim,1,Max_) = &
+                 iProlongS_DII(iDim,1,Max_) + nWidthProlongS_D(iDim)
+            iProlongS_DII(iDim,2,Min_) = &
+                 iProlongS_DII(iDim,2,Min_) - nWidthProlongS_D(iDim)
+            iProlongR_DII(iDim,1,Max_) = iProlongR_DII(iDim,1,Max_) + nWidth
+            iProlongR_DII(iDim,2,Min_) = iProlongR_DII(iDim,2,Min_) - nWidth
+         end do
       end if
 
     end subroutine set_range
@@ -685,18 +773,18 @@ contains
     use BATL_mpi,  ONLY: iProc
     use BATL_size, ONLY: MaxDim, nDim, nDimAmr, &
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nI, nJ, nK, nBlock
-    use BATL_tree, ONLY: init_tree, set_tree_root, refine_tree_node, &
-         distribute_tree, show_tree, clean_tree, &
+    use BATL_tree, ONLY: init_tree, set_tree_root, find_tree_node, &
+         refine_tree_node, distribute_tree, show_tree, clean_tree, &
          Unused_B, iNode_B, DiLevelNei_IIIB
     use BATL_grid, ONLY: init_grid, create_grid, clean_grid, &
          Xyz_DGB, CellSize_DB
     use BATL_geometry, ONLY: init_geometry
 
-    integer, parameter:: MaxBlockTest            = 15
-    integer, parameter:: nRootTest_D(MaxDim)     = (/2,2,2/)
+    integer, parameter:: MaxBlockTest            = 50
+    integer, parameter:: nRootTest_D(MaxDim)     = (/3,3,3/)
     logical, parameter:: IsPeriodicTest_D(MaxDim)= .true.
     real, parameter:: DomainMin_D(MaxDim) = (/ 1.0, 10.0, 100.0 /)
-    real, parameter:: DomainMax_D(MaxDim) = (/ 2.0, 20.0, 200.0 /)
+    real, parameter:: DomainMax_D(MaxDim) = (/ 4.0, 40.0, 400.0 /)
     real, parameter:: DomainSize_D(MaxDim) = DomainMax_D - DomainMin_D
 
     integer, parameter:: nVar = nDim
@@ -721,7 +809,9 @@ contains
     call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
     call set_tree_root( nRootTest_D(1:nDim))
 
-    call refine_tree_node(1)
+    call find_tree_node( (/0.5,0.5,0.5/), iNode)
+    if(DoTestMe)write(*,*) NameSub,' middle node=',iNode
+    call refine_tree_node(iNode)
     call distribute_tree(.true.)
     call create_grid
 
@@ -734,15 +824,13 @@ contains
     jMax = nJ; if(nDim > 1) jMax = MaxJ
     kMax = nK; if(nDim > 2) kMax = MaxK
 
-
-    do nProlongOrder = 1,1; do iSendCorner = 1,2
+    do nProlongOrder = 1, 2; do iSendCorner = 1, 2
 
        DoSendCorner = iSendCorner == 2
 
        if(DoTestMe)write(*,*) 'testing message_pass_cell with',&
             ' nProlongOrder=',nProlongOrder, &
             ' DoSendCorner=',DoSendCorner
-
 
        State_VGB = 0.0
 
