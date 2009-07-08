@@ -118,9 +118,9 @@ contains
     !------------------------------------------------------------------------
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
-       if(maxval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))>1.1)then
+       if(maxval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))>1.5)then !!! 1.1
           iStatusNew_A(iNode_B(iBlock)) = Refine_
-       elseif(minval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))<1.05)then
+       elseif(minval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))<1.4)then !!! 1.05
           iStatusNew_A(iNode_B(iBlock)) = Coarsen_
        end if
     end do
@@ -518,7 +518,8 @@ contains
        if(DoTest)write(*,*)NameSub,' advance_expl iProc, iStage=',iProc,iStage       
 
        call timing_start('message_pass')
-       call message_pass_cell(nVar, State_VGB, DoSendCornerIn=.true.)
+       call message_pass_cell(nVar, State_VGB, &
+            DoSendCornerIn=.true., nProlongOrderIn=2)
        call timing_stop('message_pass')
 
        if(DoTest)write(*,*)NameSub,' finished message_pass iProc=',iProc
