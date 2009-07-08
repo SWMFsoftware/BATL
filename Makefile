@@ -125,32 +125,32 @@ test_advect33:
 
 test_advect11_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect11.log src/advect11.ref > advect11.diff)
+		run/advect11.log src/advect11.log > advect11.diff)
 	ls -l advect11.diff
 
 test_advect21_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect21.log src/advect21.ref > advect21.diff)
+		run/advect21.log src/advect21.log > advect21.diff)
 	ls -l advect21.diff
 
 test_advect22_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect22.log src/advect22.ref > advect22.diff)
+		run/advect22.log src/advect22.log > advect22.diff)
 	ls -l advect22.diff
 
 test_advect31_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect31.log src/advect31.ref > advect31.diff)
+		run/advect31.log src/advect31.log > advect31.diff)
 	ls -l advect31.diff
 
 test_advect32_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect32.log src/advect32.ref > advect32.diff)
+		run/advect32.log src/advect32.log > advect32.diff)
 	ls -l advect32.diff
 
 test_advect33_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect33.log src/advect33.ref > advect33.diff)
+		run/advect33.log src/advect33.log > advect33.diff)
 	ls -l advect33.diff
 
 clean:
