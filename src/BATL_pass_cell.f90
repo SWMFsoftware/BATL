@@ -90,9 +90,11 @@ contains
     ! Variables related to recv and send buffers
     integer, parameter:: nGhostCell = &
          (MaxI-MinI+1)*(MaxJ-MinJ+1)*(MaxK-MinK+1) - nI*nJ*nK
-    integer :: MaxBuffer
     integer, allocatable, save:: iBufferR_P(:), iBufferS_P(:)
-    real, allocatable, save:: BufferR_IP(:,:), BufferS_IP(:,:)
+
+!!!    real, allocatable, save:: BufferR_IP(:,:), BufferS_IP(:,:)
+    integer :: MaxBufferS = -1, MaxBufferR = -1, DnBuffer
+    real, pointer, save:: BufferR_IP(:,:), BufferS_IP(:,:)
 
     integer:: iRequestR, iRequestS, iError
     integer, allocatable, save:: iRequestR_I(:), iRequestS_I(:), &
@@ -132,19 +134,10 @@ contains
           allocate(iRequestR_I(nProc-1), iRequestS_I(nProc-1))
           allocate(iStatus_II(MPI_STATUS_SIZE,nProc-1))
        end if
-       ! Arrays with size dependent on input parameter
-       ! are allocated and reallocated if needed
-       MaxBuffer = nVar*MaxBlock*nGhostCell
-       call timing_start('msg_allocate')
-       if(allocated(BufferR_IP))then
-          if(MaxBuffer*nProc > size(BufferR_IP)) &
-             deallocate(BufferR_IP)
-       end if
-       if(.not.allocated(BufferR_IP))then
-          allocate(BufferR_IP(MaxBuffer,0:nProc-1))
-          allocate(BufferS_IP(MaxBuffer,0:nProc-1))
-       end if
-       call timing_stop('msg_allocate')
+       ! Upper estimate of the number of variables sent 
+       ! from one block to another
+       DnBuffer = nVar*nGhostCell
+
     end if
 
     if(nProlongOrder > 1) allocate(SlopeL_V(nVar), SlopeR_V(nVar))
@@ -211,6 +204,9 @@ contains
 
        call timing_start('send_recv')
 
+       if(maxval(iBufferR_P) > MaxBufferR) call extend_buffer(&
+            .false., MaxBufferR, 2*maxval(iBufferR_P), BufferR_IP)
+
        ! post requests
        iRequestR = 0
        do iProcSend = 0, nProc - 1
@@ -259,6 +255,37 @@ contains
     deallocate(Slope_VG)
 
   contains
+
+    subroutine extend_buffer(DoCopy, MaxBufferOld, MaxBufferNew, Buffer_IP)
+
+      logical, intent(in)   :: DoCopy
+      integer, intent(in)   :: MaxBufferNew
+      integer, intent(inout):: MaxBufferOld
+      real, pointer:: Buffer_IP(:,:)
+
+      real, pointer :: OldBuffer_IP(:,:)
+      !------------------------------------------------------------------------
+      !write(*,*)'!!! extend_buffer called with ',&
+      !     'DoCopy, MaxBufferOld, MaxBufferNew=', &
+      !     DoCopy, MaxBufferOld, MaxBufferNew
+
+      if(MaxBufferOld < 0 .or. .not.DoCopy)then
+         if(MaxBufferOld > 0) deallocate(Buffer_IP)
+         allocate(Buffer_IP(MaxBufferNew,0:nProc-1))
+      else
+         ! store old values
+         OldBuffer_IP => Buffer_IP
+         ! allocate extended buffer
+         allocate(Buffer_IP(MaxBufferNew,0:nProc-1))
+         ! copy old values
+         Buffer_IP(1:MaxBufferOld,:) = OldBuffer_IP(1:MaxBufferOld,:)  
+         ! free old storage
+         deallocate(OldBuffer_IP)
+      end if
+      ! Set new buffer size
+      MaxBufferOld = MaxBufferNew
+
+    end subroutine extend_buffer
 
     !==========================================================================
     subroutine buffer_to_state
@@ -332,6 +359,9 @@ contains
               State_VGB(:,iSMin:iSMax,jSMin:jSMax,kSMin:kSMax,iBlockSend)
       else
          iBufferS = iBufferS_P(iProcRecv)
+
+         if(iBufferS + DnBuffer > MaxBufferS) call extend_buffer( &
+              .true., MaxBufferS, 2*(iBufferS+DnBuffer), BufferS_IP)
 
          BufferS_IP(            iBufferS+1,iProcRecv) = iBlockRecv
          BufferS_IP(            iBufferS+2,iProcRecv) = iRMin
@@ -462,6 +492,9 @@ contains
       else
          iBufferS = iBufferS_P(iProcRecv)
 
+         if(iBufferS + DnBuffer > MaxBufferS) call extend_buffer( &
+              .true., MaxBufferS, 2*(iBufferS+DnBuffer), BufferS_IP)
+
          BufferS_IP(            iBufferS+1,iProcRecv) = iBlockRecv
          BufferS_IP(            iBufferS+2,iProcRecv) = iRMin
          BufferS_IP(            iBufferS+3,iProcRecv) = iRMax
@@ -565,7 +598,7 @@ contains
                !   write(*,*)'kSide,jSide,iSide=',kSide,jSide,iSide
                !   write(*,*)'kSend,jSend,iSend=',kSend,jSend,iSend
                !   write(*,*)'kRecv,jRecv,iRecv=',kRecv,jRecv,iRecv
-	       !
+                      !
                !   write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
                !        iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
                !
@@ -649,6 +682,9 @@ contains
                   end do
                else
                   iBufferS = iBufferS_P(iProcRecv)
+
+                  if(iBufferS + DnBuffer > MaxBufferS) call extend_buffer( &
+                       .true., MaxBufferS, 2*(iBufferS+DnBuffer), BufferS_IP)
 
                   BufferS_IP(            iBufferS+1,iProcRecv) = iBlockRecv
                   BufferS_IP(            iBufferS+2,iProcRecv) = iRMin
@@ -897,7 +933,6 @@ contains
 
                 CYCLE
              end if
-
 
              ! Shift ghost cell coordinate into periodic domain
              Xyz_D = DomainMin_D + modulo(Xyz_D - DomainMin_D, DomainSize_D)
