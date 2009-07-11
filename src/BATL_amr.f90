@@ -443,9 +443,6 @@ contains
     use BATL_grid, ONLY: init_grid, create_grid, clean_grid, Xyz_DGB
     use BATL_geometry, ONLY: init_geometry
 
-    use ModIoUnit,    ONLY: STDOUT_
-    use ModUtilities, ONLY: flush_unit
-
     integer, parameter:: MaxBlockTest            = 100
     integer, parameter:: nRootTest_D(MaxDim)     = (/3,3,3/)
     logical, parameter:: IsPeriodicTest_D(MaxDim)= .true.
@@ -547,7 +544,6 @@ contains
 
       integer :: iBlock, iDim, iProcShow
 
-      call flush_unit(STDOUT_)
       call barrier_mpi
 
       do iProcShow = 0, nProc - 1
@@ -566,7 +562,6 @@ contains
                     'iProc, iBlock, State(3,1,1,1:nK,iBlock)=', &
                     iProc, iBlock, State_VGB(3,1,1,1:nK,iBlock)
             end do
-            call flush_unit(STDOUT_)
          end if
          call barrier_mpi
       end do

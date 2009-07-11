@@ -165,8 +165,6 @@ contains
 
   subroutine show_grid
 
-    use ModUtilities, ONLY: flush_unit
-    use ModIoUnit,    ONLY: STDOUT_
     use BATL_mpi, ONLY: iProc, nProc, barrier_mpi
 
     ! Show all blocks sequentially on all processors, ie. show_grid 
@@ -175,6 +173,7 @@ contains
     integer:: iBlock, iPe
     !------------------------------------------------------------------------
 
+    call barrier_mpi
     do iPe = 0, nProc - 1
        if(iPe == iProc) then
           do iBlock = 1, nBlock
@@ -182,9 +181,9 @@ contains
              call show_grid_block(iBlock)
           end do
        end if
-       call flush_unit(STDOUT_)
        call barrier_mpi
     end do
+
   end subroutine show_grid
 
   !===========================================================================
