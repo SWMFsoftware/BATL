@@ -245,10 +245,14 @@
  iNodeNei_IIIB(:,1,1,  First)= 3 1 1 2
  iNodeNei_IIIB(1,:,1,  First)= 7 1 1 4
  iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
- testing message_pass_cell with nProlongOrder= 1  DoSendCorner= F
- testing message_pass_cell with nProlongOrder= 1  DoSendCorner= T
- testing message_pass_cell with nProlongOrder= 2  DoSendCorner= F
- testing message_pass_cell with nProlongOrder= 2  DoSendCorner= T
+ testing message_pass_cell with nProlongOrder= 1  DoSendCorner= F  nWidth= 1
+ testing message_pass_cell with nProlongOrder= 1  DoSendCorner= F  nWidth= 2
+ testing message_pass_cell with nProlongOrder= 1  DoSendCorner= T  nWidth= 1
+ testing message_pass_cell with nProlongOrder= 1  DoSendCorner= T  nWidth= 2
+ testing message_pass_cell with nProlongOrder= 2  DoSendCorner= F  nWidth= 1
+ testing message_pass_cell with nProlongOrder= 2  DoSendCorner= F  nWidth= 2
+ testing message_pass_cell with nProlongOrder= 2  DoSendCorner= T  nWidth= 1
+ testing message_pass_cell with nProlongOrder= 2  DoSendCorner= T  nWidth= 2
  Starting test_amr
  after create_grid
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2

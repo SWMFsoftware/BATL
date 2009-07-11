@@ -92,7 +92,6 @@ contains
          (MaxI-MinI+1)*(MaxJ-MinJ+1)*(MaxK-MinK+1) - nI*nJ*nK
     integer, allocatable, save:: iBufferR_P(:), iBufferS_P(:)
 
-!!!    real, allocatable, save:: BufferR_IP(:,:), BufferS_IP(:,:)
     integer :: MaxBufferS = -1, MaxBufferR = -1, DnBuffer
     real, pointer, save:: BufferR_IP(:,:), BufferS_IP(:,:)
 
@@ -265,7 +264,7 @@ contains
 
       real, pointer :: OldBuffer_IP(:,:)
       !------------------------------------------------------------------------
-      !write(*,*)'!!! extend_buffer called with ',&
+      !write(*,*)'extend_buffer called with ',&
       !     'DoCopy, MaxBufferOld, MaxBufferNew=', &
       !     DoCopy, MaxBufferOld, MaxBufferNew
 
@@ -535,6 +534,7 @@ contains
     subroutine do_prolong
 
       integer :: iR, jR, kR, iS, jS, kS, i, j, k
+      integer :: iR1, jR1, kR1
       integer :: iBufferS, nSize
       integer, parameter:: Di=iRatio-1, Dj=jRatio-1, Dk=kRatio-1
       !------------------------------------------------------------------------
@@ -598,7 +598,7 @@ contains
                !   write(*,*)'kSide,jSide,iSide=',kSide,jSide,iSide
                !   write(*,*)'kSend,jSend,iSend=',kSend,jSend,iSend
                !   write(*,*)'kRecv,jRecv,iRecv=',kRecv,jRecv,iRecv
-                      !
+	       !
                !   write(*,*)'iSMin,iSmax,jSMin,jSMax,kSMin,kSmax=',&
                !        iSMin,iSmax,jSMin,jSMax,kSMin,kSmax
                !
@@ -610,13 +610,13 @@ contains
                   ! Add up 2nd order corrections for all AMR dimensions
                   ! Use simple interpolation, should be OK for ghost cells
                   Slope_VG(:,iRMin:iRmax,jRMin:jRMax,kRMin:kRMax) = 0.0
+
                   do kS = kSMin, kSMax
                      kR = kRatio*(kS - kSMin) + kRMin
                      do jS = jSMin, jSmax
                         jR = jRatio*(jS - jSMin) + jRMin
                         do iS = iSMin, iSMax
                            iR = iRatio*(iS - iSMin) + iRMin
-
                            if(iRatio == 2)then
                               SlopeL_V = 0.25* &
                                    ( State_VGB(:,iS  ,jS,kS,iBlockSend) &
@@ -624,11 +624,13 @@ contains
                               SlopeR_V = 0.25* &
                                    ( State_VGB(:,iS+1,jS,kS,iBlockSend) &
                                    - State_VGB(:,iS  ,jS,kS,iBlockSend) )
+                              ! Round iR down to an odd iR1 (left side of iS)
+                              iR1 = iR - modulo(iR+1,2)
                               do k = kR, kR+Dk; do j = jR, jR+Dj
-                                 Slope_VG(:,iR,j,k) = &
-                                      Slope_VG(:,iR,j,k) - SlopeL_V
-                                 Slope_VG(:,iR+1,j,k) = &
-                                      Slope_VG(:,iR+1,j,k) + SlopeR_V
+                                 Slope_VG(:,iR1,j,k) = &
+                                      Slope_VG(:,iR1,j,k) - SlopeL_V
+                                 Slope_VG(:,iR1+1,j,k) = &
+                                      Slope_VG(:,iR1+1,j,k) + SlopeR_V
                               end do; end do
                            end if
 
@@ -639,11 +641,12 @@ contains
                               SlopeR_V = 0.25* &
                                    ( State_VGB(:,iS,jS+1,kS,iBlockSend) &
                                    - State_VGB(:,iS,jS  ,kS,iBlockSend) )
+                              jR1 = jR - modulo(jR+1,2)
                               do k = kR, kR+Dk; do i = iR, iR+Di
-                                 Slope_VG(:,i,jR,k) = &
-                                      Slope_VG(:,i,jR,k) - SlopeL_V
-                                 Slope_VG(:,i,jR+1,k) = &
-                                      Slope_VG(:,i,jR+1,k) + SlopeR_V
+                                 Slope_VG(:,i,jR1,k) = &
+                                      Slope_VG(:,i,jR1,k) - SlopeL_V
+                                 Slope_VG(:,i,jR1+1,k) = &
+                                      Slope_VG(:,i,jR1+1,k) + SlopeR_V
                               end do; end do
                            end if
 
@@ -654,11 +657,12 @@ contains
                               SlopeR_V = 0.25* &
                                    ( State_VGB(:,iS,jS,kS+1,iBlockSend) &
                                    - State_VGB(:,iS,jS,kS  ,iBlockSend) )
+                              kR1 = kR - modulo(kR+1,2)
                               do j = jR, jR+Dj; do i = iR, iR+Di
-                                 Slope_VG(:,i,j,kR) = &
-                                      Slope_VG(:,i,j,kR) - SlopeL_V
-                                 Slope_VG(:,i,j,kR+1) = &
-                                      Slope_VG(:,i,j,kR+1) + SlopeR_V
+                                 Slope_VG(:,i,j,kR1) = &
+                                      Slope_VG(:,i,j,kR1) - SlopeL_V
+                                 Slope_VG(:,i,j,kR1+1) = &
+                                      Slope_VG(:,i,j,kR1+1) + SlopeR_V
                               end do; end do
                            end if
 
@@ -669,11 +673,13 @@ contains
 
                if(iProc == iProcRecv)then
                   do kR=kRMin,kRMax
-                     kS = kSMin + (kR-kRMin)/kRatio
+                     ! For kRatio = 1 simple shift: kS = kSMin + kR - kRMin 
+                     ! For kRatio = 2 coarsen both kR and kRMin before shift
+                     kS = kSMin + (kR+1)/kRatio - (kRMin+1)/kRatio
                      do jR=jRMin,jRMax
-                        jS = jSMin + (jR-jRMin)/jRatio
+                        jS = jSMin + (jR+1)/jRatio - (jRMin+1)/jRatio
                         do iR=iRMin,iRMax
-                           iS = iSMin + (iR-iRMin)/iRatio
+                           iS = iSMin + (iR+1)/iRatio - (iRMin+1)/iRatio
                            State_VGB(:,iR,jR,kR,iBlockRecv) = &
                                 State_VGB(:,iS,jS,kS,iBlockSend) &
                                 + Slope_VG(:,iR,jR,kR)
@@ -697,11 +703,11 @@ contains
                   iBufferS = iBufferS + 1 + 2*nDim
 
                   do kR=kRMin,kRMax
-                     kS = kSMin + (kR-kRMin)/kRatio
+                     kS = kSMin + (kR+1)/kRatio - (kRMin+1)/kRatio
                      do jR=jRMin,jRMax
-                        jS = jSMin + (jR-jRMin)/jRatio
+                        jS = jSMin + (jR+1)/jRatio - (jRMin+1)/jRatio
                         do iR=iRMin,iRMax
-                           iS = iSMin + (iR-iRMin)/iRatio
+                           iS = iSMin + (iR+1)/iRatio - (iRMin+1)/iRatio
                            BufferS_IP(iBufferS+1:iBufferS+nVar,iProcRecv)= &
                                 State_VGB(:,iS,jS,kS,iBlockSend) &
                                 + Slope_VG(:,iR,jR,kR)
@@ -760,7 +766,7 @@ contains
       iRestrictR_DII(:,3,Min_) = nIjk_D + 1
       iRestrictR_DII(:,3,Max_) = nIjk_D + nWidth
 
-      ! number of cells sent from fine block. Rounded up.
+      ! number of ghost cells sent from coarse block. Rounded up.
       nWidthProlongS_D         = 0
       nWidthProlongS_D(1:nDim) = 1 + (nWidth-1)/iRatio_D(1:nDim)
 
@@ -826,6 +832,7 @@ contains
     integer, parameter:: nVar = nDim
     real, allocatable:: State_VGB(:,:,:,:,:)
 
+    integer:: nWidth
     integer:: nProlongOrder
     integer:: iSendCorner
     logical:: DoSendCorner
@@ -860,13 +867,14 @@ contains
     jMax = nJ; if(nDim > 1) jMax = MaxJ
     kMax = nK; if(nDim > 2) kMax = MaxK
 
-    do nProlongOrder = 1, 2; do iSendCorner = 1, 2
+    do nProlongOrder = 1, 2; do iSendCorner = 1, 2; do nWidth = 1, 2
 
        DoSendCorner = iSendCorner == 2
 
        if(DoTestMe)write(*,*) 'testing message_pass_cell with',&
-            ' nProlongOrder=',nProlongOrder, &
-            ' DoSendCorner=',DoSendCorner
+            ' nProlongOrder=', nProlongOrder, &
+            ' DoSendCorner=',  DoSendCorner, &
+            ' nWidth=',        nWidth
 
        State_VGB = 0.0
 
@@ -878,17 +886,14 @@ contains
 
        call message_pass_cell(nVar, State_VGB, &
             nProlongOrderIn=nProlongOrder, &
-            DoSendCornerIn=DoSendCorner)
+            DoSendCornerIn=DoSendCorner, &
+            nWidthIn=nWidth)
 
        do iBlock = 1, nBlock
           if(Unused_B(iBlock)) CYCLE
 
           Tolerance_D = 1e-6
           if(nProlongOrder == 1) then
-             !iNode = iNode_B(iBlock)
-             !write(*,*)'!!! iBlock, iNode=',iBlock,iNode
-             !write(*,*)'!!! DiLevelNei_IIIB(:,:,:,iBlock)=',&
-             !     DiLevelNei_IIIB(:,:,:,iBlock)
              if(any(DiLevelNei_IIIB(:,:,:,iBlock) == 1)) &
                   Tolerance_D(1:nDimAmr) = Tolerance_D(1:nDimAmr) &
                   + 0.5*CellSize_DB(1:nDimAmr,iBlock)
@@ -898,7 +903,7 @@ contains
 
              Xyz_D = Xyz_DGB(:,i,j,k,iBlock)
 
-             ! Check that no info is send in the non-used dimensions,
+             ! Check that no info is sent in the non-used dimensions,
              ! i.e. for all iDim: nDim+1 < iDim < MaxDim
              if(j<jMin .or. j>jMax .or. k<kMin .or. k>kMax)then
                 do iDim = 1, nDim
@@ -924,10 +929,27 @@ contains
                 do iDim = 1, nDim
                    if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
                       write(*,*)'corner/edge should not be set: ', &
-                           'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=', &
+                           'iProc,iBlock,i,j,k,iDim,State,Xyz=', &
                            iProc,iBlock,i,j,k,iDim, &
                            State_VGB(iDim,i,j,k,iBlock), &
-                           Xyz_D(iDim),Tolerance_D(iDim)
+                           Xyz_D
+                   end if
+                end do
+
+                CYCLE
+             end if
+
+             if(  i < 1-nWidth .or. i > nI+nWidth .or. &
+                  j < 1-nWidth .or. j > nJ+nWidth .or. &
+                  k < 1-nWidth .or. k > nK+nWidth ) then
+
+                do iDim = 1, nDim
+                   if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
+                      write(*,*)'ghost cell should not be set: ', &
+                           'iProc,iBlock,i,j,k,iDim,nWidth,State,Xyz=', &
+                           iProc,iBlock,i,j,k,iDim,nWidth, &
+                           State_VGB(iDim,i,j,k,iBlock), &
+                           Xyz_D
                    end if
                 end do
 
@@ -949,7 +971,7 @@ contains
           end do; end do; end do
        end do
 
-    end do; end do ! test parameters
+    end do; end do; end do ! test parameters
     deallocate(State_VGB)
 
     call clean_grid
