@@ -18,6 +18,9 @@ program advect
   integer, parameter :: nOrder = 2
   real,    parameter :: BetaLimiter = 1.5 ! 1 <= Beta <= 2 for nOrder=2
 
+  ! Use fixed or local time stepping
+  logical :: UseLocalStep = .false.
+
   ! Parameters for the explicit scheme
   real, parameter :: Cfl = 0.8
 
@@ -77,8 +80,11 @@ program advect
      if(DoTest)call barrier_mpi
 
      call timing_start('explicit')
-     call advance_explicit
-!!!     call advance_localstep !!!
+     if(UseLocalStep)then
+        call advance_localstep
+     else
+        call advance_explicit
+     end if
      call timing_stop('explicit')
 
      if(DoTest)write(*,*)NameSub,' adapt grid iProc=',iProc
