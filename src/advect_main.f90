@@ -78,6 +78,7 @@ program advect
 
      call timing_start('explicit')
      call advance_explicit
+!!!     call advance_localstep !!!
      call timing_stop('explicit')
 
      if(DoTest)write(*,*)NameSub,' adapt grid iProc=',iProc
@@ -318,6 +319,7 @@ contains
              nCell = nCell + 1
              write(UnitTmp_) CellSize_DB(1,iBlock), &
                   Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock), &
+                  exact_density(Xyz_DGB(:,i,j,k,iBlock)), &
                   CellSize_DB(1,iBlock), real(iNode_B(iBlock)), &
                   real(iProc), real(iBlock)
           end do; end do; 
@@ -353,10 +355,10 @@ contains
        write(UnitTmp_,'(6(1pe18.10),i10,a)') &
             CellSizePlot_D, &
             CellSizeMinAll_D, nCellAll,            ' plot_dx, dxmin, ncell'
-       write(UnitTmp_,'(i8,a)')     nVar+4,        ' nplotvar'
+       write(UnitTmp_,'(i8,a)')     nVar+5,        ' nplotvar'
        write(UnitTmp_,'(i8,a)')     1,             ' neqpar'
        write(UnitTmp_,'(10es13.5)') 0.0            ! eqpar
-       write(UnitTmp_,'(a)')        'rho dx node proc block none' ! varnames
+       write(UnitTmp_,'(a)')        'rho exact dx node proc block none' 
        write(UnitTmp_,'(a)')        '1 1 1'        ! units
        write(UnitTmp_,'(l8,a)')     .true.         ! save binary .idl files
        write(UnitTmp_,'(i8,a)')     nByteReal,     ' nByteReal'
@@ -547,6 +549,114 @@ contains
     end do
 
   end subroutine advance_explicit
+  !===========================================================================
+  subroutine advance_localstep
+
+    use BATL_lib, ONLY: message_pass_cell, MaxBlock, nBlock, Unused_B, &
+         CellSize_DB, iComm, nProc, DiLevelNei_IIIB
+    use ModNumConst, ONLY: i_DD
+    use ModMpi
+
+    integer:: nStage, iStage, iStageBlock, iDim, iBlock, i, j, k, Di, Dj, Dk, iError
+    real :: DtMin, DtMax, DtMinPe, DtMaxPe
+    real :: TimeStage, Coef
+    real, save, allocatable:: Dt_B(:), Time_B(:), TimeOld_B(:)
+    integer, save, allocatable:: iStage_B(:)
+
+    logical, parameter:: DoTest = .false.
+    character(len=*), parameter:: NameSub = 'advance_localstep'
+    !-----------------------------------------------------------------------
+    if(.not.allocated(Dt_B))then
+       allocate(Dt_B(MaxBlock), Time_B(MaxBlock), TimeOld_B(MaxBlock), &
+            iStage_B(MaxBlock))
+       Time_B    = Time
+       TimeOld_B = Time
+       iStage_B  = 1
+    end if
+
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       Dt_B(iBlock) = Cfl / sum( Velocity_D/CellSize_DB(1:nDim,iBlock) )
+       Time_B(iBlock) = Time
+    end do
+    DtMin = minval(Dt_B(1:nBlock), MASK = .not. Unused_B(1:nBlock))
+    DtMax = maxval(Dt_B(1:nBlock), MASK = .not. Unused_B(1:nBlock))
+
+    if(nProc > 1)then
+       DtMinPe = DtMin
+       call MPI_allreduce(DtMinPe, DtMin, 1, MPI_REAL, MPI_MIN, iComm, iError)
+       DtMaxPe = DtMax
+       call MPI_allreduce(DtMaxPe, DtMax, 1, MPI_REAL, MPI_MAX, iComm, iError)
+    end if
+
+    ! Exploit the fact that time step is proportional to cell size !!!
+    Dt = DtMax
+    nStage = nint(DtMax / DtMin)
+    TimeStage = Time
+
+    ! write(*,*)'!!! nStage = ',nStage
+
+    do iStage = 1, 2*nStage
+
+       call timing_start('message_pass')
+       call message_pass_cell(nVar, State_VGB, &
+            DoSendCornerIn=.true., nProlongOrderIn=2, &
+            TimeOld_B=TimeOld_B, Time_B=Time_B)
+
+       call timing_stop('message_pass')
+
+       call timing_start('update')
+       do iBlock = 1, nBlock
+          if(Unused_B(iBlock)) CYCLE
+          if(Time_B(iBlock) > TimeStage*(1+1e-10)) CYCLE
+
+          iStageBlock = iStage_B(iBlock)
+
+          call calc_face_values(iBlock)
+
+          if(iStageBlock == 1)then
+             StateOld_VCB(:,:,:,:,iBlock) = State_VGB(:,1:nI,1:nJ,1:nK,iBlock)
+          else
+             State_VGB(:,1:nI,1:nJ,1:nK,iBlock) = StateOld_VCB(:,:,:,:,iBlock)
+          end if
+
+          do iDim = 1, nDim
+             Di = i_DD(1,iDim); Dj = i_DD(2,iDim); Dk = i_DD(3,iDim)
+             Coef =  Dt_B(iBlock) * iStageBlock/2.0 / CellSize_DB(iDim, iBlock)
+             do k = 1, nK; do j = 1, nJ; do i = 1, nI
+                State_VGB(:,i,j,k,iBlock) = State_VGB(:,i,j,k,iBlock) &
+                     - Coef * &
+                     (Flux_VFD(:,i+Di,j+Dj,k+Dk,iDim) - Flux_VFD(:,i,j,k,iDim))
+             end do; end do; end do
+          end do
+
+          !write(*,*)'!!! iBlock, Time_B -> Time_B=', &
+          !     iBlock, Time_B(iBlock), Time_B(iBlock) + Dt_B(iBlock)
+
+          TimeOld_B(iBlock) = Time_B(iBlock)
+          Time_B(iBlock)    = Time_B(iBlock) + Dt_B(iBlock)/2
+          iStage_B(iBlock) = 3 - iStageBlock
+
+       end do
+
+       TimeStage = TimeStage + DtMin/2
+
+       call timing_stop('update')
+    end do
+
+    if( maxval(Time_B, MASK=.not.Unused_B) > &
+         minval(Time_B, MASK=.not.Unused_B) + 1e-10)then
+
+       write(*,*)'!!! minval(Time_B)=',minval(Time_B, MASK=.not.Unused_B)
+       write(*,*)'!!! maxval(Time_B)=',maxval(Time_B, MASK=.not.Unused_B)
+       write(*,*)'!!! minloc(Time_B)=',minloc(Time_B, MASK=.not.Unused_B)
+       write(*,*)'!!! maxloc(Time_B)=',maxloc(Time_B, MASK=.not.Unused_B)
+
+       call CON_stop('time step problem')
+
+    end if
+
+  end subroutine advance_localstep
 
 end program advect
 
