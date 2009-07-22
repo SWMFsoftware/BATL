@@ -33,7 +33,7 @@ contains
 
   subroutine message_pass_cell(nVar, State_VGB, &
        nWidthIn, nProlongOrderIn, nCoarseLayerIn, DoSendCornerIn, &
-       DoRestrictFaceIn, DoTestIn)
+       DoRestrictFaceIn, TimeOld_B, Time_B, DoTestIn)
 
     use BATL_size, ONLY: MaxBlock, &
          nBlock, nI, nJ, nK, nIjk_D, nG, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
@@ -59,6 +59,8 @@ contains
     logical, optional, intent(in) :: DoSendCornerIn
     logical, optional, intent(in) :: DoRestrictFaceIn
     logical, optional, intent(in) :: DoTestIn
+    real,    optional, intent(in) :: TimeOld_B(MaxBlock)
+    real,    optional, intent(in) :: Time_B(MaxBlock)
 
     ! Local variables
 
@@ -292,6 +294,7 @@ contains
       ! Copy buffer into recv block of State_VGB
 
       integer:: iBufferR, i, j, k
+      real :: TimeSend, WeightOld, WeightNew
       !------------------------------------------------------------------------
 
       jRMin = 1; jRMax = 1
@@ -310,14 +313,28 @@ contains
             if(nDim > 2) kRMax = nint(BufferR_IP(iBufferR+7,iProcSend))
 
             iBufferR = iBufferR + 1 + 2*nDim
+            if(present(Time_B))then
+               ! Get time of neighbor and interpolate/extrapolate ghost cells
+               iBufferR = iBufferR + 1
+               TimeSend  = BufferR_IP(iBufferR,iProcSend)
+               WeightNew = (Time_B(iBlockRecv) - TimeOld_B(iBlockRecv)) &
+                    /      (TimeSend           - TimeOld_B(iBlockRecv))
+               WeightOld = 1 - WeightNew
+               do k = kRMin, kRmax; do j = jRMin, jRMax; do i = iRMin, iRmax
+                  State_VGB(:,i,j,k,iBlockRecv) = &
+                       WeightOld*State_VGB(:,i,j,k,iBlockRecv) + &
+                       WeightNew*BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
 
-            do k = kRMin, kRmax; do j = jRMin, jRMax; do i = iRMin, iRmax
-               State_VGB(:,i,j,k,iBlockRecv) = &
-                    BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
-
-               iBufferR = iBufferR + nVar
-            end do; end do; end do
-
+                  iBufferR = iBufferR + nVar
+               end do; end do; end do
+            else
+               do k = kRMin, kRmax; do j = jRMin, jRMax; do i = iRMin, iRmax
+                  State_VGB(:,i,j,k,iBlockRecv) = &
+                       BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
+                  
+                  iBufferR = iBufferR + nVar
+               end do; end do; end do
+            end if
             if(iBufferR >= iBufferR_P(iProcSend)) EXIT
          end do
       end do
@@ -329,6 +346,7 @@ contains
     subroutine do_equal
 
       integer :: iBufferS, i, j, k, nSize
+      real    :: WeightOld, WeightNew
       !------------------------------------------------------------------------
 
       iRMin = iEqualR_DII(1,iDir,Min_)
@@ -354,8 +372,19 @@ contains
       iBlockRecv = iTree_IA(Block_,iNodeRecv)
 
       if(iProc == iProcRecv)then
-         State_VGB(:,iRMin:iRMax,jRMin:jRMax,kRMin:kRMax,iBlockRecv)= &
-              State_VGB(:,iSMin:iSMax,jSMin:jSMax,kSMin:kSMax,iBlockSend)
+         if(present(Time_B))then
+            WeightOld = (Time_B(iBlockSend) - Time_B(iBlockRecv)) &
+                 / max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv), 1e-30)
+            WeightNew = 1 - WeightOld
+            State_VGB(:,iRMin:iRMax,jRMin:jRMax,kRMin:kRMax,iBlockRecv)= &
+                 WeightOld* &
+                 State_VGB(:,iRMin:iRMax,jRMin:jRMax,kRMin:kRMax,iBlockRecv) + &
+                 WeightNew* &
+                 State_VGB(:,iSMin:iSMax,jSMin:jSMax,kSMin:kSMax,iBlockSend)
+         else
+            State_VGB(:,iRMin:iRMax,jRMin:jRMax,kRMin:kRMax,iBlockRecv)= &
+                 State_VGB(:,iSMin:iSMax,jSMin:jSMax,kSMin:kSMax,iBlockSend)
+         end if
       else
          iBufferS = iBufferS_P(iProcRecv)
 
@@ -371,7 +400,12 @@ contains
          if(nDim > 2)BufferS_IP(iBufferS+7,iProcRecv) = kRMax
 
          iBufferS = iBufferS + 1 + 2*nDim
-         
+
+         if(present(Time_B))then
+            iBufferS = iBufferS + 1
+            BufferS_IP(iBufferS,iProcRecv) = Time_B(iBlockSend)
+         end if
+
          do k = kSMin,kSmax; do j = jSMin,jSMax; do i = iSMin,iSmax
             BufferS_IP(iBufferS+1:iBufferS+nVar,iProcRecv) = &
                  State_VGB(:,i,j,k,iBlockSend)
@@ -383,6 +417,7 @@ contains
          ! Number of reals to be received from the other processor
          ! is the same as sent for equal levels
          nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
+         if(present(Time_B)) nSize = nSize + 1
          iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) + 1 + 2*nDim + nSize
 
       end if
@@ -395,6 +430,7 @@ contains
 
       integer :: iR, jR, kR, iS1, jS1, kS1, iS2, jS2, kS2, iVar
       integer :: iBufferS, nSize
+      real    :: WeightOld, WeightNew
       !------------------------------------------------------------------------
 
       ! For sideways communication from a fine to a coarser block
@@ -434,6 +470,7 @@ contains
          kRMax = iProlongR_DII(3,kSend,Max_)
 
          nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
+         if(present(Time_B)) nSize = nSize + 1
          iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) + 1 + 2*nDim + nSize
 
       end if
@@ -471,6 +508,22 @@ contains
       !     iRMin,iRmax,jRMin,jRMax,kRMin,kRmax
 
       if(iProc == iProcRecv)then
+
+         if(present(Time_B))then
+            ! Get time of neighbor and interpolate/extrapolate ghost cells
+            WeightOld = (Time_B(iBlockSend) - Time_B(iBlockRecv)) &
+                 /   max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv), 1e-30)
+            WeightNew = 1 - WeightOld
+            !write(*,*)'!!! restrict: iBlockSend, iBlockRecv=',iBlockSend, iBlockRecv
+            !write(*,*)'!!! Times(Recv)=',TimeOld_B(iBlockRecv), Time_B(iBlockRecv)
+            !write(*,*)'!!! Times(Send)=',TimeOld_B(iBlockSend), Time_B(iBlockSend)
+            !write(*,*)'!!! WeightNew, WeightOld=',WeightNew, WeightOld
+
+         else
+            WeightNew = 1.0
+            WeightOld = 0.0
+         end if
+
          do kR=kRMin,kRMax
             kS1 = kSMin + kRatio*(kR-kRMin)
             kS2 = kS1 + kRatio - 1
@@ -482,7 +535,8 @@ contains
                   iS2 = iS1 + iRatio - 1
                   do iVar = 1, nVar
                      State_VGB(iVar,iR,jR,kR,iBlockRecv) = &
-                          InvIjkRatio * sum &
+                          WeightOld * State_VGB(iVar,iR,jR,kR,iBlockRecv) + &
+                          WeightNew * InvIjkRatio * sum &
                           (State_VGB(iVar,iS1:iS2,jS1:jS2,kS1:kS2,iBlockSend))
                   end do
                end do
@@ -503,6 +557,11 @@ contains
          if(nDim > 2)BufferS_IP(iBufferS+7,iProcRecv) = kRMax
 
          iBufferS = iBufferS + 1 + 2*nDim
+
+         if(present(Time_B))then
+            iBufferS = iBufferS + 1
+            BufferS_IP(iBufferS,iProcRecv) = Time_B(iBlockSend)
+         end if
 
          do kR=kRMin,kRMax
             kS1 = kSMin + kRatio*(kR-kRMin)
@@ -537,6 +596,7 @@ contains
       integer :: iR1, jR1, kR1
       integer :: iBufferS, nSize
       integer, parameter:: Di=iRatio-1, Dj=jRatio-1, Dk=kRatio-1
+      real    :: WeightOld, WeightNew
       !------------------------------------------------------------------------
 
       ! Loop through the subfaces or subedges
@@ -567,6 +627,7 @@ contains
                   kRMax = iRestrictR_DII(3,kSend,Max_)
 
                   nSize = nVar*(iRMax-iRMin+1)*(jRMax-jRMin+1)*(kRMax-kRMin+1)
+                  if(present(Time_B)) nSize = nSize + 1
                   iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) &
                        + 1 + 2*nDim + nSize
                   
@@ -672,6 +733,17 @@ contains
                end if
 
                if(iProc == iProcRecv)then
+                  
+                  if(present(Time_B))then
+                     ! Get time of neighbor and interpolate/extrapolate ghost cells
+                     WeightOld = (Time_B(iBlockSend) - Time_B(iBlockRecv)) &
+                          /   max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv), 1e-30)
+                     WeightNew = 1 - WeightOld
+                  else
+                     WeightNew = 1.0
+                     WeightOld = 0.0
+                  end if
+
                   do kR=kRMin,kRMax
                      ! For kRatio = 1 simple shift: kS = kSMin + kR - kRMin 
                      ! For kRatio = 2 coarsen both kR and kRMin before shift
@@ -681,8 +753,9 @@ contains
                         do iR=iRMin,iRMax
                            iS = iSMin + (iR+1)/iRatio - (iRMin+1)/iRatio
                            State_VGB(:,iR,jR,kR,iBlockRecv) = &
-                                State_VGB(:,iS,jS,kS,iBlockSend) &
-                                + Slope_VG(:,iR,jR,kR)
+                                WeightOld * State_VGB(:,iR,jR,kR,iBlockRecv) + &
+                                WeightNew * (State_VGB(:,iS,jS,kS,iBlockSend) &
+                                + Slope_VG(:,iR,jR,kR))
                         end do
                      end do
                   end do
@@ -701,6 +774,10 @@ contains
                   if(nDim > 2)BufferS_IP(iBufferS+7,iProcRecv) = kRMax
 
                   iBufferS = iBufferS + 1 + 2*nDim
+                  if(present(Time_B))then
+                     iBufferS = iBufferS + 1
+                     BufferS_IP(iBufferS,iProcRecv) = Time_B(iBlockSend)
+                  end if
 
                   do kR=kRMin,kRMax
                      kS = kSMin + (kR+1)/kRatio - (kRMin+1)/kRatio
