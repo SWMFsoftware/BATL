@@ -317,9 +317,9 @@ contains
                ! Get time of neighbor and interpolate/extrapolate ghost cells
                iBufferR = iBufferR + 1
                TimeSend  = BufferR_IP(iBufferR,iProcSend)
-               WeightNew = (Time_B(iBlockRecv) - TimeOld_B(iBlockRecv)) &
-                    /      (TimeSend           - TimeOld_B(iBlockRecv))
-               WeightOld = 1 - WeightNew
+               WeightOld = (TimeSend - Time_B(iBlockRecv)) &
+                    / max(TimeSend - TimeOld_B(iBlockRecv), 1e-30)
+               WeightNew = 1 - WeightOld
                do k = kRMin, kRmax; do j = jRMin, jRMax; do i = iRMin, iRmax
                   State_VGB(:,i,j,k,iBlockRecv) = &
                        WeightOld*State_VGB(:,i,j,k,iBlockRecv) + &
