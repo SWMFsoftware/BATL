@@ -9,7 +9,7 @@ program advect
   real, parameter :: Radius2 = 25.0
 
   ! Final simulation time, frequency of plots
-  real, parameter :: TimeMax = 10.0, DtPlot = 1.0
+  real, parameter :: TimeMax = 20.0, DtPlot = 1.0
 
   ! Advection velocity. Should be positive. For now set to 2
   real :: Velocity_D(nDim) = 2.0
@@ -80,19 +80,12 @@ program advect
      if(DoTest)call barrier_mpi
 
      call timing_start('explicit')
-     if(UseLocalStep)then
+     if(Time > 0.5*TimeMax)then
         call advance_localstep
      else
         call advance_explicit
      end if
      call timing_stop('explicit')
-
-     if(DoTest)write(*,*)NameSub,' adapt grid iProc=',iProc
-     if(DoTest)call barrier_mpi
-
-     call timing_start('amr')
-     call adapt_grid
-     call timing_stop('amr')
 
      if(DoTest)write(*,*)NameSub,' update time iProc=',iProc
      if(DoTest)call barrier_mpi
@@ -100,6 +93,13 @@ program advect
      ! Update time
      iStep = iStep + 1
      Time  = Time + Dt
+
+     if(DoTest)write(*,*)NameSub,' adapt grid iProc=',iProc
+     if(DoTest)call barrier_mpi
+
+     call timing_start('amr')
+     call adapt_grid
+     call timing_stop('amr')
 
      call timing_step(iStep)
 
@@ -563,7 +563,8 @@ contains
     use ModNumConst, ONLY: i_DD
     use ModMpi
 
-    integer:: nStage, iStage, iStageBlock, iDim, iBlock, i, j, k, Di, Dj, Dk, iError
+    integer:: nStage, iStage, iStageBlock, iDim, iBlock
+    integer:: i, j, k, Di, Dj, Dk, iError
     real :: DtMin, DtMax, DtMinPe, DtMaxPe
     real :: TimeStage, Coef
     real, save, allocatable:: Dt_B(:), Time_B(:), TimeOld_B(:)
@@ -575,9 +576,9 @@ contains
     if(.not.allocated(Dt_B))then
        allocate(Dt_B(MaxBlock), Time_B(MaxBlock), TimeOld_B(MaxBlock), &
             iStage_B(MaxBlock))
+       iStage_B  = 1
        Time_B    = Time
        TimeOld_B = Time
-       iStage_B  = 1
     end if
 
     do iBlock = 1, nBlock
@@ -594,6 +595,9 @@ contains
        DtMaxPe = DtMax
        call MPI_allreduce(DtMaxPe, DtMax, 1, MPI_REAL, MPI_MAX, iComm, iError)
     end if
+
+    DtMax = floor( (DtMax + 1e-10)/DtMin )*DtMin
+    Dt_B(1:nBlock) = floor( (Dt_B(1:nBlock) + 1e-10)/DtMin )*DtMin
 
     ! Exploit the fact that time step is proportional to cell size !!!
     Dt = DtMax
