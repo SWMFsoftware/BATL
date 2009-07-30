@@ -3,11 +3,11 @@ module BATL_pass_cell
 
   ! Possible improvements:
   ! (1) Instead of sending the receiving block number
-  !     and the 2**nDim range limits, we can send only the tag which
+  !     and the 2*nDim range limits, we can send only the tag which
   !     we would use in a block to block communication:
   !        iTag = 100*iBlockRecv + iRecv + 4*(jRecv + 4*kRecv)
   !     There are 2 advantages:
-  !     (a) The amount of info reduces: 1+2**nDim numbers --> 1 number (iTag)
+  !     (a) The amount of info reduces: 1+2*nDim numbers --> 1 number (iTag)
   !     (b) This procedure allows to send for 1st order prolongation only
   !         one copy per 2**nDim cells
   ! (2) Instead of waiting for receiving buffers from ALL processors, we
@@ -17,7 +17,7 @@ module BATL_pass_cell
   !     (a) We can then allocate a small known buffer size
   !     (b) we do at least two times message_pass_cell per time iteration,
   !         each time determining the buffer size. This would be reduced to
-  !         only once (there is a small complication with operatore split
+  !         only once (there is a small complication with operator split
   !         schemes)
 
   implicit none
@@ -113,8 +113,7 @@ contains
     nWidth = nG
     if(present(nWidthIn)) nWidth = nWidthIn
 
-!!!    nProlongOrder = 2
-    nProlongOrder = 1
+    nProlongOrder = 2
     if(present(nProlongOrderIn)) nProlongOrder = nProlongOrderIn
 
     nCoarseLayer = 1
@@ -437,17 +436,17 @@ contains
       ! the coordinate parity of the sender block tells 
       ! if the receiver block fills into the 
       ! lower (D*Recv = 0) or upper (D*Rev=1) half of the block
-      iSide = modulo(iTree_IA(Coord1_,iNodeSend)-1, 2)
+      iSide = 0; if(iRatio==2) iSide = modulo(iTree_IA(Coord1_,iNodeSend)-1, 2)
       jSide = 0; if(jRatio==2) jSide = modulo(iTree_IA(Coord2_,iNodeSend)-1, 2)
       kSide = 0; if(kRatio==2) kSide = modulo(iTree_IA(Coord3_,iNodeSend)-1, 2)
 
       ! Do not restrict diagonally in the direction of the sibling.
-      if(iDir == -1 .and. iSide==1) RETURN
-      if(iDir == +1 .and. iSide==0) RETURN
-      if(jDir == -1 .and. jSide==1 .and. nDimAmr>1) RETURN
-      if(jDir == +1 .and. jSide==0 .and. nDimAmr>1) RETURN
-      if(kDir == -1 .and. kSide==1 .and. nDimAmr>2) RETURN
-      if(kDir == +1 .and. kSide==0 .and. nDimAmr>2) RETURN
+      if(iDir == -1 .and. iSide==1 .and. iRatio == 2) RETURN
+      if(iDir == +1 .and. iSide==0 .and. iRatio == 2) RETURN
+      if(jDir == -1 .and. jSide==1 .and. jRatio == 2) RETURN
+      if(jDir == +1 .and. jSide==0 .and. jRatio == 2) RETURN
+      if(kDir == -1 .and. kSide==1 .and. kRatio == 2) RETURN
+      if(kDir == +1 .and. kSide==0 .and. kRatio == 2) RETURN
 
       iSend = (3*iDir + 3 + iSide)/2
       jSend = (3*jDir + 3 + jSide)/2
@@ -747,15 +746,15 @@ contains
                   do kR=kRMin,kRMax
                      ! For kRatio = 1 simple shift: kS = kSMin + kR - kRMin 
                      ! For kRatio = 2 coarsen both kR and kRMin before shift
-                     kS = kSMin + (kR+1)/kRatio - (kRMin+1)/kRatio
+                     kS = kSMin + (kR+3)/kRatio - (kRMin+3)/kRatio
                      do jR=jRMin,jRMax
-                        jS = jSMin + (jR+1)/jRatio - (jRMin+1)/jRatio
+                        jS = jSMin + (jR+3)/jRatio - (jRMin+3)/jRatio
                         do iR=iRMin,iRMax
-                           iS = iSMin + (iR+1)/iRatio - (iRMin+1)/iRatio
+                           iS = iSMin + (iR+3)/iRatio - (iRMin+3)/iRatio
                            State_VGB(:,iR,jR,kR,iBlockRecv) = &
-                                WeightOld * State_VGB(:,iR,jR,kR,iBlockRecv) + &
-                                WeightNew * (State_VGB(:,iS,jS,kS,iBlockSend) &
-                                + Slope_VG(:,iR,jR,kR))
+                                WeightOld*State_VGB(:,iR,jR,kR,iBlockRecv) + &
+                                WeightNew*(State_VGB(:,iS,jS,kS,iBlockSend) &
+                                +          Slope_VG(:,iR,jR,kR))
                         end do
                      end do
                   end do
@@ -780,11 +779,11 @@ contains
                   end if
 
                   do kR=kRMin,kRMax
-                     kS = kSMin + (kR+1)/kRatio - (kRMin+1)/kRatio
+                     kS = kSMin + (kR+3)/kRatio - (kRMin+3)/kRatio
                      do jR=jRMin,jRMax
-                        jS = jSMin + (jR+1)/jRatio - (jRMin+1)/jRatio
+                        jS = jSMin + (jR+3)/jRatio - (jRMin+3)/jRatio
                         do iR=iRMin,iRMax
-                           iS = iSMin + (iR+1)/iRatio - (iRMin+1)/iRatio
+                           iS = iSMin + (iR+3)/iRatio - (iRMin+3)/iRatio
                            BufferS_IP(iBufferS+1:iBufferS+nVar,iProcRecv)= &
                                 State_VGB(:,iS,jS,kS,iBlockSend) &
                                 + Slope_VG(:,iR,jR,kR)
@@ -891,7 +890,7 @@ contains
 
     use BATL_mpi,  ONLY: iProc
     use BATL_size, ONLY: MaxDim, nDim, nDimAmr, &
-         MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nI, nJ, nK, nBlock
+         MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nG, nI, nJ, nK, nBlock
     use BATL_tree, ONLY: init_tree, set_tree_root, find_tree_node, &
          refine_tree_node, distribute_tree, show_tree, clean_tree, &
          Unused_B, iNode_B, DiLevelNei_IIIB
@@ -944,7 +943,7 @@ contains
     jMax = nJ; if(nDim > 1) jMax = MaxJ
     kMax = nK; if(nDim > 2) kMax = MaxK
 
-    do nProlongOrder = 1, 2; do iSendCorner = 1, 2; do nWidth = 1, 2
+    do nProlongOrder = 1, 2; do iSendCorner = 1, 2; do nWidth = 1, nG
 
        DoSendCorner = iSendCorner == 2
 
