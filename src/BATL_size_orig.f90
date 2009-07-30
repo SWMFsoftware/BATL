@@ -28,12 +28,16 @@ module BATL_size
        nIJK_D(MaxDim) = (/ nI, nJ, nK /)
 
   ! number of ghost cells
-  integer, parameter :: nG = 2  
+  integer, parameter :: nG = 2
+
+  integer, parameter:: nGI = nG
+  integer, parameter:: nGJ = nG*min(1,nDim-1)
+  integer, parameter:: nGK = nG*max(0,nDim-2)
   
   integer, parameter :: &
-       MinI = 1 - nG, MaxI = nI + nG, &
-       MinJ = 1 - nG, MaxJ = nJ + nG, &
-       MinK = 1 - nG, MaxK = nK + nG
+       MinI = 1 - nGI, MaxI = nI + nGI, &
+       MinJ = 1 - nGJ, MaxJ = nJ + nGJ, &
+       MinK = 1 - nGK, MaxK = nK + nGK
 
   ! Refinement ratios in the 3 dimensions (depends on nDimAmr)
   integer, parameter:: &
