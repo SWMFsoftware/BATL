@@ -579,6 +579,7 @@ contains
        iStage_B  = 1
        Time_B    = Time
        TimeOld_B = Time
+       Dt_B      = 0.0
     end if
 
     do iBlock = 1, nBlock
