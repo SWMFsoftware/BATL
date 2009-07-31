@@ -37,11 +37,11 @@ contains
 
     use BATL_size, ONLY: MaxBlock, &
          nBlock, nI, nJ, nK, nIjk_D, nG, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
-         MaxDim, nDim, nDimAmr, iRatio, jRatio, kRatio, iRatio_D, InvIjkRatio
+         MaxDim, nDim, iRatio, jRatio, kRatio, iRatio_D, InvIjkRatio
 
-    use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
+    use BATL_mpi, ONLY: iComm, nProc, iProc
 
-    use BATL_tree, ONLY: nNodeUsed, iNodePeano_I, &
+    use BATL_tree, ONLY: &
          iNodeNei_IIIB, DiLevelNei_IIIB, Unused_B, iNode_B, &
          iTree_IA, Proc_, Block_, Coord1_, Coord2_, Coord3_
 
@@ -70,7 +70,7 @@ contains
     logical :: DoSendCorner
     logical :: DoRestrictFace
 
-    integer :: iProlongOrder, iSendRecv, iPeano
+    integer :: iProlongOrder
     integer :: iSend, jSend, kSend, iRecv, jRecv, kRecv, iSide, jSide, kSide
     integer :: iDir, jDir, kDir
     integer :: iNodeRecv, iNodeSend
@@ -101,7 +101,7 @@ contains
     integer, allocatable, save:: iRequestR_I(:), iRequestS_I(:), &
          iStatus_II(:,:)
 
-    real, allocatable:: SlopeL_V(:), SlopeR_V(:), Slope_VG(:,:,:,:)
+    real, allocatable:: Slope_VG(:,:,:,:)
 
     logical:: DoTest, DoTestMe
     character(len=*), parameter:: NameSub = 'BATL_pass_cell::message_pass_cell'
@@ -140,7 +140,6 @@ contains
 
     end if
 
-    if(nProlongOrder > 1) allocate(SlopeL_V(nVar), SlopeR_V(nVar))
     allocate(Slope_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK))
     ! Set to zero so we can add it for first order prolongation too
     Slope_VG = 0.0
@@ -251,7 +250,6 @@ contains
 
     end do ! iProlongOrder
 
-    if(nProlongOrder > 1) deallocate(SlopeL_V, SlopeR_V)
     deallocate(Slope_VG)
 
   contains
@@ -591,8 +589,7 @@ contains
 
     subroutine do_prolong
 
-      integer :: iR, jR, kR, iS, jS, kS, i, j, k
-      integer :: iR1, jR1, kR1
+      integer :: iR, jR, kR, iS, jS, kS, iS1, jS1, kS1
       integer :: iBufferS, nSize
       integer, parameter:: Di=iRatio-1, Dj=jRatio-1, Dk=kRatio-1
       real    :: WeightOld, WeightNew
@@ -652,6 +649,7 @@ contains
                kRMin = iProlongR_DII(3,kRecv,Min_)
                kRMax = iProlongR_DII(3,kRecv,Max_)
 
+               !DoTestMe = nProlongOrder==2 .and. nWidth == 3
                !if(DoTestMe)then
                !   write(*,*)'iNodeRecv, iProcRecv, iBlovkRecv=', &
                !        iNodeRecv, iProcRecv, iBlockRecv
@@ -671,59 +669,38 @@ contains
                   ! Use simple interpolation, should be OK for ghost cells
                   Slope_VG(:,iRMin:iRmax,jRMin:jRMax,kRMin:kRMax) = 0.0
 
-                  do kS = kSMin, kSMax
-                     kR = kRatio*(kS - kSMin) + kRMin
-                     do jS = jSMin, jSmax
-                        jR = jRatio*(jS - jSMin) + jRMin
-                        do iS = iSMin, iSMax
-                           iR = iRatio*(iS - iSMin) + iRMin
+                  do kR = kRMin, kRMax
+                     ! For kRatio = 1 simple shift: kS = kSMin + kR - kRMin 
+                     ! For kRatio = 2 coarsen both kR and kRMin before shift
+                     kS = kSMin + (kR+3)/kRatio - (kRMin+3)/kRatio
+                     do jR = jRMin, jRMax
+                        jS = jSMin + (jR+3)/jRatio - (jRMin+3)/jRatio
+                        do iR = iRMin, iRMax
+                           iS = iSMin + (iR+3)/iRatio - (iRMin+3)/iRatio
+
                            if(iRatio == 2)then
-                              SlopeL_V = 0.25* &
-                                   ( State_VGB(:,iS  ,jS,kS,iBlockSend) &
-                                   - State_VGB(:,iS-1,jS,kS,iBlockSend) )
-                              SlopeR_V = 0.25* &
-                                   ( State_VGB(:,iS+1,jS,kS,iBlockSend) &
-                                   - State_VGB(:,iS  ,jS,kS,iBlockSend) )
-                              ! Round iR down to an odd iR1 (left side of iS)
-                              iR1 = iR - modulo(iR+1,2)
-                              do k = kR, kR+Dk; do j = jR, jR+Dj
-                                 Slope_VG(:,iR1,j,k) = &
-                                      Slope_VG(:,iR1,j,k) - SlopeL_V
-                                 Slope_VG(:,iR1+1,j,k) = &
-                                      Slope_VG(:,iR1+1,j,k) + SlopeR_V
-                              end do; end do
+                              ! Interpolate left for odd iR, right for even iR
+                              iS1 = iS + 1 - 2*modulo(iR,2)
+                              Slope_VG(:,iR,jR,kR) = Slope_VG(:,iR,jR,kR) &
+                                   + 0.25* &
+                                   ( State_VGB(:,iS1,jS,kS,iBlockSend) &
+                                   - State_VGB(:,iS ,jS,kS,iBlockSend) )
                            end if
 
                            if(jRatio == 2)then
-                              SlopeL_V = 0.25* &
-                                   ( State_VGB(:,iS,jS  ,kS,iBlockSend) &
-                                   - State_VGB(:,iS,jS-1,kS,iBlockSend) )
-                              SlopeR_V = 0.25* &
-                                   ( State_VGB(:,iS,jS+1,kS,iBlockSend) &
-                                   - State_VGB(:,iS,jS  ,kS,iBlockSend) )
-                              jR1 = jR - modulo(jR+1,2)
-                              do k = kR, kR+Dk; do i = iR, iR+Di
-                                 Slope_VG(:,i,jR1,k) = &
-                                      Slope_VG(:,i,jR1,k) - SlopeL_V
-                                 Slope_VG(:,i,jR1+1,k) = &
-                                      Slope_VG(:,i,jR1+1,k) + SlopeR_V
-                              end do; end do
+                              jS1 = jS + 1 - 2*modulo(jR,2)
+                              Slope_VG(:,iR,jR,kR) = Slope_VG(:,iR,jR,kR) &
+                                   + 0.25* &
+                                   ( State_VGB(:,iS,jS1,kS,iBlockSend) &
+                                   - State_VGB(:,iS,jS ,kS,iBlockSend) )
                            end if
 
                            if(kRatio == 2)then
-                              SlopeL_V = 0.25* &
-                                   ( State_VGB(:,iS,jS,kS  ,iBlockSend) &
-                                   - State_VGB(:,iS,jS,kS-1,iBlockSend) )
-                              SlopeR_V = 0.25* &
-                                   ( State_VGB(:,iS,jS,kS+1,iBlockSend) &
-                                   - State_VGB(:,iS,jS,kS  ,iBlockSend) )
-                              kR1 = kR - modulo(kR+1,2)
-                              do j = jR, jR+Dj; do i = iR, iR+Di
-                                 Slope_VG(:,i,j,kR1) = &
-                                      Slope_VG(:,i,j,kR1) - SlopeL_V
-                                 Slope_VG(:,i,j,kR1+1) = &
-                                      Slope_VG(:,i,j,kR1+1) + SlopeR_V
-                              end do; end do
+                              kS1 = kS + 1 - 2*modulo(kR,2)
+                              Slope_VG(:,iR,jR,kR) = Slope_VG(:,iR,jR,kR) &
+                                   + 0.25* &
+                                   ( State_VGB(:,iS,jS,kS1,iBlockSend) &
+                                   - State_VGB(:,iS,jS,kS ,iBlockSend) )
                            end if
 
                         end do
@@ -893,7 +870,7 @@ contains
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nG, nI, nJ, nK, nBlock
     use BATL_tree, ONLY: init_tree, set_tree_root, find_tree_node, &
          refine_tree_node, distribute_tree, show_tree, clean_tree, &
-         Unused_B, iNode_B, DiLevelNei_IIIB
+         Unused_B, DiLevelNei_IIIB
     use BATL_grid, ONLY: init_grid, create_grid, clean_grid, &
          Xyz_DGB, CellSize_DB
     use BATL_geometry, ONLY: init_geometry
