@@ -54,13 +54,30 @@ contains
 
     ! Optional arguments
     integer, optional, intent(in) :: nWidthIn
-    integer, optional, intent(in) :: nCoarseLayerIn
     integer, optional, intent(in) :: nProlongOrderIn
+    integer, optional, intent(in) :: nCoarseLayerIn
     logical, optional, intent(in) :: DoSendCornerIn
     logical, optional, intent(in) :: DoRestrictFaceIn
     logical, optional, intent(in) :: DoTestIn
     real,    optional, intent(in) :: TimeOld_B(MaxBlock)
     real,    optional, intent(in) :: Time_B(MaxBlock)
+
+    ! Fill in the nVar variables in the ghost cells of State_VGB.
+    !
+    ! nWidthIn is the number of ghost cell layers to be set. Default is all.
+    ! nProlongOrderIn is the order of accuracy of prolongation. Default is 2.
+    ! nCoarseLayerIn is the number of coarse layers sent during first order
+    !     prolongation. Default is 1, ie all fine cells are equal.
+    !     If it is set to 2, the 2 (or more) coarse layers are copied into 
+    !     the fine cell layers one by one.
+    ! DoSendCornerIn determines if edges/corners are filled. Default is true.
+    ! DoRestrictFaceIn determines if restriction is applied to a single layer
+    !     of ghost cells instead of two layers. Default is false.
+    !     Only works with first order prolongation.
+    ! TimeOld_B and Time_B are the simulation times associated with the
+    !    ghost cells and physical cells of State_VGB, respectively. 
+    !    If these arguments are present, the ghost cells are interpolated 
+    !    in time. Default is a simple update with no temporal interpolation.
 
     ! Local variables
 
@@ -125,6 +142,14 @@ contains
     DoRestrictFace = .false.
     if(present(DoRestrictFaceIn)) DoRestrictFace = DoRestrictFaceIn
 
+    ! Check arguments for consistency
+    if(nProlongOrder == 2 .and. DoRestrictFace) call CON_stop(NameSub, &
+         ' cannot use 2nd order prolongation with face restriction')
+
+    if(nProlongOrder == 2 .and. nCoarseLayer>1) call CON_stop(NameSub, &
+         ' cannot use 2nd order prolongation nCoarseLayer > 1')
+
+    ! Set index ranges based on arguments
     call set_range
 
     if(nProc > 1)then
@@ -135,7 +160,7 @@ contains
           allocate(iStatus_II(MPI_STATUS_SIZE,nProc-1))
        end if
        ! Upper estimate of the number of variables sent 
-       ! from one block to another
+       ! from one block to another. Used for dynamic pointer buffers.
        DnBuffer = nVar*nGhostCell
 
     end if
@@ -598,6 +623,7 @@ contains
     subroutine do_prolong
 
       integer :: iR, jR, kR, iS, jS, kS, iS1, jS1, kS1
+      integer :: iRatioRestr, jRatioRestr, kRatioRestr
       integer :: iBufferS, nSize
       integer, parameter:: Di=iRatio-1, Dj=jRatio-1, Dk=kRatio-1
       real    :: WeightOld, WeightNew
@@ -617,7 +643,7 @@ contains
                iNodeRecv  = iNodeNei_IIIB(iSend,jSend,kSend,iBlockSend)
                iProcRecv  = iTree_IA(Proc_,iNodeRecv)
                iBlockRecv = iTree_IA(Block_,iNodeRecv)
-               
+
                if(iProc /= iProcRecv .and. iProlongOrder == 1)then
                   ! This processor will receive a restricted buffer from
                   ! the other processor and the "recv" direction of the
@@ -656,6 +682,13 @@ contains
                jRMax = iProlongR_DII(2,jRecv,Max_)
                kRMin = iProlongR_DII(3,kRecv,Min_)
                kRMax = iProlongR_DII(3,kRecv,Max_)
+
+               iRatioRestr = iRatio; jRatioRestr = jRatio; kRatioRestr = kRatio
+               if(nCoarseLayer > 1)then
+                  if(iDir /= 0) iRatioRestr = 1
+                  if(jDir /= 0) jRatioRestr = 1
+                  if(kDir /= 0) kRatioRestr = 1
+               end if
 
                !DoTestMe = nProlongOrder==2 .and. nWidth == 3
                !if(DoTestMe)then
@@ -719,9 +752,10 @@ contains
                if(iProc == iProcRecv)then
                   
                   if(present(Time_B))then
-                     ! Get time of neighbor and interpolate/extrapolate ghost cells
+                     ! Interpolate/extrapolate ghost cells in time
                      WeightOld = (Time_B(iBlockSend) - Time_B(iBlockRecv)) &
-                          /   max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv), 1e-30)
+                          /   max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv),&
+                          1e-30)
                      WeightNew = 1 - WeightOld
                   else
                      WeightNew = 1.0
@@ -731,11 +765,12 @@ contains
                   do kR=kRMin,kRMax
                      ! For kRatio = 1 simple shift: kS = kSMin + kR - kRMin 
                      ! For kRatio = 2 coarsen both kR and kRMin before shift
-                     kS = kSMin + (kR+3)/kRatio - (kRMin+3)/kRatio
+                     kS = kSMin + (kR+3)/kRatioRestr - (kRMin+3)/kRatioRestr
                      do jR=jRMin,jRMax
-                        jS = jSMin + (jR+3)/jRatio - (jRMin+3)/jRatio
+                        jS = jSMin + (jR+3)/jRatioRestr - (jRMin+3)/jRatioRestr
                         do iR=iRMin,iRMax
-                           iS = iSMin + (iR+3)/iRatio - (iRMin+3)/iRatio
+                           iS = iSMin &
+                                + (iR+3)/iRatioRestr - (iRMin+3)/iRatioRestr
                            State_VGB(:,iR,jR,kR,iBlockRecv) = &
                                 WeightOld*State_VGB(:,iR,jR,kR,iBlockRecv) + &
                                 WeightNew*(State_VGB(:,iS,jS,kS,iBlockSend) &
@@ -764,11 +799,12 @@ contains
                   end if
 
                   do kR=kRMin,kRMax
-                     kS = kSMin + (kR+3)/kRatio - (kRMin+3)/kRatio
+                     kS = kSMin + (kR+3)/kRatioRestr - (kRMin+3)/kRatioRestr
                      do jR=jRMin,jRMax
-                        jS = jSMin + (jR+3)/jRatio - (jRMin+3)/jRatio
+                        jS = jSMin + (jR+3)/jRatioRestr - (jRMin+3)/jRatioRestr
                         do iR=iRMin,iRMax
-                           iS = iSMin + (iR+3)/iRatio - (iRMin+3)/iRatio
+                           iS = iSMin &
+                                + (iR+3)/iRatioRestr - (iRMin+3)/iRatioRestr
                            BufferS_IP(iBufferS+1:iBufferS+nVar,iProcRecv)= &
                                 State_VGB(:,iS,jS,kS,iBlockSend) &
                                 + Slope_VG(:,iR,jR,kR)
@@ -835,7 +871,11 @@ contains
       ! Number of ghost cells sent from coarse block.
       ! Divided by resolution ratio and rounded up.
       nWidthProlongS_D         = 0
-      nWidthProlongS_D(1:nDim) = 1 + (nWidth-1)/iRatio_D(1:nDim)
+      if(nCoarseLayer == 1)then
+         nWidthProlongS_D(1:nDim) = 1 + (nWidth-1)/iRatio_D(1:nDim)
+      else
+         nWidthProlongS_D(1:nDim) = nWidth
+      end if
 
       ! Indexed by iSend/jSend,kSend = 0..3
       iProlongS_DII(:,0,Min_) = 1
@@ -860,8 +900,9 @@ contains
       if(DoSendCorner)then
          ! Face + two edges + corner or edge + one corner 
          ! are sent/recv together from fine to coarse block
-         do iDim=1,nDim
-            if(iRatio_D(iDim)==1)CYCLE
+         !!! nWidthProlongS_D(1:nDim) = 1 + (nWidth-1)/iRatio_D(1:nDim)
+         do iDim = 1, nDim
+            if(iRatio_D(iDim) == 1)CYCLE
             iProlongS_DII(iDim,1,Max_) = &
                  iProlongS_DII(iDim,1,Max_) + nWidthProlongS_D(iDim)
             iProlongS_DII(iDim,2,Min_) = &
@@ -880,7 +921,7 @@ contains
   subroutine test_pass_cell
 
     use BATL_mpi,  ONLY: iProc
-    use BATL_size, ONLY: MaxDim, nDim, iRatio, jRatio, kRatio, nDimAmr, &
+    use BATL_size, ONLY: MaxDim, nDim, iRatio, jRatio, kRatio, &
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nG, nI, nJ, nK, nBlock
     use BATL_tree, ONLY: init_tree, set_tree_root, find_tree_node, &
          refine_tree_node, distribute_tree, show_tree, clean_tree, &
@@ -896,16 +937,19 @@ contains
     real, parameter:: DomainMax_D(MaxDim) = (/ 4.0, 40.0, 400.0 /)
     real, parameter:: DomainSize_D(MaxDim) = DomainMax_D - DomainMin_D
 
+    real, parameter:: Tolerance = 1e-6
+
     integer, parameter:: nVar = nDim
     real, allocatable:: State_VGB(:,:,:,:,:)
 
     integer:: nWidth
     integer:: nProlongOrder
+    integer:: nCoarseLayer
     integer:: iSendCorner,  iRestrictFace
     logical:: DoSendCorner, DoRestrictFace
 
-    real:: Xyz_D(MaxDim), Tolerance_D(nDim)
-    integer:: iNode, iBlock, i, j, k, jMin, jMax, kMin, kMax, iDim
+    real:: Xyz_D(MaxDim)
+    integer:: iNode, iBlock, i, j, k, iMin, iMax, jMin, jMax, kMin, kMax, iDim
     integer:: iDir, jDir, kDir, Di, Dj, Dk
 
     logical:: DoTestMe
@@ -930,25 +974,43 @@ contains
 
     allocate(State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlockTest))
 
-    jMin =  1; if(nDim > 1) jMin = MinJ
-    kMin =  1; if(nDim > 2) kMin = MinK
-    jMax = nJ; if(nDim > 1) jMax = MaxJ
-    kMax = nK; if(nDim > 2) kMax = MaxK
+    do nProlongOrder = 1, 2; do nCoarseLayer = 1, 2; do nWidth = 1, nG
 
-    do nProlongOrder = 1, 2; do nWidth = 1, nG; 
-       do iSendCorner = 1, 2; do iRestrictFace = 1,2
+       ! Second order prolongation does not work with sending multiple coarse 
+       ! cell layers into the fine cells with their original values. 
+       if(nProlongOrder == 2 .and. nCoarseLayer == 2) CYCLE
 
-          DoSendCorner   = iSendCorner == 2
+       ! Cannot send more coarse layers than the number of ghost cell layers
+       if(nCoarseLayer > nWidth) CYCLE
+
+       if(DoTestMe)write(*,*) 'testing message_pass_cell with', &
+            ' nProlongOrder=',  nProlongOrder, &
+            ' nCoarseLayer=',   nCoarseLayer,  &
+            ' nWidth=',         nWidth
+
+       ! Set the range of ghost cells that should be set
+       iMin =  1 - nWidth
+       jMin =  1; if(nDim > 1) jMin = 1 - nWidth
+       kMin =  1; if(nDim > 2) kMin = 1 - nWidth
+       iMax = nI + nWidth
+       jMax = nJ; if(nDim > 1) jMax = nJ + nWidth
+       kMax = nK; if(nDim > 2) kMax = nK + nWidth
+
+       do iSendCorner = 1, 2; do iRestrictFace = 1, 2
+
+          DoSendCorner   = iSendCorner   == 2
           DoRestrictFace = iRestrictFace == 2
 
           ! Second order prolongation does not work with restricting face:
           ! the first order restricted cell cannot be used in the prolongation.
           if(DoRestrictFace .and. nProlongOrder == 2) CYCLE
 
+          ! Sending multiple coarse cell layers is not meaningful for edges
+          ! and corners. The current algorithm does not support this !!!
+          if(nCoarseLayer > 1 .and. DoSendCorner) CYCLE
+          
           if(DoTestMe)write(*,*) 'testing message_pass_cell with', &
-               ' nProlongOrder=',  nProlongOrder, &
-               ' nWidth=',         nWidth,        &
-               ' DoSendCorner=',   DoSendCorner,  &
+               ' DoSendCorner=',   DoSendCorner, &
                ' DoRestrictFace=', DoRestrictFace
 
           State_VGB = 0.0
@@ -960,47 +1022,51 @@ contains
           end do
 
           call message_pass_cell(nVar, State_VGB, &
-               nProlongOrderIn =nProlongOrder, &
-               nWidthIn        =nWidth, &
-               DoSendCornerIn  =DoSendCorner, &
+               nProlongOrderIn =nProlongOrder,    &
+               nCoarseLayerIn  =nCoarseLayer,     &
+               nWidthIn        =nWidth,           &
+               DoSendCornerIn  =DoSendCorner,     &
                DoRestrictFaceIn=DoRestrictFace)
 
           do iBlock = 1, nBlock
              if(Unused_B(iBlock)) CYCLE
 
-             Tolerance_D = 1e-6
-             if(nProlongOrder == 1) then
-                if(any(DiLevelNei_IIIB(:,:,:,iBlock) == 1)) &
-                     Tolerance_D(1:nDimAmr) = Tolerance_D(1:nDimAmr) &
-                     + 0.5*CellSize_DB(1:nDimAmr,iBlock)
-             end if
-
+             ! Loop through all cells including ghost cells
              do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
 
+                ! The filled in second order accurate ghost cell value 
+                ! should be the same as the coordinates of the cell center
                 Xyz_D = Xyz_DGB(:,i,j,k,iBlock)
 
                 ! Check that no info is sent in the non-used dimensions,
                 ! i.e. for all iDim: nDim+1 < iDim < MaxDim
-                if(j<jMin .or. j>jMax .or. k<kMin .or. k>kMax)then
+                if(  i < iMin .or. i > iMax .or. &
+                     j < jMin .or. j > jMax .or. &
+                     k < kMin .or. k > kMax) then
                    do iDim = 1, nDim
                       if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
                          write(*,*)'Face should not be set: ', &
-                              'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=', &
+                              'iProc,iBlock,i,j,k,iDim,State,Xyz=', &
                               iProc,iBlock,i,j,k,iDim, &
                               State_VGB(iDim,i,j,k,iBlock), &
-                              Xyz_D(iDim),Tolerance_D(iDim)
+                              Xyz_D(iDim)
                       end if
                    end do
 
                    CYCLE
                 end if
 
+                ! Get the direction vector
+                iDir = 0; if(i<1) iDir = -1; if(i>nI) iDir = 1
+                jDir = 0; if(j<1) jDir = -1; if(j>nJ) jDir = 1
+                kDir = 0; if(k<1) kDir = -1; if(k>nK) kDir = 1
+
                 ! if we do not send corners and edges, check that the
                 ! State_VGB in these cells is still the unset value
-                if(.not.DoSendCorner.and. ( &
-                     (i<1.or.i>nI).and.(j<1.or.j>nJ) .or. &
-                     (i<1.or.i>nI).and.(k<1.or.k>nK) .or. &
-                     (k<1.or.k>nK).and.(j<1.or.j>nJ) ))then
+                if(.not.DoSendCorner .and. ( &
+                     iDir /= 0 .and. jDir /= 0 .or. &
+                     iDir /= 0 .and. kDir /= 0 .or. &
+                     jDir /= 0 .and. kDir /= 0 ))then
 
                    do iDim = 1, nDim
                       if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
@@ -1015,62 +1081,62 @@ contains
                    CYCLE
                 end if
 
-                if(  i < 1-nWidth .or. i > nI+nWidth .or. &
-                     j < 1-nWidth .or. j > nJ+nWidth .or. &
-                     k < 1-nWidth .or. k > nK+nWidth ) then
-
-                   do iDim = 1, nDim
-                      if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
-                         write(*,*)'ghost cell should not be set: ', &
-                              'iProc,iBlock,i,j,k,iDim,nWidth,State,Xyz=', &
-                              iProc,iBlock,i,j,k,iDim,nWidth, &
-                              State_VGB(iDim,i,j,k,iBlock), &
-                              Xyz_D
-                      end if
-                   end do
-
-                   CYCLE
-                end if
-
                 ! Shift ghost cell coordinate into periodic domain
                 Xyz_D = DomainMin_D + modulo(Xyz_D - DomainMin_D, DomainSize_D)
 
-                if(DoRestrictFace)then
-                   ! Check for resolution change in the direction of this cell
-                   iDir = 0; if(i<1) iDir = -1; if(i>nI) iDir = 1
-                   jDir = 0; if(j<1) jDir = -1; if(j>nJ) jDir = 1
-                   kDir = 0; if(k<1) kDir = -1; if(k>nK) kDir = 1
-                   if(DiLevelNei_IIIB(iDir,jDir,kDir,iBlock) == -1)then
-                      ! Calculate distance of ghost cell layer
-                      Di = 0; Dj = 0; Dk = 0
-                      if(i <  1 .and. iRatio == 2) Di = 2*i-1
-                      if(i > nI .and. iRatio == 2) Di = 2*(i-nI)-1
-                      if(j <  1 .and. jRatio == 2) Dj = 2*j-1
-                      if(j > nJ .and. jRatio == 2) Dj = 2*(j-nJ)-1
-                      if(k <  1 .and. kRatio == 2) Dk = 2*k-1
-                      if(k > nK .and. kRatio == 2) Dk = 2*(k-nK)-1
-                      ! Shift coordinates if only 1 layer of fine cells 
-                      ! are averaged
-                      Xyz_D(1) = Xyz_D(1) - 0.25*Di*CellSize_DB(1,iBlock)
-                      Xyz_D(2) = Xyz_D(2) - 0.25*Dj*CellSize_DB(2,iBlock)
-                      Xyz_D(3) = Xyz_D(3) - 0.25*Dk*CellSize_DB(3,iBlock)
-                   end if
+                ! Calculate distance of ghost cell layer
+                Di = 0; Dj = 0; Dk = 0
+                if(i <  1 .and. iRatio == 2) Di = 2*i-1
+                if(i > nI .and. iRatio == 2) Di = 2*(i-nI)-1
+                if(j <  1 .and. jRatio == 2) Dj = 2*j-1
+                if(j > nJ .and. jRatio == 2) Dj = 2*(j-nJ)-1
+                if(k <  1 .and. kRatio == 2) Dk = 2*k-1
+                if(k > nK .and. kRatio == 2) Dk = 2*(k-nK)-1
+
+                if(DoRestrictFace .and. &
+                     DiLevelNei_IIIB(iDir,jDir,kDir,iBlock) == -1)then
+
+                   ! Shift coordinates if only 1 layer of fine cells
+                   ! is averaged in the orthogonal direction
+                   Xyz_D(1) = Xyz_D(1) - 0.25*Di*CellSize_DB(1,iBlock)
+                   Xyz_D(2) = Xyz_D(2) - 0.25*Dj*CellSize_DB(2,iBlock)
+                   Xyz_D(3) = Xyz_D(3) - 0.25*Dk*CellSize_DB(3,iBlock)
+
+                end if
+
+                if(nProlongOrder == 1 .and. &
+                     DiLevelNei_IIIB(iDir,jDir,kDir,iBlock) == 1)then
+
+                   ! Shift depends on the parity of the fine ghost cell
+                   ! except when there is no AMR or multiple coarse cell 
+                   ! layers are sent in that direction
+                   if(iRatio == 2 .and. (nCoarseLayer == 1 .or. iDir == 0)) &
+                        Di = 2*modulo(i,2) - 1
+                   if(jRatio == 2 .and. (nCoarseLayer == 1 .or. jDir == 0)) &
+                        Dj = 2*modulo(j,2) - 1
+                   if(kRatio == 2 .and. (nCoarseLayer == 1 .or. kDir == 0)) &
+                        Dk = 2*modulo(k,2) - 1
+
+                   Xyz_D(1) = Xyz_D(1) + 0.5*Di*CellSize_DB(1,iBlock)
+                   Xyz_D(2) = Xyz_D(2) + 0.5*Dj*CellSize_DB(2,iBlock)
+                   Xyz_D(3) = Xyz_D(3) + 0.5*Dk*CellSize_DB(3,iBlock)
+
                 end if
 
                 do iDim = 1, nDim
                    if(abs(State_VGB(iDim,i,j,k,iBlock) - Xyz_D(iDim)) &
-                        > Tolerance_D(iDim))then
-                      write(*,*)'iProc,iBlock,i,j,k,iDim,State,Xyz,Tol=', &
+                        > Tolerance)then
+                      write(*,*)'iProc,iBlock,i,j,k,iDim,State,Xyz=', &
                            iProc,iBlock,i,j,k,iDim, &
                            State_VGB(iDim,i,j,k,iBlock), &
-                           Xyz_D(iDim),Tolerance_D(iDim)
+                           Xyz_D(iDim)
                    end if
                 end do
              end do; end do; end do
           end do
 
-       end do
-    end do; end do; end do ! test parameters
+       end do; end do; end do
+    end do; end do ! test parameters
     deallocate(State_VGB)
 
     call clean_grid

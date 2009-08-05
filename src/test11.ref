@@ -179,18 +179,25 @@
  iNodeNei_IIIB(:,1,1,  First)= 3 1 1 4
  iNodeNei_IIIB(1,:,1,  First)= -100 1 1 -100
  iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
- testing message_pass_cell with nProlongOrder= 1  nWidth= 1  DoSendCorner= F  DoRestrictFace= F
- testing message_pass_cell with nProlongOrder= 1  nWidth= 1  DoSendCorner= F  DoRestrictFace= T
- testing message_pass_cell with nProlongOrder= 1  nWidth= 1  DoSendCorner= T  DoRestrictFace= F
- testing message_pass_cell with nProlongOrder= 1  nWidth= 1  DoSendCorner= T  DoRestrictFace= T
- testing message_pass_cell with nProlongOrder= 1  nWidth= 2  DoSendCorner= F  DoRestrictFace= F
- testing message_pass_cell with nProlongOrder= 1  nWidth= 2  DoSendCorner= F  DoRestrictFace= T
- testing message_pass_cell with nProlongOrder= 1  nWidth= 2  DoSendCorner= T  DoRestrictFace= F
- testing message_pass_cell with nProlongOrder= 1  nWidth= 2  DoSendCorner= T  DoRestrictFace= T
- testing message_pass_cell with nProlongOrder= 2  nWidth= 1  DoSendCorner= F  DoRestrictFace= F
- testing message_pass_cell with nProlongOrder= 2  nWidth= 1  DoSendCorner= T  DoRestrictFace= F
- testing message_pass_cell with nProlongOrder= 2  nWidth= 2  DoSendCorner= F  DoRestrictFace= F
- testing message_pass_cell with nProlongOrder= 2  nWidth= 2  DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 1  nWidth= 1
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 1  nWidth= 2
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 2  nWidth= 2
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 2  nCoarseLayer= 1  nWidth= 1
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with nProlongOrder= 2  nCoarseLayer= 1  nWidth= 2
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
  Starting test_amr
  after create_grid
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
