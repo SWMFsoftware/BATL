@@ -296,7 +296,7 @@ contains
 
     integer, intent(in) :: iNode
 
-    integer :: iChild, iNodeChild1, iNodeChild
+    integer :: iChild, iNodeChild
     !-----------------------------------------------------------------------
 
     do iChild = Child1_, ChildLast_
@@ -318,19 +318,18 @@ contains
 
   subroutine adapt_tree
 
-    use BATL_mpi, ONLY: iComm, nProc, iProc
+    use BATL_mpi, ONLY: iComm, nProc
     use ModMpi, ONLY: MPI_allreduce, MPI_INTEGER, MPI_MAX
 
     ! All processors can request some status changes in iStatusNew_A.
     ! Here we collect requests, check for proper nesting !!!, 
     ! limitations on level, number of blocks, etc, and set iTree_IA.
-    ! Possibly load balance different type of blocks !!!
 
     ! This array is needed for MPI_allreduce
     integer:: iStatusAll_A(MaxNode)
 
     integer:: nNodeUsedNow, iMorton, iNode, iStatus, iNodeParent, iError
-    integer:: iChild, iNodeChild, iNodeChild_I(nChild)
+    integer:: iNodeChild_I(nChild)
     !------------------------------------------------------------------------
     if(nProc > 1)then
        call MPI_allreduce(iStatusNew_A, iStatusAll_A, nNode, MPI_INTEGER, &
@@ -721,19 +720,27 @@ contains
   end subroutine read_tree_file
   
   !==========================================================================
-  subroutine distribute_tree(DoMove)
+  subroutine distribute_tree(DoMove, iTypeNode_A)
 
     ! Order tree with the space filling curve then
     ! - if DoMove=T, assign tree nodes to processors and blocks immediately
     ! - if DoMove=F, set iProcNew_A only with future processor index
-    ! To be generalized for multiple block types !!!
+    ! - if iTypeNode_A is present, it contains block types 1, 2, .., nType
+    !   each type is balanced separately. The total is also balanced.
 
-    use BATL_mpi, ONLY: iProc, nProc
-
+    use BATL_mpi, ONLY: nProc
+    
     ! Are nodes moved immediately or just assigned new processor/node
     logical, intent(in):: DoMove
 
+    ! Optional block type. Each type is balanced separately
+    integer, intent(in), optional:: iTypeNode_A(MaxNode)
+
     integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo
+
+    integer :: iType, nType, iProcStart, iProcStop, iProcExtraBlock
+    integer, allocatable :: iNodeType_I(:), nNodeType_I(:), iProcType_I(:), &
+         iBlock_P(:), nBlockType_PI(:,:)
     !------------------------------------------------------------------------
     if(DoMove)Unused_BP = .true.
 
@@ -743,30 +750,124 @@ contains
     ! Create iNodePeano_I
     call order_tree
 
-    ! An upper estimate on the number of nodes per processor
-    nNodePerProc = (nNodeUsed-1)/nProc + 1
+    ! Check if there are multiple node types that need separate balancing
+    if(present(iTypeNode_A))then
 
-    do iPeano = 1, nNodeUsed
-       iNode = iNodePeano_I(iPeano)
+       ! Find number of types and allocate arrays
+       nType = maxval(iTypeNode_A, MASK=iTree_IA(Status_,:)>=Used_)
 
-       iProcTo  = (iPeano-1)/nNodePerProc
+       ! Allocate load balance tables: 
+       ! number of blocks per type and per processor and type
+       allocate(&
+            iNodeType_I(nType), nNodeType_I(nType), &
+            iProcType_I(nType), iBlock_P(0:nProc-1), &
+            nBlockType_PI(0:nProc-1,nType))
 
-       ! Assign future processor index for node
-       iProcNew_A(iNode) = iProcTo
+       ! Initialize number of type, counter, processor index and block index
+       ! for various node types
+       nNodeType_I = 0
+       iNodeType_I = 0
+       iProcType_I = 0
+       iBlock_P    = 0
 
-       if(DoMove)then
-          ! Assign block index right away
-          iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
-          iTree_IA(Block_,iNode) = iBlockTo
-          Unused_BP(iBlockTo,iProcTo) = .false.
-       end if
+       ! Count number of nodes for each type. 
+       do iNode = 1, nNode
+          if(iTree_IA(Status_,iNode)<=0) CYCLE
+          iType = iTypeNode_A(iNode)
+          if(iType > 0) nNodeType_I(iType) = nNodeType_I(iType) + 1
+       end do
 
-    end do
+       ! write(*,*)'nType, nNodeType_I=', nType, nNodeType_I
+
+       ! Construct load balance table for various types
+       do iType = 1, nType
+          ! minimum number of blocks of type iType for each processor
+          nBlockType_PI(:,iType) = nNodeType_I(iType)/nProc
+
+          ! The processors with extra blocks are filled in 
+          ! from nProc-1 backwards
+          iProcStart = nProc - modulo(sum(nNodeType_I(1:iType)),nProc)
+          iProcStop  = iProcStart + modulo(nNodeType_I(iType),nProc) - 1
+          do iProcExtraBlock = iProcStart, iProcStop
+             iProcTo = modulo(iProcExtraBlock,nProc)
+             nBlockType_PI(iProcTo,iType) = nBlockType_PI(iProcTo,iType) + 1
+          end do
+
+          ! convert nBlockType_PI to cummulative load table for easier use
+          do iProcTo = 1, nProc-1
+             nBlockType_PI(iProcTo,iType) = nBlockType_PI(iProcTo,iType) &
+                  + nBlockType_PI(iProcTo-1,iType)
+          end do
+
+          ! write(*,*)'iType, nBlockType_PI=', iType, nBlockType_PI
+       end do
+
+       ! Distribute the nodes over the processors
+       do iPeano = 1, nNodeUsed
+
+          ! Get the node index and type
+          iNode = iNodePeano_I(iPeano)
+          iType = iTypeNode_A(iNode)
+
+          ! Increase the index for this node type
+          iNodeType_I(iType) = iNodeType_I(iType) + 1
+
+          ! Select target processor. 
+          ! Use iProcType_I to remember last proc. used for the given type
+          do iProcTo = iProcType_I(iType), nProc-1
+             if(iNodeType_I(iType) <= nBlockType_PI(iProcTo,iType))then
+                iProcType_I(iType) = iProcTo
+                EXIT
+             end if
+          end do
+
+          ! Assign future processor index for node
+          iProcNew_A(iNode) = iProcTo
+
+          if(DoMove)then
+             ! Assign block index right away
+             iBlock_P(iProcTo) = iBlock_P(iProcTo) + 1
+             iBlockTo = iBlock_P(iProcTo)
+             iTree_IA(Block_,iNode) = iBlockTo
+             Unused_BP(iBlockTo,iProcTo) = .false.
+          end if
+
+       end do
+
+       ! write(*,*)'iProcNew_A=', iProcNew_A(1:nNode)
+
+       deallocate(iNodeType_I, nNodeType_I, iProcType_I, iBlock_P, &
+            nBlockType_PI)
+
+    else
+
+       ! An upper estimate on the number of nodes per processor
+       nNodePerProc = (nNodeUsed-1)/nProc + 1
+
+       do iPeano = 1, nNodeUsed
+          iNode = iNodePeano_I(iPeano)
+
+          iProcTo  = (iPeano-1)/nNodePerProc
+
+          ! Assign future processor index for node
+          iProcNew_A(iNode) = iProcTo
+
+          if(DoMove)then
+             ! Assign block index right away
+             iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
+             iTree_IA(Block_,iNode) = iBlockTo
+             Unused_BP(iBlockTo,iProcTo) = .false.
+          end if
+
+       end do
+    end if
 
     if(DoMove) call move_tree
 
   end subroutine distribute_tree
+
   !==========================================================================
+
   subroutine move_tree
 
     ! Finish the load balancing (with or without data movement)
@@ -847,7 +948,7 @@ contains
              iNode = iNode + 1
 
              ! All root nodes are handled as if they were first child
-             call order_children(iNode, Child1_)
+             call order_children(iNode)
           end do
        end do
     end do
@@ -856,12 +957,12 @@ contains
 
   end subroutine order_tree
   !==========================================================================
-  recursive subroutine order_children(iNode, iChildMe)
+  recursive subroutine order_children(iNode)
 
     ! Recursively apply Morton ordering for nodes below a root block.
     ! Store result into iNodePeano_I using the global iPeano index.
 
-    integer, intent(in) :: iNode, iChildMe
+    integer, intent(in) :: iNode
     integer :: iChild
     !-----------------------------------------------------------------------
     nNode = max(nNode, iNode)
@@ -871,7 +972,7 @@ contains
        iNodePeano_I(iPeano) = iNode
     else
        do iChild = Child1_, ChildLast_
-          call order_children(iTree_IA(iChild, iNode), iChild)
+          call order_children(iTree_IA(iChild, iNode))
        end do
     end if
 
@@ -943,6 +1044,7 @@ contains
     real,    parameter:: CoordTest_D(MaxDim)     = 0.99
 
     integer :: iNode, Int_D(MaxDim)
+    integer, allocatable:: iTypeNode_I(:)
 
     logical :: DoTestMe
  
@@ -1003,6 +1105,19 @@ contains
     call refine_tree_node(iNode)
 
     if(DoTestMe)write(*,*)'Testing distribute_tree 2nd'
+
+    ! Set node type to level+1
+    allocate(iTypeNode_I(MaxNode))
+    iTypeNode_I = 1 + iTree_IA(Level_,:)
+    call distribute_tree(.true.,iTypeNode_I)
+    if(DoTestMe)call show_tree('after distribute_tree with type=level', .true.)
+
+    ! Set node type to the second coordinate index
+    iTypeNode_I = iTree_IA(Coord2_,:)
+    call distribute_tree(.true.,iTypeNode_I)
+    if(DoTestMe)call show_tree('after distribute_tree with type=Coord2', .true.)
+
+    ! Use default (single type)
     call distribute_tree(.true.)
     if(DoTestMe)call show_tree('after distribute_tree 2nd', .true.)
 
