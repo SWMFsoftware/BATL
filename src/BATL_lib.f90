@@ -92,19 +92,30 @@ contains
 
   !============================================================================
 
-  subroutine regrid_batl(nVar, State_VGB)
+  subroutine regrid_batl(nVar, State_VGB, DoBalanceEachLevelIn)
 
-    use BATL_tree, ONLY: adapt_tree, distribute_tree, move_tree
+    use BATL_tree, ONLY: adapt_tree, distribute_tree, move_tree, &
+         iTree_IA, Level_
     use BATL_amr,  ONLY: do_amr
     use BATL_grid, ONLY: create_grid
 
     integer, intent(in)   :: nVar
     real,    intent(inout):: &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
+
+    logical, intent(in), optional:: DoBalanceEachLevelIn
+
+    logical:: DoBalanceEachLevel
     !------------------------------------------------------------------------
+    DoBalanceEachLevel = .false.
+    if(present(DoBalanceEachLevelIn)) DoBalanceEachLevel = DoBalanceEachLevelIn
 
     call adapt_tree
-    call distribute_tree(DoMove=.false.)
+    if(DoBalanceEachLevel)then
+       call distribute_tree(DoMove=.false.,iTypeNode_A=iTree_IA(Level_,:)+1)
+    else
+       call distribute_tree(DoMove=.false.)
+    end if
     call do_amr(nVar,State_VGB)
     call move_tree
     call create_grid
