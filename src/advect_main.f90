@@ -80,7 +80,8 @@ program advect
      if(DoTest)call barrier_mpi
 
      call timing_start('explicit')
-     if(Time > 0.5*TimeMax)then
+     UseLocalStep = Time > 0.5*TimeMax
+     if(UseLocalStep)then
         call advance_localstep
      else
         call advance_explicit
@@ -132,7 +133,7 @@ contains
        end if
     end do
 
-    call regrid_batl(nVar,State_VGB)
+    call regrid_batl(nVar,State_VGB,DoBalanceEachLevelIn=UseLocalStep)
 
   end subroutine adapt_grid
   !===========================================================================
