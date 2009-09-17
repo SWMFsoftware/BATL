@@ -8,6 +8,9 @@ program advect
   ! Square of the radius of the sphere
   real, parameter :: Radius2 = 25.0
 
+  ! Maximum refinement level
+  integer, parameter :: MaxLevel = 3
+
   ! Final simulation time, frequency of plots
   real, parameter :: TimeMax = 20.0, DtPlot = 1.0
 
@@ -48,7 +51,7 @@ program advect
   character(len=*), parameter:: NameSub = 'advect_main'
   !--------------------------------------------------------------------------
   call initialize
-
+  
   if(DoTest)write(*,*)NameSub,' starting iProc=',iProc
   if(DoTest)call barrier_mpi
 
@@ -174,31 +177,34 @@ contains
          iProc, MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
          iTree_IA, iStatusNew_A, MaxLevel_, Refine_
 
-    integer :: i, j, k, iBlock, iError
+    integer :: i, j, k, iBlock, iLevel, iError
     !------------------------------------------------------------------------
 
     call init_mpi
     call init_batl( &
-         MaxBlockIn     = 2000, &          
+         MaxBlockIn     = 8000, &          
          CoordMinIn_D   = DomainMin_D, &
          CoordMaxIn_D   = DomainMax_D, &
          nRootIn_D      = (/4,4,2/),   & 
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
 
     ! Allow only one level of refinement
-    iTree_IA(MaxLevel_,:) = 1
+    iTree_IA(MaxLevel_,:) = MaxLevel
 
-    LOOPBLOCK: do iBlock = 1, nBlock
-       if(Unused_B(iBlock)) CYCLE
-       do k = 1, nK; do j = 1, nJ; do i = 1, nI
-          if(sum(Xyz_DGB(:,i,j,k,iBlock)**2) < Radius2)then !!!
-             iStatusNew_A(iNode_B(iBlock)) = Refine_
-             CYCLE LOOPBLOCK
-          end if
-       end do; end do; end do
-    end do LOOPBLOCK
+    do iLevel = 1, MaxLevel
+       LOOPBLOCK: do iBlock = 1, nBlock
+          if(Unused_B(iBlock)) CYCLE
+          do k = 1, nK; do j = 1, nJ; do i = 1, nI
+             if(sum(Xyz_DGB(:,i,j,k,iBlock)**2) < Radius2)then
+                iStatusNew_A(iNode_B(iBlock)) = Refine_
+                CYCLE LOOPBLOCK
+             end if
+          end do; end do; end do
+       end do LOOPBLOCK
 
-    call init_grid_batl
+       call init_grid_batl
+
+    end do
 
     ! Initial time step and time
     iStep    = 0
