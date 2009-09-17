@@ -330,10 +330,11 @@ contains
     ! limitations on level, number of blocks, etc, 
     ! modify iStatusNew_A and set iTree_IA.
 
-    integer:: nNodeUsedNow, iMorton, iStatus, iError
+    integer:: nNodeUsedNow, iMorton, iBlock, iStatus, iError
     integer:: iNode, iNodeParent, iNodeChild_I(nChild)
     integer:: jNode, jNodeParent, jNodeChild_I(nChild)
-    integer:: iLevel, iLevelNew, jLevel, jLevelNew, iBlock
+    integer:: iLevel, iLevelNew, iLevelMax, iLevelMin
+    integer:: jLevel, jLevelNew
     integer:: iSide, iSideMin, iSideMax
     integer:: jSide, jSideMin, jSideMax
     integer:: kSide, kSideMin, kSideMax
@@ -349,23 +350,32 @@ contains
     end if
 
     ! Check max and min levels and coarsening of all siblings
+    iLevelMin = nLevel
+    iLevelMax = 1
     do iMorton = 1, nNodeUsed
        iNode   = iNodeMorton_I(iMorton)
 
-       ! Check MaxLevel to see if node can be refined 
-       if(iStatusNew_A(iNode) == Refine_ .and. &
-            iTree_IA(Level_,iNode) >= iTree_IA(MaxLevel_,iNode))then
-          iStatusNew_A(iNode) = Unset_
-          CYCLE
+       iLevel    = iTree_IA(Level_,iNode)
+       iLevelMin = min(iLevelMin, iLevel)
+
+       ! Check MaxLevel_ of node to see if it can be refined 
+       if(iStatusNew_A(iNode) == Refine_)then
+          if(iLevel >= iTree_IA(MaxLevel_,iNode))then
+             iStatusNew_A(iNode) = Unset_
+             CYCLE
+          end if
+          iLevelMax = max(iLevelMax, iLevel)
        end if
 
+       ! Only nodes to be coarsened need further checking
        if(iStatusNew_A(iNode) /= Coarsen_) CYCLE
 
-       ! Check MinLevel_ to see if node can be coarsened
-       if(iTree_IA(Level_,iNode) <= iTree_IA(MinLevel_,iNode))then
+       ! Check MinLevel_ of node to see if it can be coarsened
+       if(iLevel <= iTree_IA(MinLevel_,iNode))then
           iStatusNew_A(iNode) = Unset_
           CYCLE
        end if
+       iLevelMax = max(iLevelMax, iLevel)
 
        ! Check if all siblings want to be coarsened
        iNodeParent = iTree_IA(Parent_,iNode)
@@ -380,7 +390,7 @@ contains
 
     ! Check proper nesting. Go down level by level. No need to check base level
     ! Changes in the requests will be applied to all siblings immediately
-    do iLevel = nLevel, 1, -1
+    do iLevel = iLevelMax, max(iLevelMin, 1), -1
 
        ! Parallel processing of nodes (blocks)
        BLOCKLOOP: do iBlock = 1, nBlock
