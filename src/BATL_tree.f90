@@ -69,6 +69,7 @@ module BATL_tree
 
   ! New status (refine, coarsen etc) requested for nodes
   integer, public, allocatable :: iStatusNew_A(:)
+  integer,         allocatable :: iStatusAll_A(:) ! needed for MPI_allreduce
 
   ! New processor index of a given node after next load balance
   integer, public, allocatable :: iProcNew_A(:)
@@ -88,14 +89,14 @@ module BATL_tree
 
   ! Possible values for the status variable
   integer, public, parameter :: &
-       Unused_=-1, Refine_=-2, Coarsen_=-3, &     ! unused or to be unused
-       Used_=1, RefineNew_=2, CoarsenNew_=3    ! used or to be used
+       Unused_=-1, Refine_=-2, DontCoarsen_=-3, Coarsen_=-4, &  !(to be) unused
+       Used_=1, RefineNew_=2, CoarsenNew_=4                     !(to be) used
 
   ! Number of total and used nodes (leaves of the node tree)
   integer, public :: nNode = 0, nNodeUsed = 0
 
-  ! Ordering along the Peano-Hilbert space filling curve
-  integer, public, allocatable :: iNodePeano_I(:)
+  ! Ordering along the Morton-Hilbert space filling curve
+  integer, public, allocatable :: iNodeMorton_I(:)
 
   ! Local variables -----------------------------------------------
   character(len=*), parameter:: NameMod = "BATL_tree"
@@ -118,9 +119,9 @@ module BATL_tree
   ! Number of levels below root in level (that has occured at any time)
   integer :: nLevel = 0
 
-  ! The index along the Peano curve is global so that it can be used by the 
+  ! The index along the Morton curve is global so that it can be used by the 
   ! recursive subroutine order_children 
-  integer :: iPeano
+  integer :: iMorton
 
   ! Needed for compact_tree
   integer, allocatable:: iNodeNew_A(:)
@@ -143,8 +144,9 @@ contains
 
     ! Allocate and initialize all elements of tree as unset
     allocate(iTree_IA(nInfo, MaxNode));                 iTree_IA       = Unset_
-    allocate(iNodePeano_I(MaxNode));                    iNodePeano_I   = Unset_
+    allocate(iNodeMorton_I(MaxNode));                   iNodeMorton_I   = Unset_
     allocate(iStatusNew_A(MaxNode));                    iStatusNew_A   = Unset_
+    allocate(iStatusAll_A(MaxNode));                    iStatusAll_A   = Unset_
     allocate(iProcNew_A(MaxNode));                      iProcNew_A     = Unset_
     allocate(iNodeNew_A(MaxNode));                      iNodeNew_A     = Unset_
     allocate(iNode_B(MaxBlock));                        iNode_B        = Unset_
@@ -163,7 +165,8 @@ contains
   subroutine clean_tree
 
     if(.not.allocated(iTree_IA)) RETURN
-    deallocate(iTree_IA, iNodePeano_I, iStatusNew_A, iProcNew_A, iNodeNew_A,&
+    deallocate(iTree_IA, iNodeMorton_I, iStatusNew_A, iStatusAll_A, &
+         iProcNew_A, iNodeNew_A, &
          iNode_B, Unused_B, Unused_BP, &
          iNodeNei_IIIB, DiLevelNei_IIIB)
 
@@ -318,59 +321,201 @@ contains
 
   subroutine adapt_tree
 
-    use BATL_mpi, ONLY: iComm, nProc
+    use BATL_size, ONLY: iRatio, jRatio, kRatio
+    use BATL_mpi, ONLY: iComm, nProc, iProc, barrier_mpi
     use ModMpi, ONLY: MPI_allreduce, MPI_INTEGER, MPI_MAX
 
     ! All processors can request some status changes in iStatusNew_A.
-    ! Here we collect requests, check for proper nesting !!!, 
-    ! limitations on level, number of blocks, etc, and set iTree_IA.
+    ! Here we collect requests, check for proper nesting, 
+    ! limitations on level, number of blocks, etc, 
+    ! modify iStatusNew_A and set iTree_IA.
 
-    ! This array is needed for MPI_allreduce
-    integer:: iStatusAll_A(MaxNode)
+    integer:: nNodeUsedNow, iMorton, iStatus, iError
+    integer:: iNode, iNodeParent, iNodeChild_I(nChild)
+    integer:: jNode, jNodeParent, jNodeChild_I(nChild)
+    integer:: iLevel, iLevelNew, jLevel, jLevelNew, iBlock
+    integer:: iSide, iSideMin, iSideMax
+    integer:: jSide, jSideMin, jSideMax
+    integer:: kSide, kSideMin, kSideMax
 
-    integer:: nNodeUsedNow, iMorton, iNode, iStatus, iNodeParent, iError
-    integer:: iNodeChild_I(nChild)
+    logical, parameter :: DoTest = .false., DoTestNei = .false.
     !------------------------------------------------------------------------
+
+    ! Collect the local status requests into a global request
     if(nProc > 1)then
        call MPI_allreduce(iStatusNew_A, iStatusAll_A, nNode, MPI_INTEGER, &
             MPI_MAX, iComm, iError)
-    else
-       iStatusAll_A = iStatusNew_A
+       iStatusNew_A = iStatusAll_A
     end if
+
+    ! Check max and min levels and coarsening of all siblings
+    do iMorton = 1, nNodeUsed
+       iNode   = iNodeMorton_I(iMorton)
+
+       ! Check MaxLevel to see if node can be refined 
+       if(iStatusNew_A(iNode) == Refine_ .and. &
+            iTree_IA(Level_,iNode) >= iTree_IA(MaxLevel_,iNode))then
+          iStatusNew_A(iNode) = Unset_
+          CYCLE
+       end if
+
+       if(iStatusNew_A(iNode) /= Coarsen_) CYCLE
+
+       ! Check MinLevel_ to see if node can be coarsened
+       if(iTree_IA(Level_,iNode) <= iTree_IA(MinLevel_,iNode))then
+          iStatusNew_A(iNode) = Unset_
+          CYCLE
+       end if
+
+       ! Check if all siblings want to be coarsened
+       iNodeParent = iTree_IA(Parent_,iNode)
+       iNodeChild_I = iTree_IA(Child1_:ChildLast_,iNodeParent)
+       if(.not.all(iStatusNew_A(iNodeChild_I) == Coarsen_))then
+          ! Cancel coarsening requests for all siblings
+          where(iStatusNew_A(iNodeChild_I) == Coarsen_) &
+               iStatusNew_A(iNodeChild_I) = Unset_
+       end if
+
+    end do
+
+    ! Check proper nesting. Go down level by level. No need to check base level
+    ! Changes in the requests will be applied to all siblings immediately
+    do iLevel = nLevel, 1, -1
+
+       ! Parallel processing of nodes (blocks)
+       BLOCKLOOP: do iBlock = 1, nBlock
+
+          if(Unused_B(iBlock)) CYCLE BLOCKLOOP
+          iNode = iNode_B(iBlock)
+          if(iTree_IA(Level_,iNode) /= iLevel) CYCLE BLOCKLOOP
+
+          ! Calculate requested level
+          if(iStatusNew_A(iNode) == Refine_)then
+             iLevelNew = iLevel + 1
+          elseif(iStatusNew_A(iNode) == Coarsen_)then
+             iLevelNew = iLevel - 1
+          else
+             CYCLE
+          end if
+
+          ! Check neighbors around this corner of the parent block
+
+          ! Loop from 0 to 1 or from 2 to 3 in the side index 
+          ! depending on which side this node
+          ! is relative to its parent. If there is no refinement in some 
+          ! direction, then loop from 0 to 3 (and skip 2).
+
+          if(iRatio==1)then
+             iSideMin = 0; iSideMax = 3
+          else
+             iSideMin = 2*modulo(iTree_IA(Coord1_,iNode)-1, 2)
+             iSideMax = iSideMin + 1
+          end if
+          if(nDim < 2)then
+             ! 1D, no neighbors in j direction
+             jSideMin = 1; jSideMax = 1
+          elseif(jRatio == 1)then
+             ! 2D or 3D but no AMR, check neighbors in both directions
+             jSideMin = 0; jSideMax = 3
+          else
+             ! 2D or 3D and AMR: check only the directions 
+             ! corresponding to the corner occupied by this child
+             jSideMin = 2*modulo(iTree_IA(Coord2_,iNode)-1, 2)
+             jSideMax = jSideMin + 1
+          end if
+          if(nDim < 3)then
+             ! 1 or 2D
+             kSideMin = 1; kSideMax = 1
+          elseif(kRatio == 1)then
+             ! 3D but but no AMR, check neighbors in both directions
+             kSideMin = 0; kSideMax = 3
+          else
+             ! 3D and AMR, check only the directions
+             ! corresponding to the corner occupied by this child
+             kSideMin = 2*modulo(iTree_IA(Coord3_,iNode)-1, 2)
+             kSideMax = kSideMin + 1
+          end if
+
+          ! Loop through the at most seven neighbors
+          do kSide = kSideMin, kSideMax
+             if(kRatio == 1 .and. kSide == 2) CYCLE
+             do jSide = jSideMin, jSideMax
+                if(jRatio == 1 .and. jSide == 2) CYCLE
+                do iSide = iSideMin, iSideMax
+                   if(iRatio == 1 .and. iSide == 2) CYCLE
+
+                   jNode = iNodeNei_IIIB(iSide,jSide,kSide,iBlock)
+
+                   ! Don't check the node itself
+                   if(iNode == jNode) CYCLE
+
+                   ! Get the current and requested level for the neighbor node
+                   jLevel = iTree_IA(Level_,jNode)
+                   jLevelNew = jLevel
+                   if(iStatusNew_A(jNode) == Refine_)  jLevelNew = jLevel + 1
+                   if(iStatusNew_A(jNode) == Coarsen_) jLevelNew = jLevel - 1
+
+                   ! Fix levels if difference is too much
+                   if(iLevelNew >= jLevelNew + 2)then
+
+                      if(jLevel > 0)then
+                         jNodeParent = iTree_IA(Parent_,jNode) 
+                         jNodeChild_I= iTree_IA(Child1_:ChildLast_,jNodeParent)
+
+                         ! Neighbor and its siblings cannot be coarsened
+                         iStatusNew_A(jNodeChild_I) = &
+                              max(iStatusNew_A(jNodeChild_I), DontCoarsen_)
+                      endif
+
+                      ! If neighbow was coarser it has to be refined
+                      if(jLevel < iLevel) iStatusNew_A(jNode) = Refine_
+
+                   elseif(iLevelNew <= jLevelNew - 2)then
+                      ! Cannot coarsen this node
+                      iNodeParent = iTree_IA(Parent_,iNode)
+                      iStatusNew_A(iTree_IA(Child1_:ChildLast_,iNodeParent)) &
+                           = DontCoarsen_
+                      
+                      CYCLE BLOCKLOOP
+                   end if
+
+                end do ! iSide
+             end do ! jSide
+          end do ! kSide
+       end do BLOCKLOOP
+
+       ! Collect the local status requests into a global request
+       if(nProc > 1)then
+          call MPI_allreduce(iStatusNew_A, iStatusAll_A, nNode, MPI_INTEGER, &
+               MPI_MAX, iComm, iError)
+          iStatusNew_A = iStatusAll_A
+       end if
+
+    end do ! levels
 
     nNodeUsedNow = nNodeUsed
 
     ! Coarsen first to reduce number of nodes and used blocks
     do iMorton = 1, nNodeUsedNow
-       iNode   = iNodePeano_I(iMorton)
-       iStatus = iStatusAll_A(iNode)
+       iNode   = iNodeMorton_I(iMorton)
+       iStatus = iStatusNew_A(iNode)
 
        if(iStatus /= Coarsen_) CYCLE
 
-       ! Check level
-       if(iTree_IA(Level_,iNode) <= iTree_IA(MinLevel_,iNode))CYCLE
-
-       ! Check if all siblings want to be coarsened
        iNodeParent = iTree_IA(Parent_,iNode)
-       iNodeChild_I = iTree_IA(Child1_:ChildLast_,iNodeParent)
-       if(all(iStatusAll_A(iNodeChild_I) == Coarsen_))then
-          ! Coarsen tree node
-          call coarsen_tree_node(iNodeParent)
-       else
-          ! Cancel coarsening requests for all siblings
-          where(iStatusAll_A(iNodeChild_I) == Coarsen_) &
-               iStatusAll_A(iNodeChild_I) = Unset_
-       end if
+
+       ! Coarsen the parent node based on the request stored in the first child
+       if(iTree_IA(Child1_,iNodeParent) /= iNode) CYCLE
+
+       call coarsen_tree_node(iNodeParent)
     end do
 
     ! Refine next
     do iMorton = 1, nNodeUsedNow
-       iNode   = iNodePeano_I(iMorton)
-       iStatus = iStatusAll_A(iNode)
+       iNode   = iNodeMorton_I(iMorton)
+       iStatus = iStatusNew_A(iNode)
 
        if(iStatus /= Refine_) CYCLE
-       ! Check level
-       if(iTree_IA(Level_,iNode) >= iTree_IA(MaxLevel_,iNode))CYCLE
 
        ! Refine tree node
        call refine_tree_node(iNode)
@@ -632,10 +777,10 @@ contains
     ! Set number of nodes in the tree (note the EXIT above)
     nNode = iNode - 1
 
-    ! Fix the node indexes along the Peano curve
-    do iPeano = 1, nNodeUsed
-       iNodeOld = iNodePeano_I(iPeano)
-       iNodePeano_I(iPeano) = iNodeNew_A(iNodeOld)
+    ! Fix the node indexes along the Morton curve
+    do iMorton = 1, nNodeUsed
+       iNodeOld = iNodeMorton_I(iMorton)
+       iNodeMorton_I(iMorton) = iNodeNew_A(iNodeOld)
     end do
     
     ! Fix iNode_B indexes
@@ -736,7 +881,7 @@ contains
     ! Optional block type. Each type is balanced separately
     integer, intent(in), optional:: iTypeNode_A(MaxNode)
 
-    integer :: nNodePerProc, iPeano, iNode, iBlockTo, iProcTo
+    integer :: nNodePerProc, iMorton, iNode, iBlockTo, iProcTo
 
     integer :: iType, nType, iProcStart, iProcStop, iProcExtraBlock
     integer, allocatable :: iNodeType_I(:), nNodeType_I(:), iProcType_I(:), &
@@ -747,7 +892,7 @@ contains
     ! Initialize processor and block indexes
     iProcNew_A = Unset_
 
-    ! Create iNodePeano_I
+    ! Create iNodeMorton_I
     call order_tree
 
     ! Check if there are multiple node types that need separate balancing
@@ -803,10 +948,10 @@ contains
        end do
 
        ! Distribute the nodes over the processors
-       do iPeano = 1, nNodeUsed
+       do iMorton = 1, nNodeUsed
 
           ! Get the node index and type
-          iNode = iNodePeano_I(iPeano)
+          iNode = iNodeMorton_I(iMorton)
           iType = iTypeNode_A(iNode)
 
           ! Increase the index for this node type
@@ -844,17 +989,17 @@ contains
        ! An upper estimate on the number of nodes per processor
        nNodePerProc = (nNodeUsed-1)/nProc + 1
 
-       do iPeano = 1, nNodeUsed
-          iNode = iNodePeano_I(iPeano)
+       do iMorton = 1, nNodeUsed
+          iNode = iNodeMorton_I(iMorton)
 
-          iProcTo  = (iPeano-1)/nNodePerProc
+          iProcTo  = (iMorton-1)/nNodePerProc
 
           ! Assign future processor index for node
           iProcNew_A(iNode) = iProcTo
 
           if(DoMove)then
              ! Assign block index right away
-             iBlockTo = modulo(iPeano-1, nNodePerProc) + 1
+             iBlockTo = modulo(iMorton-1, nNodePerProc) + 1
              iTree_IA(Block_,iNode) = iBlockTo
              Unused_BP(iBlockTo,iProcTo) = .false.
           end if
@@ -876,15 +1021,15 @@ contains
 
     use BATL_mpi, ONLY: iProc
 
-    integer:: iPeano, iNode, iNodeChild, iNodeParent, iChild, iBlock
+    integer:: iMorton, iNode, iNodeChild, iNodeParent, iChild, iBlock
     !-----------------------------------------------------------------------
     ! Update local Unused_B array
     Unused_B = Unused_BP(:,iProc)
 
     ! Update nBlock too as we loop through the used blocks
     nBlock = 0
-    do iPeano = 1, nNodeUsed
-       iNode = iNodePeano_I(iPeano)
+    do iMorton = 1, nNodeUsed
+       iNode = iNodeMorton_I(iMorton)
 
        ! Move the node to new processor/node
        iTree_IA(Proc_,iNode) = iProcNew_A(iNode)
@@ -931,7 +1076,7 @@ contains
   !==========================================================================
   subroutine order_tree
 
-    ! Set iNodePeano_I indirect index array according to 
+    ! Set iNodeMorton_I indirect index array according to 
     ! 1. root node order
     ! 2. Morton ordering for each root node
 
@@ -939,8 +1084,8 @@ contains
     !-----------------------------------------------------------------------
     nNode = nRoot
     iNode = 0
-    iPeano = 0
-    iNodePeano_I = Unset_
+    iMorton = 0
+    iNodeMorton_I = Unset_
     do kRoot = 1, nRoot_D(3)
        do jRoot = 1, nRoot_D(2)
           do iRoot = 1, nRoot_D(1)
@@ -953,14 +1098,14 @@ contains
        end do
     end do
 
-    nNodeUsed = iPeano
+    nNodeUsed = iMorton
 
   end subroutine order_tree
   !==========================================================================
   recursive subroutine order_children(iNode)
 
     ! Recursively apply Morton ordering for nodes below a root block.
-    ! Store result into iNodePeano_I using the global iPeano index.
+    ! Store result into iNodeMorton_I using the global iMorton index.
 
     integer, intent(in) :: iNode
     integer :: iChild
@@ -968,8 +1113,8 @@ contains
     nNode = max(nNode, iNode)
 
     if(iTree_IA(Status_, iNode) >= Used_)then
-       iPeano = iPeano + 1
-       iNodePeano_I(iPeano) = iNode
+       iMorton = iMorton + 1
+       iNodeMorton_I(iMorton) = iNode
     else
        do iChild = Child1_, ChildLast_
           call order_children(iTree_IA(iChild, iNode))
@@ -1009,10 +1154,10 @@ contains
     if(.not.DoShowNei) RETURN
 
     write(*,*)'nNode, nNodeUsed, nBlock=',nNode, nNodeUsed, nBlock
-    write(*,*)'iNodePeano_I =', iNodePeano_I(1:nNodeUsed)
+    write(*,*)'iNodeMorton_I =', iNodeMorton_I(1:nNodeUsed)
     write(*,*)'IsPeriodic_D =', IsPeriodic_D
 
-    iNode = iNodePeano_I(1)
+    iNode = iNodeMorton_I(1)
     iBlock = iTree_IA(Block_,iNode)
     write(*,*)'DiLevelNei_IIIB(:,0,0,First)=', DiLevelNei_IIIB(:,0,0,iBlock)
     write(*,*)'DiLevelNei_IIIB(0,:,0,First)=', DiLevelNei_IIIB(0,:,0,iBlock)
@@ -1021,7 +1166,7 @@ contains
     write(*,*)'iNodeNei_IIIB(1,:,1,  First)=',   iNodeNei_IIIB(1,:,1,iBlock)
     write(*,*)'iNodeNei_IIIB(1,1,:,  First)=',   iNodeNei_IIIB(1,1,:,iBlock)
 
-!    iNode = iNodePeano_I(nNodeUsed)
+!    iNode = iNodeMorton_I(nNodeUsed)
 !    write(*,*)'DiLevelNei_IIIA(:,0,0, Last)=', DiLevelNei_IIIA(:,0,0,iNode)
 !    write(*,*)'DiLevelNei_IIIA(0,:,0, Last)=', DiLevelNei_IIIA(0,:,0,iNode)
 !    write(*,*)'DiLevelNei_IIIA(0,0,:, Last)=', DiLevelNei_IIIA(0,0,:,iNode)
