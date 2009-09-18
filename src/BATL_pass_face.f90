@@ -34,7 +34,8 @@ contains
     ! Arguments
     integer, intent(in) :: nVar
     real, intent(inout) :: &
-         Flux_VXB(nVar,2,nJ,nK,MaxBlock), &
+         Flux_VXB(nVar,2,nJ,nK,MaxBlock)
+    real, optional, intent(inout):: &
          Flux_VYB(nVar,2,nI,nK,MaxBlock), &
          Flux_VZB(nVar,2,nI,nJ,MaxBlock)
 
@@ -44,8 +45,8 @@ contains
     real,    optional, intent(in) :: TimeOld_B(MaxBlock)
     real,    optional, intent(in) :: Time_B(MaxBlock)
 
-    ! Send sum of fine fluxes to coarse neighbors and subtract the coarse flux
-    ! (if any).
+    ! Send sum of fine fluxes to coarse neighbors and 
+    ! subtract it from the coarse flux (if any).
     !
     ! DoResChangeOnlyIn determines if the flux correction is applied at
     !     resolution changes only. True is the default.
@@ -283,7 +284,7 @@ contains
                do k = kRMin, kRmax; do j = jRMin, jRMax
                   Flux_VXB(:,iDimSide,j,k,iBlockRecv) = &
                        Flux_VXB(:,iDimSide,j,k,iBlockRecv) &
-                       + BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
+                       - BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
                   iBufferR = iBufferR + nVar
                end do; end do
 
@@ -296,7 +297,7 @@ contains
                do k = kRMin, kRmax; do i = iRMin, iRMax
                   Flux_VYB(:,iDimSide,i,k,iBlockRecv) = &
                        Flux_VYB(:,iDimSide,i,k,iBlockRecv) &
-                       + BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
+                       - BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
                   iBufferR = iBufferR + nVar
                end do; end do
 
@@ -309,7 +310,7 @@ contains
                do j = jRMin, jRmax; do i = iRMin, iRMax
                   Flux_VZB(:,iDimSide,i,j,iBlockRecv) = &
                        Flux_VZB(:,iDimSide,i,j,iBlockRecv) &
-                       + BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
+                       - BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
                   iBufferR = iBufferR + nVar
                end do; end do
             end select
@@ -382,12 +383,13 @@ contains
          !if(present(Time_B))then
          !   ! Get time of neighbor and interpolate/extrapolate ghost cells
          !   WeightOld = (Time_B(iBlockSend) - Time_B(iBlockRecv)) &
-              !        /   max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv), 1e-30)
+         !        /   max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv), 1e-30)
          !   WeightNew = 1 - WeightOld
          !else
          !   WeightNew = 1.0
          !   WeightOld = 0.0
          !end if
+
 
          do iR2 = iR2Min, iR2Max
             iS2Min = 1 + Dn2*(iR2-iR2Min)
@@ -397,8 +399,8 @@ contains
                iS1Max = iS1Min + Dn1 - 1
                do iVar = 1, nVar
                   Flux_VFB(iVar,iRecvSide,iR1,iR2,iBlockRecv) = &
-                       Flux_VFB(iVar,iRecvSide,iR1,iR2,iBlockRecv) + &
-                       sum(Flux_VFB(iVar,iDimSide,iS1Min:iS1Max,iS2Min:iS2Max, &
+                       Flux_VFB(iVar,iRecvSide,iR1,iR2,iBlockRecv) - &
+                       sum(Flux_VFB(iVar,iDimSide,iS1Min:iS1Max,iS2Min:iS2Max,&
                        iBlockSend))
                end do
             end do
@@ -429,7 +431,7 @@ contains
                iS1Max = iS1Min + Dn1 - 1
                do iVar = 1, nVar
                   BufferS_IP(iBufferS+iVar,iProcRecv) = &
-                       sum(Flux_VFB(iVar,iDimSide,iS1Min:iS1Max,iS2Min:iS2Max, &
+                       sum(Flux_VFB(iVar,iDimSide,iS1Min:iS1Max,iS2Min:iS2Max,&
                        iBlockSend))
                end do
                iBufferS = iBufferS + nVar
@@ -500,229 +502,270 @@ contains
 
   !============================================================================
 
+  subroutine fill_face_flux(iBlock, nVar, Flux_VFD, &
+               Flux_VXB, Flux_VYB, Flux_VZB, &
+               DoResChangeOnlyIn, DoStoreCoarseFluxIn)
+
+    ! Put Flux_VFD into Flux_VXB, Flux_VYB, Flux_VZB for the appropriate faces
+
+    use BATL_size, ONLY: nDim, nI, nJ, nK, MaxBlock
+    use BATL_tree, ONLY: DiLevelNei_IIIB
+
+    integer, intent(in):: iBlock, nVar
+    real, intent(in):: Flux_VFD(nVar,nI+1,nJ+1,nK+1,nDim)
+    real, intent(inout), optional:: &
+         Flux_VXB(nVar,2,nJ,nK,MaxBlock), &
+         Flux_VYB(nVar,2,nI,nK,MaxBlock), &
+         Flux_VZB(nVar,2,nI,nJ,MaxBlock)
+    logical, intent(in), optional:: &
+         DoResChangeOnlyIn, &
+         DoStoreCoarseFluxIn
+
+    logical::  DoResChangeOnly, DoStoreCoarseFlux
+    integer:: DiLevel
+    !--------------------------------------------------------------------------
+    ! Store flux at resolution change for conservation fix
+
+    DoResChangeOnly = .true.
+    if(present(DoResChangeOnlyIn)) DoResChangeOnly = DoResChangeOnlyIn
+    DoStoreCoarseFlux = .false.
+    if(present(DoStoreCoarseFluxIn)) DoStoreCoarseFlux = DoStoreCoarseFluxIn
+
+    if(present(Flux_VXB))then
+       DiLevel = DiLevelNei_IIIB(-1,0,0,iBlock)
+       if(.not. DoResChangeOnly .or. DiLevel == 1 &
+            .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
+            Flux_VXB(:,1,1:nJ,1:nK,iBlock) = Flux_VFD(:,1,1:nJ,1:nK,1)
+
+       DiLevel = DiLevelNei_IIIB(+1,0,0,iBlock)
+       if(.not. DoResChangeOnly .or. DiLevel == 1 &
+            .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
+            Flux_VXB(:,2,1:nJ,1:nK,iBlock) = Flux_VFD(:,nI+1,1:nJ,1:nK,1)
+    end if
+
+    if(present(Flux_VYB) .and. nDim > 1)then
+       DiLevel = DiLevelNei_IIIB(0,-1,0,iBlock)
+       if(.not. DoResChangeOnly .or. DiLevel == 1 &
+            .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
+            Flux_VYB(:,1,1:nI,1:nK,iBlock) = Flux_VFD(:,1:nI,1,1:nK,&
+            min(2,nDim))
+       
+       DiLevel = DiLevelNei_IIIB(0,+1,0,iBlock)
+       if(.not. DoResChangeOnly .or. DiLevel == 1 &
+            .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
+            Flux_VYB(:,2,1:nI,1:nK,iBlock) = Flux_VFD(:,1:nI,nJ+1,1:nK,&
+            min(2,nDim))
+    end if
+
+    if(present(Flux_VZB) .and. nDim > 2)then
+       DiLevel = DiLevelNei_IIIB(0,0,-1,iBlock)
+       if(.not. DoResChangeOnly .or. DiLevel == 1 &
+            .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
+            Flux_VZB(:,1,1:nI,1:nJ,iBlock) = Flux_VFD(:,1:nI,1:nJ,1,nDim)
+
+       DiLevel = DiLevelNei_IIIB(0,0,+1,iBlock)
+       if(.not. DoResChangeOnly .or. DiLevel == 1 &
+            .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
+            Flux_VZB(:,2,1:nI,1:nJ,iBlock) = Flux_VFD(:,1:nI,1:nJ,nK+1,nDim)
+    end if
+
+  end subroutine fill_face_flux
+
+  !============================================================================
+
   subroutine test_pass_face
 
-!    use BATL_mpi,  ONLY: iProc
-!    use BATL_size, ONLY: MaxDim, nDim, iRatio, jRatio, kRatio, &
-!         MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nG, nI, nJ, nK, nBlock
-!    use BATL_tree, ONLY: init_tree, set_tree_root, find_tree_node, &
-!         refine_tree_node, distribute_tree, show_tree, clean_tree, &
-!         Unused_B, DiLevelNei_IIIB
-!    use BATL_grid, ONLY: init_grid, create_grid, clean_grid, &
-!         Xyz_DGB, CellSize_DB
-!    use BATL_geometry, ONLY: init_geometry
-!
-!    integer, parameter:: MaxBlockTest            = 50
-!    integer, parameter:: nRootTest_D(MaxDim)     = (/3,3,3/)
-!    logical, parameter:: IsPeriodicTest_D(MaxDim)= .true.
-!    real, parameter:: DomainMin_D(MaxDim) = (/ 1.0, 10.0, 100.0 /)
-!    real, parameter:: DomainMax_D(MaxDim) = (/ 4.0, 40.0, 400.0 /)
-!    real, parameter:: DomainSize_D(MaxDim) = DomainMax_D - DomainMin_D
-!
-!    real, parameter:: Tolerance = 1e-6
-!
-!    integer, parameter:: nVar = nDim
-!    real, allocatable:: State_VGB(:,:,:,:,:)
-!
-!    integer:: nWidth
-!    integer:: nProlongOrder
-!    integer:: nCoarseLayer
-!    integer:: iSendCorner,  iRestrictFace
-!    logical:: DoSendCorner, DoRestrictFace
-!
-!    real:: Xyz_D(MaxDim)
-!    integer:: iNode, iBlock, i, j, k, iMin, iMax, jMin, jMax, kMin, kMax, iDim
-!    integer:: iDir, jDir, kDir, Di, Dj, Dk
-!
-!    logical:: DoTestMe
-!    character(len=*), parameter :: NameSub = 'test_pass_face'
-!    !-----------------------------------------------------------------------
-!    DoTestMe = iProc == 0
-!
-!    if(DoTestMe) write(*,*) 'Starting ',NameSub
-!
-!    call init_tree(MaxBlockTest)
-!    call init_grid( DomainMin_D(1:nDim), DomainMax_D(1:nDim) )
-!    call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
-!    call set_tree_root( nRootTest_D(1:nDim))
-!
-!    call find_tree_node( (/0.5,0.5,0.5/), iNode)
-!    if(DoTestMe)write(*,*) NameSub,' middle node=',iNode
-!    call refine_tree_node(iNode)
-!    call distribute_tree(.true.)
-!    call create_grid
-!
-!    if(DoTestMe) call show_tree(NameSub,.true.)
-!
-!    allocate(State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlockTest))
-!
-!    do nProlongOrder = 1, 2; do nCoarseLayer = 1, 2; do nWidth = 1, nG
-!
-!       ! Second order prolongation does not work with sending multiple coarse 
-!       ! cell layers into the fine cells with their original values. 
-!       if(nProlongOrder == 2 .and. nCoarseLayer == 2) CYCLE
-!
-!       ! Cannot send more coarse layers than the number of ghost cell layers
-!       if(nCoarseLayer > nWidth) CYCLE
-!
-!       if(DoTestMe)write(*,*) 'testing message_pass_face with', &
-!            ' nProlongOrder=',  nProlongOrder, &
-!            ' nCoarseLayer=',   nCoarseLayer,  &
-!            ' nWidth=',         nWidth
-!
-!       ! Set the range of ghost cells that should be set
-!       iMin =  1 - nWidth
-!       jMin =  1; if(nDim > 1) jMin = 1 - nWidth
-!       kMin =  1; if(nDim > 2) kMin = 1 - nWidth
-!       iMax = nI + nWidth
-!       jMax = nJ; if(nDim > 1) jMax = nJ + nWidth
-!       kMax = nK; if(nDim > 2) kMax = nK + nWidth
-!
-!       do iSendCorner = 1, 2; do iRestrictFace = 1, 2
-!
-!          DoSendCorner   = iSendCorner   == 2
-!          DoRestrictFace = iRestrictFace == 2
-!
-!          ! Second order prolongation does not work with restricting face:
-!          ! the first order restricted cell cannot be used in the prolongation.
-!          if(DoRestrictFace .and. nProlongOrder == 2) CYCLE
-!
-!          ! Sending multiple coarse cell layers is not meaningful for edges
-!          ! and corners. The current algorithm does not support this !!!
-!          if(nCoarseLayer > 1 .and. DoSendCorner) CYCLE
-!          
-!          if(DoTestMe)write(*,*) 'testing message_pass_face with', &
-!               ' DoSendCorner=',   DoSendCorner, &
-!               ' DoRestrictFace=', DoRestrictFace
-!
-!          State_VGB = 0.0
-!
-!          do iBlock = 1, nBlock
-!             if(Unused_B(iBlock)) CYCLE
-!             State_VGB(:,1:nI,1:nJ,1:nK,iBlock) = &
-!                  Xyz_DGB(1:nDim,1:nI,1:nJ,1:nK,iBlock)
-!          end do
-!
-!          call message_pass_face(nVar, State_VGB, &
-!               nProlongOrderIn =nProlongOrder,    &
-!               nCoarseLayerIn  =nCoarseLayer,     &
-!               nWidthIn        =nWidth,           &
-!               DoSendCornerIn  =DoSendCorner,     &
-!               DoRestrictFaceIn=DoRestrictFace)
-!
-!          do iBlock = 1, nBlock
-!             if(Unused_B(iBlock)) CYCLE
-!
-!             ! Loop through all cells including ghost cells
-!             do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
-!
-!                ! The filled in second order accurate ghost cell value 
-!                ! should be the same as the coordinates of the cell center
-!                Xyz_D = Xyz_DGB(:,i,j,k,iBlock)
-!
-!                ! Check that no info is sent in the non-used dimensions,
-!                ! i.e. for all iDim: nDim+1 < iDim < MaxDim
-!                if(  i < iMin .or. i > iMax .or. &
-!                     j < jMin .or. j > jMax .or. &
-!                     k < kMin .or. k > kMax) then
-!                   do iDim = 1, nDim
-!                      if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
-!                         write(*,*)'Face should not be set: ', &
-!                              'iProc,iBlock,i,j,k,iDim,State,Xyz=', &
-!                              iProc,iBlock,i,j,k,iDim, &
-!                              State_VGB(iDim,i,j,k,iBlock), &
-!                              Xyz_D(iDim)
-!                      end if
-!                   end do
-!
-!                   CYCLE
-!                end if
-!
-!                ! Get the direction vector
-!                iDir = 0; if(i<1) iDir = -1; if(i>nI) iDir = 1
-!                jDir = 0; if(j<1) jDir = -1; if(j>nJ) jDir = 1
-!                kDir = 0; if(k<1) kDir = -1; if(k>nK) kDir = 1
-!
-!                ! if we do not send corners and edges, check that the
-!                ! State_VGB in these cells is still the unset value
-!                if(.not.DoSendCorner .and. ( &
-!                     iDir /= 0 .and. jDir /= 0 .or. &
-!                     iDir /= 0 .and. kDir /= 0 .or. &
-!                     jDir /= 0 .and. kDir /= 0 ))then
-!
-!                   do iDim = 1, nDim
-!                      if(abs(State_VGB(iDim,i,j,k,iBlock)) > 1e-6)then
-!                         write(*,*)'corner/edge should not be set: ', &
-!                              'iProc,iBlock,i,j,k,iDim,State,Xyz=', &
-!                              iProc,iBlock,i,j,k,iDim, &
-!                              State_VGB(iDim,i,j,k,iBlock), &
-!                              Xyz_D
-!                      end if
-!                   end do
-!
-!                   CYCLE
-!                end if
-!
-!                ! Shift ghost cell coordinate into periodic domain
-!                Xyz_D = DomainMin_D + modulo(Xyz_D - DomainMin_D, DomainSize_D)
-!
-!                ! Calculate distance of ghost cell layer
-!                Di = 0; Dj = 0; Dk = 0
-!                if(i <  1 .and. iRatio == 2) Di = 2*i-1
-!                if(i > nI .and. iRatio == 2) Di = 2*(i-nI)-1
-!                if(j <  1 .and. jRatio == 2) Dj = 2*j-1
-!                if(j > nJ .and. jRatio == 2) Dj = 2*(j-nJ)-1
-!                if(k <  1 .and. kRatio == 2) Dk = 2*k-1
-!                if(k > nK .and. kRatio == 2) Dk = 2*(k-nK)-1
-!
-!                if(DoRestrictFace .and. &
-!                     DiLevelNei_IIIB(iDir,jDir,kDir,iBlock) == -1)then
-!
-!                   ! Shift coordinates if only 1 layer of fine cells
-!                   ! is averaged in the orthogonal direction
-!                   Xyz_D(1) = Xyz_D(1) - 0.25*Di*CellSize_DB(1,iBlock)
-!                   Xyz_D(2) = Xyz_D(2) - 0.25*Dj*CellSize_DB(2,iBlock)
-!                   Xyz_D(3) = Xyz_D(3) - 0.25*Dk*CellSize_DB(3,iBlock)
-!
-!                end if
-!
-!                if(nProlongOrder == 1 .and. &
-!                     DiLevelNei_IIIB(iDir,jDir,kDir,iBlock) == 1)then
-!
-!                   ! Shift depends on the parity of the fine ghost cell
-!                   ! except when there is no AMR or multiple coarse cell 
-!                   ! layers are sent in that direction
-!                   if(iRatio == 2 .and. (nCoarseLayer == 1 .or. iDir == 0)) &
-!                        Di = 2*modulo(i,2) - 1
-!                   if(jRatio == 2 .and. (nCoarseLayer == 1 .or. jDir == 0)) &
-!                        Dj = 2*modulo(j,2) - 1
-!                   if(kRatio == 2 .and. (nCoarseLayer == 1 .or. kDir == 0)) &
-!                        Dk = 2*modulo(k,2) - 1
-!
-!                   Xyz_D(1) = Xyz_D(1) + 0.5*Di*CellSize_DB(1,iBlock)
-!                   Xyz_D(2) = Xyz_D(2) + 0.5*Dj*CellSize_DB(2,iBlock)
-!                   Xyz_D(3) = Xyz_D(3) + 0.5*Dk*CellSize_DB(3,iBlock)
-!
-!                end if
-!
-!                do iDim = 1, nDim
-!                   if(abs(State_VGB(iDim,i,j,k,iBlock) - Xyz_D(iDim)) &
-!                        > Tolerance)then
-!                      write(*,*)'iProc,iBlock,i,j,k,iDim,State,Xyz=', &
-!                           iProc,iBlock,i,j,k,iDim, &
-!                           State_VGB(iDim,i,j,k,iBlock), &
-!                           Xyz_D(iDim)
-!                   end if
-!                end do
-!             end do; end do; end do
-!          end do
-!
-!       end do; end do; end do
-!    end do; end do ! test parameters
-!    deallocate(State_VGB)
-!
-!    call clean_grid
-!    call clean_tree
+    use BATL_mpi,  ONLY: iProc
+    use BATL_size, ONLY: MaxDim, nDim, iRatio, jRatio, kRatio, &
+         MinI, MaxI, MinJ, MaxJ, MinK, MaxK, nG, nI, nJ, nK, nBlock
+    use BATL_tree, ONLY: init_tree, set_tree_root, find_tree_node, &
+         refine_tree_node, distribute_tree, show_tree, clean_tree, &
+         Unused_B, DiLevelNei_IIIB
+    use BATL_grid, ONLY: init_grid, create_grid, clean_grid, &
+         Xyz_DGB, CellSize_DB, CellFace_DB
+    use BATL_geometry, ONLY: init_geometry
+
+    integer, parameter:: MaxBlockTest            = 50
+    integer, parameter:: nRootTest_D(MaxDim)     = (/3,3,3/)
+    logical, parameter:: IsPeriodicTest_D(MaxDim)= .true.
+    real, parameter:: DomainMin_D(MaxDim) = (/ 1.0, 10.0, 100.0 /)
+    real, parameter:: DomainMax_D(MaxDim) = (/ 4.0, 40.0, 400.0 /)
+    real, parameter:: DomainSize_D(MaxDim) = DomainMax_D - DomainMin_D
+
+    real, parameter:: Tolerance = 1e-6
+
+    integer, parameter:: nVar = nDim
+    real, allocatable, dimension(:,:,:,:,:):: &
+         Flux_VFD, Flux_VXB, Flux_VYB, Flux_VZB
+
+    integer:: iResChangeOnly
+    logical:: DoResChangeOnly
+
+    integer:: iNode, iBlock, i, j, k, iDim
+
+    logical:: DoTestMe
+    character(len=*), parameter :: NameSub = 'test_pass_face'
+    !-----------------------------------------------------------------------
+    DoTestMe = iProc == 0
+
+    if(DoTestMe) write(*,*) 'Starting ',NameSub
+
+    call init_tree(MaxBlockTest)
+    call init_grid( DomainMin_D(1:nDim), DomainMax_D(1:nDim) )
+    call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
+    call set_tree_root( nRootTest_D(1:nDim))
+
+    call find_tree_node( (/0.5,0.5,0.5/), iNode)
+    if(DoTestMe)write(*,*) NameSub,' middle node=',iNode
+    call refine_tree_node(iNode)
+    call distribute_tree(.true.)
+    call create_grid
+
+    if(DoTestMe) call show_tree(NameSub,.true.)
+
+    allocate( &
+         Flux_VFD(nVar,nI+1,nJ+1,nK+1,nDim),  &
+         Flux_VXB(nVar,2,nJ,nK,MaxBlockTest), &
+         Flux_VYB(nVar,2,nI,nK,MaxBlockTest), &
+         Flux_VZB(nVar,2,nI,nJ,MaxBlockTest) )
+
+    do iResChangeOnly = 1, 1
+
+       DoResChangeOnly  = iResChangeOnly == 1
+
+       if(DoTestMe)write(*,*) 'testing message_pass_face with', &
+            ' DoResChangeOnly=',  DoResChangeOnly
+
+       Flux_VFD = 0.0
+       Flux_VXB = 0.0
+       Flux_VYB = 0.0
+       Flux_VZB = 0.0
+
+       do iBlock = 1, nBlock
+          if(Unused_B(iBlock)) CYCLE
+          call get_flux
+
+          call fill_face_flux(iBlock, nVar, Flux_VFD, &
+               Flux_VXB, Flux_VYB, Flux_VZB, &
+               DoResChangeOnlyIn = DoResChangeOnly, &
+               DoStoreCoarseFluxIn = .false.)
+
+       end do
+
+       call message_pass_face(nVar, Flux_VXB, Flux_VYB, Flux_VZB, &
+            DoResChangeOnlyIn = DoResChangeOnly)
+
+       do iBlock = 1, nBlock
+          if(Unused_B(iBlock)) CYCLE
+
+          call get_flux
+
+          ! Check min X face
+          if(DiLevelNei_IIIB(-1,0,0,iBlock) == -1)then
+             do k = 1, nK; do j = 1, nJ; do iDim = 1, nDim
+                if(abs(Flux_VXB(iDim,1,j,k,iBlock)  &
+                     + Flux_VFD(iDim,1,j,k,1)    ) < Tolerance) CYCLE
+                write(*,*)'Error at min X face: ', &
+                     'iProc,iBlock,j,k,iDim,Flux,Xyz=', &
+                     iProc,iBlock,j,k,iDim, &
+                     Flux_VXB(iDim,1,j,k,iBlock), &
+                     Flux_VFD(iDim,1,j,k,1)
+             end do; end do; end do
+          end if
+
+          ! Check max X face
+          if(DiLevelNei_IIIB(+1,0,0,iBlock) == -1)then
+             do k = 1, nK; do j = 1, nJ; do iDim = 1, nDim
+                if(abs(Flux_VXB(iDim,2,j,k,iBlock)  &
+                     + Flux_VFD(iDim,nI+1,j,k,1)    ) < Tolerance) CYCLE
+                write(*,*)'Error at max X face: ', &
+                     'iProc,iBlock,j,k,iDim,Flux,Xyz=', &
+                     iProc,iBlock,j,k,iDim, &
+                     Flux_VXB(iDim,2,j,k,iBlock), &
+                     Flux_VFD(iDim,nI+1,j,k,1)
+             end do; end do; end do
+          end if
+
+          ! Check min Y face
+          if(DiLevelNei_IIIB(0,-1,0,iBlock) == -1)then
+             do k = 1, nK; do i = 1, nI; do iDim = 1, nDim
+                if(abs(Flux_VYB(iDim,1,i,k,iBlock)  &
+                     + Flux_VFD(iDim,i,1,k,2)    ) < Tolerance) CYCLE
+                write(*,*)'Error at min Y face: ', &
+                     'iProc,iBlock,i,k,iDim,Flux,Xyz=', &
+                     iProc,iBlock,i,k,iDim, &
+                     Flux_VYB(iDim,1,i,k,iBlock), &
+                     Flux_VFD(iDim,i,1,k,2)
+             end do; end do; end do
+          end if
+
+          ! Check max Y face
+          if(DiLevelNei_IIIB(0,1,0,iBlock) == -1)then
+             do k = 1, nK; do i = 1, nI; do iDim = 1, nDim
+                if(abs(Flux_VYB(iDim,2,i,k,iBlock)  &
+                     + Flux_VFD(iDim,i,nJ+1,k,2)    ) < Tolerance) CYCLE
+                write(*,*)'Error at max Y face: ', &
+                     'iProc,iBlock,i,k,iDim,Flux,Xyz=', &
+                     iProc,iBlock,i,k,iDim, &
+                     Flux_VYB(iDim,2,i,k,iBlock), &
+                     Flux_VFD(iDim,i,nJ+1,k,2)
+             end do; end do; end do
+          end if
+
+          ! Check min Z face
+          if(DiLevelNei_IIIB(0,0,-1,iBlock) == -1)then
+             do j = 1, nJ; do i = 1, nI; do iDim = 1, nDim
+                if(abs(Flux_VZB(iDim,1,i,j,iBlock)  &
+                     + Flux_VFD(iDim,i,j,1,3)    ) < Tolerance) CYCLE
+                write(*,*)'Error at min Z face: ', &
+                     'iProc,iBlock,i,j,iDim,Flux,Xyz=', &
+                     iProc,iBlock,i,j,iDim, &
+                     Flux_VZB(iDim,1,i,j,iBlock), &
+                     Flux_VFD(iDim,i,j,1,3)
+             end do; end do; end do
+          end if
+
+          ! Check max Z face
+          if(DiLevelNei_IIIB(0,0,+1,iBlock) == -1)then
+             do j = 1, nJ; do i = 1, nI; do iDim = 1, nDim
+                if(abs(Flux_VZB(iDim,2,i,j,iBlock)  &
+                     + Flux_VFD(iDim,i,j,nK+1,3)    ) < Tolerance) CYCLE
+                write(*,*)'Error at max Z face: ', &
+                     'iProc,iBlock,i,j,iDim,Flux,Xyz=', &
+                     iProc,iBlock,i,j,iDim, &
+                     Flux_VZB(iDim,2,i,j,iBlock), &
+                     Flux_VFD(iDim,i,j,nK+1,3)
+             end do; end do; end do
+          end if
+
+       end do ! iBlock
+
+    end do ! test parameters
+    deallocate(Flux_VFD, Flux_VXB, Flux_VYB, Flux_VZB)
+
+    call clean_grid
+    call clean_tree
+
+  contains
+    !==========================================================================
+    subroutine get_flux
+      ! Fill in Flux_VFD with coordinates of the face center
+
+      Flux_VFD(:,:,1:nJ,1:nK,1) = 0.5*CellFace_DB(1,iBlock)* &
+           ( Xyz_DGB(1:nDim,0:nI  ,1:nJ,1:nK,iBlock) &
+           + Xyz_DGB(1:nDim,1:nI+1,1:nJ,1:nK,iBlock) )
+
+      if(nDim > 1) &
+           Flux_VFD(:,1:nI,:,1:nK,2) = 0.5*CellFace_DB(2,iBlock)* &
+           ( Xyz_DGB(1:nDim,1:nI,0:nJ  ,1:nK,iBlock) &
+           + Xyz_DGB(1:nDim,1:nI,1:nJ+1,1:nK,iBlock) )
+
+      if(nDim > 2) &
+           Flux_VFD(:,1:nI,1:nJ,:,3) = 0.5*CellFace_DB(3,iBlock)* &
+           ( Xyz_DGB(1:nDim,1:nI,1:nJ,0:nK  ,iBlock) &
+           + Xyz_DGB(1:nDim,1:nI,1:nJ,1:nK+1,iBlock) )
+
+    end subroutine get_flux
 
   end subroutine test_pass_face
 
