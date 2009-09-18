@@ -5,6 +5,7 @@ program BATL_test
   use BATL_tree,      ONLY: test_tree
   use BATL_grid,      ONLY: test_grid
   use BATL_pass_cell, ONLY: test_pass_cell
+  use BATL_pass_face, ONLY: test_pass_face
   use ModMpi
 
   implicit none
@@ -17,6 +18,7 @@ program BATL_test
   call test_tree
   call test_grid
   call test_pass_cell
+!!!  call test_pass_face
   call test_amr
 
   call MPI_finalize(iError)
