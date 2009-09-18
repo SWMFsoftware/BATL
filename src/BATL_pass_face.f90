@@ -59,7 +59,7 @@ contains
     logical :: DoReschangeOnly
 
     integer :: iDim, iDimSide, iRecvSide, iSign
-    integer :: iSend, jSend, kSend, iRecv, jRecv, kRecv, iSide, jSide, kSide
+    integer :: iSend, jSend, kSend, iSide, jSide, kSide
     integer :: iDir, jDir, kDir
     integer :: iNodeRecv, iNodeSend
     integer :: iBlockRecv, iProcRecv, iBlockSend, iProcSend, DiLevel
@@ -325,11 +325,6 @@ contains
 
     subroutine do_restrict
 
-      integer :: iR, jR, kR, iS1, jS1, kS1, iS2, jS2, kS2, iVar
-      integer :: iRatioRestr, jRatioRestr, kRatioRestr
-      real    :: InvIjkRatioRestr
-      integer :: iBufferS, nSize
-      real    :: WeightOld, WeightNew
       !------------------------------------------------------------------------
 
       ! The coordinate parity of the sender block tells 
