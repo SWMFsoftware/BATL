@@ -35,8 +35,8 @@ contains
     integer, intent(in) :: nVar
     real, intent(inout) :: &
          Flux_VXB(nVar,2,nJ,nK,MaxBlock), &
-         Flux_VYB(nVar,nI,2,nK,MaxBlock), &
-         Flux_VZB(nVar,nI,nJ,2,MaxBlock)
+         Flux_VYB(nVar,2,nI,nK,MaxBlock), &
+         Flux_VZB(nVar,2,nI,nJ,MaxBlock)
 
     ! Optional arguments
     logical, optional, intent(in) :: DoResChangeOnlyIn
