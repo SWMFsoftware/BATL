@@ -33,11 +33,10 @@ contains
 
     ! Arguments
     integer, intent(in) :: nVar
-    real, intent(inout) :: &
-         Flux_VXB(nVar,2,nJ,nK,MaxBlock)
     real, optional, intent(inout):: &
-         Flux_VYB(nVar,2,nI,nK,MaxBlock), &
-         Flux_VZB(nVar,2,nI,nJ,MaxBlock)
+         Flux_VXB(nVar,nJ,nK,2,MaxBlock), &
+         Flux_VYB(nVar,nI,nK,2,MaxBlock), &
+         Flux_VZB(nVar,nI,nJ,2,MaxBlock)
 
     ! Optional arguments
     logical, optional, intent(in) :: DoResChangeOnlyIn
@@ -282,8 +281,8 @@ contains
 
                ! Add sent flux to the original
                do k = kRMin, kRmax; do j = jRMin, jRMax
-                  Flux_VXB(:,iDimSide,j,k,iBlockRecv) = &
-                       Flux_VXB(:,iDimSide,j,k,iBlockRecv) &
+                  Flux_VXB(:,j,k,iDimSide,iBlockRecv) = &
+                       Flux_VXB(:,j,k,iDimSide,iBlockRecv) &
                        - BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
                   iBufferR = iBufferR + nVar
                end do; end do
@@ -295,8 +294,8 @@ contains
                kRMax = iReceive_DII(3,iSubFace2,Max_)
 
                do k = kRMin, kRmax; do i = iRMin, iRMax
-                  Flux_VYB(:,iDimSide,i,k,iBlockRecv) = &
-                       Flux_VYB(:,iDimSide,i,k,iBlockRecv) &
+                  Flux_VYB(:,i,k,iDimSide,iBlockRecv) = &
+                       Flux_VYB(:,i,k,iDimSide,iBlockRecv) &
                        - BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
                   iBufferR = iBufferR + nVar
                end do; end do
@@ -308,8 +307,8 @@ contains
                jRMax = iReceive_DII(2,iSubFace2,Max_)
 
                do j = jRMin, jRmax; do i = iRMin, iRMax
-                  Flux_VZB(:,iDimSide,i,j,iBlockRecv) = &
-                       Flux_VZB(:,iDimSide,i,j,iBlockRecv) &
+                  Flux_VZB(:,i,j,iDimSide,iBlockRecv) = &
+                       Flux_VZB(:,i,j,iDimSide,iBlockRecv) &
                        - BufferR_IP(iBufferR+1:iBufferR+nVar,iProcSend)
                   iBufferR = iBufferR + nVar
                end do; end do
@@ -359,7 +358,7 @@ contains
          Flux_VFB)
 
       integer, intent(in):: iDim1, iDim2, n1, n2, Dn1, Dn2, iSide1, iSide2
-      real, intent(inout):: Flux_VFB(nVar,2,n1,n2,MaxBlock)
+      real, intent(inout):: Flux_VFB(nVar,n1,n2,2,MaxBlock)
 
       integer:: iSubFace1, iSubFace2
       integer:: iR1, iR1Min, iR1Max, iR2, iR2Min, iR2Max
@@ -398,10 +397,10 @@ contains
                iS1Min = 1 + Dn1*(iR1-iR1Min)
                iS1Max = iS1Min + Dn1 - 1
                do iVar = 1, nVar
-                  Flux_VFB(iVar,iRecvSide,iR1,iR2,iBlockRecv) = &
-                       Flux_VFB(iVar,iRecvSide,iR1,iR2,iBlockRecv) - &
-                       sum(Flux_VFB(iVar,iDimSide,iS1Min:iS1Max,iS2Min:iS2Max,&
-                       iBlockSend))
+                  Flux_VFB(iVar,iR1,iR2,iRecvSide,iBlockRecv) = &
+                       Flux_VFB(iVar,iR1,iR2,iRecvSide,iBlockRecv) - &
+                       sum(Flux_VFB(iVar,iS1Min:iS1Max,iS2Min:iS2Max,&
+                       iDimSide,iBlockSend))
                end do
             end do
          end do
@@ -413,7 +412,7 @@ contains
 
          ! Encode all necessary info into a single "tag"
          BufferS_IP(iBufferS+1,iProcRecv) = &
-              100*iBlockRecv + 20*iDim + 10*(iDimSide-1) &
+              100*iBlockRecv + 20*iDim + 10*(iRecvSide-1) &
               + 3*iSubFace1 + iSubFace2
 
          iBufferS = iBufferS + 1
@@ -431,8 +430,8 @@ contains
                iS1Max = iS1Min + Dn1 - 1
                do iVar = 1, nVar
                   BufferS_IP(iBufferS+iVar,iProcRecv) = &
-                       sum(Flux_VFB(iVar,iDimSide,iS1Min:iS1Max,iS2Min:iS2Max,&
-                       iBlockSend))
+                       sum(Flux_VFB(iVar,iS1Min:iS1Max,iS2Min:iS2Max,&
+                       iDimSide,iBlockSend))
                end do
                iBufferS = iBufferS + nVar
             end do
@@ -514,9 +513,9 @@ contains
     integer, intent(in):: iBlock, nVar
     real, intent(in):: Flux_VFD(nVar,nI+1,nJ+1,nK+1,nDim)
     real, intent(inout), optional:: &
-         Flux_VXB(nVar,2,nJ,nK,MaxBlock), &
-         Flux_VYB(nVar,2,nI,nK,MaxBlock), &
-         Flux_VZB(nVar,2,nI,nJ,MaxBlock)
+         Flux_VXB(nVar,nJ,nK,2,MaxBlock), &
+         Flux_VYB(nVar,nI,nK,2,MaxBlock), &
+         Flux_VZB(nVar,nI,nJ,2,MaxBlock)
     logical, intent(in), optional:: &
          DoResChangeOnlyIn, &
          DoStoreCoarseFluxIn
@@ -535,25 +534,25 @@ contains
        DiLevel = DiLevelNei_IIIB(-1,0,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VXB(:,1,1:nJ,1:nK,iBlock) = Flux_VFD(:,1,1:nJ,1:nK,1)
+            Flux_VXB(:,1:nJ,1:nK,1,iBlock) = Flux_VFD(:,1,1:nJ,1:nK,1)
 
        DiLevel = DiLevelNei_IIIB(+1,0,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VXB(:,2,1:nJ,1:nK,iBlock) = Flux_VFD(:,nI+1,1:nJ,1:nK,1)
+            Flux_VXB(:,1:nJ,1:nK,2,iBlock) = Flux_VFD(:,nI+1,1:nJ,1:nK,1)
     end if
 
     if(present(Flux_VYB) .and. nDim > 1)then
        DiLevel = DiLevelNei_IIIB(0,-1,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VYB(:,1,1:nI,1:nK,iBlock) = Flux_VFD(:,1:nI,1,1:nK,&
+            Flux_VYB(:,1:nI,1:nK,1,iBlock) = Flux_VFD(:,1:nI,1,1:nK,&
             min(2,nDim))
        
        DiLevel = DiLevelNei_IIIB(0,+1,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VYB(:,2,1:nI,1:nK,iBlock) = Flux_VFD(:,1:nI,nJ+1,1:nK,&
+            Flux_VYB(:,1:nI,1:nK,2,iBlock) = Flux_VFD(:,1:nI,nJ+1,1:nK,&
             min(2,nDim))
     end if
 
@@ -561,12 +560,12 @@ contains
        DiLevel = DiLevelNei_IIIB(0,0,-1,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VZB(:,1,1:nI,1:nJ,iBlock) = Flux_VFD(:,1:nI,1:nJ,1,nDim)
+            Flux_VZB(:,1:nI,1:nJ,1,iBlock) = Flux_VFD(:,1:nI,1:nJ,1,nDim)
 
        DiLevel = DiLevelNei_IIIB(0,0,+1,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VZB(:,2,1:nI,1:nJ,iBlock) = Flux_VFD(:,1:nI,1:nJ,nK+1,nDim)
+            Flux_VZB(:,1:nI,1:nJ,2,iBlock) = Flux_VFD(:,1:nI,1:nJ,nK+1,nDim)
     end if
 
   end subroutine fill_face_flux
@@ -625,9 +624,9 @@ contains
 
     allocate( &
          Flux_VFD(nVar,nI+1,nJ+1,nK+1,nDim),  &
-         Flux_VXB(nVar,2,nJ,nK,MaxBlockTest), &
-         Flux_VYB(nVar,2,nI,nK,MaxBlockTest), &
-         Flux_VZB(nVar,2,nI,nJ,MaxBlockTest) )
+         Flux_VXB(nVar,nJ,nK,2,MaxBlockTest), &
+         Flux_VYB(nVar,nI,nK,2,MaxBlockTest), &
+         Flux_VZB(nVar,nI,nJ,2,MaxBlockTest) )
 
     do iResChangeOnly = 1, 1
 
@@ -663,12 +662,12 @@ contains
           ! Check min X face
           if(DiLevelNei_IIIB(-1,0,0,iBlock) == -1)then
              do k = 1, nK; do j = 1, nJ; do iDim = 1, nDim
-                if(abs(Flux_VXB(iDim,1,j,k,iBlock)  &
+                if(abs(Flux_VXB(iDim,j,k,1,iBlock)  &
                      + Flux_VFD(iDim,1,j,k,1)    ) < Tolerance) CYCLE
                 write(*,*)'Error at min X face: ', &
                      'iProc,iBlock,j,k,iDim,Flux,Xyz=', &
                      iProc,iBlock,j,k,iDim, &
-                     Flux_VXB(iDim,1,j,k,iBlock), &
+                     Flux_VXB(iDim,j,k,1,iBlock), &
                      Flux_VFD(iDim,1,j,k,1)
              end do; end do; end do
           end if
@@ -676,12 +675,12 @@ contains
           ! Check max X face
           if(DiLevelNei_IIIB(+1,0,0,iBlock) == -1)then
              do k = 1, nK; do j = 1, nJ; do iDim = 1, nDim
-                if(abs(Flux_VXB(iDim,2,j,k,iBlock)  &
+                if(abs(Flux_VXB(iDim,j,k,2,iBlock)  &
                      + Flux_VFD(iDim,nI+1,j,k,1)    ) < Tolerance) CYCLE
                 write(*,*)'Error at max X face: ', &
                      'iProc,iBlock,j,k,iDim,Flux,Xyz=', &
                      iProc,iBlock,j,k,iDim, &
-                     Flux_VXB(iDim,2,j,k,iBlock), &
+                     Flux_VXB(iDim,j,k,2,iBlock), &
                      Flux_VFD(iDim,nI+1,j,k,1)
              end do; end do; end do
           end if
@@ -689,12 +688,12 @@ contains
           ! Check min Y face
           if(DiLevelNei_IIIB(0,-1,0,iBlock) == -1)then
              do k = 1, nK; do i = 1, nI; do iDim = 1, nDim
-                if(abs(Flux_VYB(iDim,1,i,k,iBlock)  &
+                if(abs(Flux_VYB(iDim,i,k,1,iBlock)  &
                      + Flux_VFD(iDim,i,1,k,2)    ) < Tolerance) CYCLE
                 write(*,*)'Error at min Y face: ', &
                      'iProc,iBlock,i,k,iDim,Flux,Xyz=', &
                      iProc,iBlock,i,k,iDim, &
-                     Flux_VYB(iDim,1,i,k,iBlock), &
+                     Flux_VYB(iDim,i,k,1,iBlock), &
                      Flux_VFD(iDim,i,1,k,2)
              end do; end do; end do
           end if
@@ -702,12 +701,12 @@ contains
           ! Check max Y face
           if(DiLevelNei_IIIB(0,1,0,iBlock) == -1)then
              do k = 1, nK; do i = 1, nI; do iDim = 1, nDim
-                if(abs(Flux_VYB(iDim,2,i,k,iBlock)  &
+                if(abs(Flux_VYB(iDim,i,k,2,iBlock)  &
                      + Flux_VFD(iDim,i,nJ+1,k,2)    ) < Tolerance) CYCLE
                 write(*,*)'Error at max Y face: ', &
                      'iProc,iBlock,i,k,iDim,Flux,Xyz=', &
                      iProc,iBlock,i,k,iDim, &
-                     Flux_VYB(iDim,2,i,k,iBlock), &
+                     Flux_VYB(iDim,i,k,2,iBlock), &
                      Flux_VFD(iDim,i,nJ+1,k,2)
              end do; end do; end do
           end if
@@ -715,12 +714,12 @@ contains
           ! Check min Z face
           if(DiLevelNei_IIIB(0,0,-1,iBlock) == -1)then
              do j = 1, nJ; do i = 1, nI; do iDim = 1, nDim
-                if(abs(Flux_VZB(iDim,1,i,j,iBlock)  &
+                if(abs(Flux_VZB(iDim,i,j,1,iBlock)  &
                      + Flux_VFD(iDim,i,j,1,3)    ) < Tolerance) CYCLE
                 write(*,*)'Error at min Z face: ', &
                      'iProc,iBlock,i,j,iDim,Flux,Xyz=', &
                      iProc,iBlock,i,j,iDim, &
-                     Flux_VZB(iDim,1,i,j,iBlock), &
+                     Flux_VZB(iDim,i,j,1,iBlock), &
                      Flux_VFD(iDim,i,j,1,3)
              end do; end do; end do
           end if
@@ -728,12 +727,12 @@ contains
           ! Check max Z face
           if(DiLevelNei_IIIB(0,0,+1,iBlock) == -1)then
              do j = 1, nJ; do i = 1, nI; do iDim = 1, nDim
-                if(abs(Flux_VZB(iDim,2,i,j,iBlock)  &
+                if(abs(Flux_VZB(iDim,i,j,2,iBlock)  &
                      + Flux_VFD(iDim,i,j,nK+1,3)    ) < Tolerance) CYCLE
                 write(*,*)'Error at max Z face: ', &
                      'iProc,iBlock,i,j,iDim,Flux,Xyz=', &
                      iProc,iBlock,i,j,iDim, &
-                     Flux_VZB(iDim,2,i,j,iBlock), &
+                     Flux_VZB(iDim,i,j,2,iBlock), &
                      Flux_VFD(iDim,i,j,nK+1,3)
              end do; end do; end do
           end if
