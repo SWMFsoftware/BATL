@@ -8,6 +8,7 @@ module BATL_lib
   use BATL_geometry
   use BATL_grid
   use BATL_pass_cell
+  use BATL_pass_face
 
   implicit none
 
@@ -48,6 +49,10 @@ module BATL_lib
 
   ! Inherited from BATL_pass_cell
   public:: message_pass_cell
+
+  ! Inherited from BATL_pass_face
+  public:: message_pass_face
+  public:: fill_face_flux
 
 contains
   !============================================================================

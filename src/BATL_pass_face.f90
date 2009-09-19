@@ -11,6 +11,7 @@ module BATL_pass_face
   private ! except
 
   public message_pass_face
+  public fill_face_flux
   public test_pass_face
 
 contains
