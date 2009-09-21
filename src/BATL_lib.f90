@@ -39,7 +39,7 @@ module BATL_lib
   public:: iTree_IA, MinLevel_, MaxLevel_
 
   ! Inherited from BATL_geometry
-  public:: TypeGeometry, IsPeriodic_D
+  public:: IsCartesian, TypeGeometry, IsPeriodic_D
 
   ! Inherited from BATL_grid
   public:: CoordMin_D, CoordMax_D, CoordMin_DB, CoordMax_DB, CellSize_DB
@@ -52,7 +52,8 @@ module BATL_lib
 
   ! Inherited from BATL_pass_face
   public:: message_pass_face
-  public:: fill_face_flux
+  public:: store_face_flux
+  public:: apply_flux_correction
 
 contains
   !============================================================================
