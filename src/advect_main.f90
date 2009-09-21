@@ -44,6 +44,9 @@ program advect
   ! Face centered flux for one block
   real:: Flux_VFD(nVar,1:nI+1,1:nJ+1,1:nK+1,nDim)
 
+  ! Face centered flux for conservation fix
+  real, allocatable, dimension(:,:,:,:,:):: Flux_VXB, Flux_VYB, Flux_VZB
+
   ! Total initial mass
   real:: TotalIni_I(0:nVar) = -1.0
 
@@ -213,10 +216,16 @@ contains
 
     allocate( &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock), &
-         StateOld_VCB(nVar,nI,nJ,nK,MaxBlock) )
+         StateOld_VCB(nVar,nI,nJ,nK,MaxBlock), &
+         Flux_VXB(nVar,nJ,nK,2,MaxBlock), &
+         Flux_VYB(nVar,nI,nK,2,MaxBlock), &
+         Flux_VZB(nVar,nI,nJ,2,MaxBlock) )
 
     State_VGB = 0.0
     Flux_VFD = 0.0
+    Flux_VXB = 0.0
+    Flux_VYB = 0.0
+    Flux_VZB = 0.0
 
     ! Initialize the state as a sphere with a cos^2 density profile
     do iBlock = 1, nBlock
@@ -429,13 +438,17 @@ contains
   end subroutine finalize
   !===========================================================================
   subroutine calc_face_values(iBlock)
+
     use ModNumConst, ONLY: i_DD
+    use BATL_lib, ONLY: IsCartesian, CellFace_DB, CellFace_DFB
 
     integer, intent(in):: iBlock
 
     real:: StateLeft_VFD( nVar,1:nI+1,1:nJ+1,1:nK+1,nDim)
     real:: StateRight_VFD(nVar,1:nI+1,1:nJ+1,1:nK+1,nDim)
     real:: Slope_VGD(nVar,0:nI+1,0:nJ+1,0:nK+1,nDim)
+
+    real :: CellFace
 
     integer :: iDim, i, j, k, Di, Dj, Dk
     !------------------------------------------------------------------------
@@ -462,9 +475,12 @@ contains
 
     ! Calculate upwinded fluxes (assume positive velocities)
     do iDim = 1, nDim
+       if(IsCartesian) CellFace = CellFace_DB(iDim,iBlock)
        Di = i_DD(1,iDim); Dj = i_DD(2,iDim); Dk = i_DD(3,iDim)
        do k = 1, nK+Dk; do j =1, nJ+Dj; do i = 1, nI+Di
-          Flux_VFD(:,i,j,k,iDim) = Velocity_D(iDim)*StateLeft_VFD(:,i,j,k,iDim)
+          if(.not.IsCartesian)CellFace = CellFace_DFB(iDim,i,j,k,iBlock)
+          Flux_VFD(:,i,j,k,iDim) = &
+               CellFace*Velocity_D(iDim)*StateLeft_VFD(:,i,j,k,iDim)
        end do; end do; end do
     end do
 
@@ -500,13 +516,14 @@ contains
   !===========================================================================
   subroutine advance_explicit
 
-    use BATL_lib, ONLY: message_pass_cell, nBlock, Unused_B, CellSize_DB, &
-         iComm, nProc
+    use BATL_lib, ONLY: message_pass_cell, nBlock, Unused_B, &
+         IsCartesian, CellSize_DB, CellVolume_B, CellVolume_GB, &
+         iComm, nProc, store_face_flux, apply_flux_correction
     use ModNumConst, ONLY: i_DD
     use ModMpi
 
     integer:: iStage, iDim, iBlock, i, j, k, Di, Dj, Dk, iError
-    real:: DtPe
+    real:: DtPe, DtStage, InvVolume
 
     logical, parameter:: DoTest = .false.
     character(len=*), parameter:: NameSub = 'advance_explicit'
@@ -545,18 +562,31 @@ contains
 
           call calc_face_values(iBlock)
 
+          DtStage = (Dt*iStage)/nOrder
+
+          call store_face_flux(iBlock, nVar, Flux_VFD, &
+               Flux_VXB, Flux_VYB, Flux_VZB, &
+               DtIn = DtStage, &
+               DoStoreCoarseFluxIn = .true.)
+
           State_VGB(:,1:nI,1:nJ,1:nK,iBlock) = StateOld_VCB(:,:,:,:,iBlock)
 
+          if(IsCartesian) InvVolume = 1/CellVolume_B(iBlock)
           do iDim = 1, nDim
              Di = i_DD(1,iDim); Dj = i_DD(2,iDim); Dk = i_DD(3,iDim)
              do k = 1, nK; do j = 1, nJ; do i = 1, nI
+                if(.not.IsCartesian) InvVolume = 1/CellVolume_GB(i,j,k,iBlock)
                 State_VGB(:,i,j,k,iBlock) = State_VGB(:,i,j,k,iBlock) &
-                     - (Dt*iStage)/nOrder / CellSize_DB(iDim, iBlock) &
-                     *(Flux_VFD(:,i+Di,j+Dj,k+Dk,iDim) -Flux_VFD(:,i,j,k,iDim))
+                     - DtStage*InvVolume* &
+                     (Flux_VFD(:,i+Di,j+Dj,k+Dk,iDim) - Flux_VFD(:,i,j,k,iDim))
              end do; end do; end do
 
           end do
        end do
+
+       call apply_flux_correction(nVar, State_VGB, &
+            Flux_VXB, Flux_VYB, Flux_VZB)
+
        call timing_stop('update')
 
     end do
@@ -566,14 +596,15 @@ contains
   subroutine advance_localstep
 
     use BATL_lib, ONLY: message_pass_cell, MaxBlock, nBlock, Unused_B, &
-         CellSize_DB, iComm, nProc, DiLevelNei_IIIB
+         IsCartesian, CellSize_DB, CellVolume_B, CellVolume_GB, &
+         iComm, nProc, DiLevelNei_IIIB
     use ModNumConst, ONLY: i_DD
     use ModMpi
 
     integer:: nStage, iStage, iStageBlock, iDim, iBlock
     integer:: i, j, k, Di, Dj, Dk, iError
     real :: DtMin, DtMax, DtMinPe, DtMaxPe
-    real :: TimeStage, Coef
+    real :: TimeStage, DtLocal, InvVolume
     real, save, allocatable:: Dt_B(:), Time_B(:), TimeOld_B(:)
     integer, save, allocatable:: iStage_B(:)
 
@@ -637,13 +668,15 @@ contains
           else
              State_VGB(:,1:nI,1:nJ,1:nK,iBlock) = StateOld_VCB(:,:,:,:,iBlock)
           end if
-
+          
+          if(IsCartesian) InvVolume = 1.0/CellVolume_B(iBlock)
           do iDim = 1, nDim
              Di = i_DD(1,iDim); Dj = i_DD(2,iDim); Dk = i_DD(3,iDim)
-             Coef =  Dt_B(iBlock) * iStageBlock/2.0 / CellSize_DB(iDim, iBlock)
+             DtLocal =  Dt_B(iBlock) * iStageBlock/2.0
              do k = 1, nK; do j = 1, nJ; do i = 1, nI
+                if(.not.IsCartesian) InvVolume = 1/CellVolume_GB(i,j,k,iBlock)
                 State_VGB(:,i,j,k,iBlock) = State_VGB(:,i,j,k,iBlock) &
-                     - Coef * &
+                     - DtLocal*InvVolume* &
                      (Flux_VFD(:,i+Di,j+Dj,k+Dk,iDim) - Flux_VFD(:,i,j,k,iDim))
              end do; end do; end do
           end do
