@@ -11,7 +11,9 @@ module BATL_pass_face
   private ! except
 
   public message_pass_face
-  public fill_face_flux
+  public store_face_flux
+  public apply_flux_correction
+  public apply_flux_correction_block
   public test_pass_face
 
 contains
@@ -502,11 +504,13 @@ contains
 
   !============================================================================
 
-  subroutine fill_face_flux(iBlock, nVar, Flux_VFD, &
+  subroutine store_face_flux(iBlock, nVar, Flux_VFD, &
                Flux_VXB, Flux_VYB, Flux_VZB, &
-               DoResChangeOnlyIn, DoStoreCoarseFluxIn)
+               DtIn, DoResChangeOnlyIn, DoStoreCoarseFluxIn)
 
-    ! Put Flux_VFD into Flux_VXB, Flux_VYB, Flux_VZB for the appropriate faces
+    ! Put Flux_VFD into Flux_VXB, Flux_VYB, Flux_VZB for the appropriate faces.
+    ! The coarse face flux is also stored unless DoStoreCoarseFluxIn is false.
+    ! Multiply by flux by DtIn if present.
 
     use BATL_size, ONLY: nDim, nI, nJ, nK, MaxBlock
     use BATL_tree, ONLY: DiLevelNei_IIIB
@@ -517,43 +521,49 @@ contains
          Flux_VXB(nVar,nJ,nK,2,MaxBlock), &
          Flux_VYB(nVar,nI,nK,2,MaxBlock), &
          Flux_VZB(nVar,nI,nJ,2,MaxBlock)
+
+    real, intent(in), optional:: DtIn
+
     logical, intent(in), optional:: &
          DoResChangeOnlyIn, &
          DoStoreCoarseFluxIn
 
+    real :: Dt
     logical::  DoResChangeOnly, DoStoreCoarseFlux
     integer:: DiLevel
     !--------------------------------------------------------------------------
     ! Store flux at resolution change for conservation fix
 
+    Dt = 1.0
+    if(present(DtIn)) Dt = DtIn
     DoResChangeOnly = .true.
     if(present(DoResChangeOnlyIn)) DoResChangeOnly = DoResChangeOnlyIn
-    DoStoreCoarseFlux = .false.
+    DoStoreCoarseFlux = .true.
     if(present(DoStoreCoarseFluxIn)) DoStoreCoarseFlux = DoStoreCoarseFluxIn
 
     if(present(Flux_VXB))then
        DiLevel = DiLevelNei_IIIB(-1,0,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VXB(:,1:nJ,1:nK,1,iBlock) = Flux_VFD(:,1,1:nJ,1:nK,1)
+            Flux_VXB(:,1:nJ,1:nK,1,iBlock) = Dt*Flux_VFD(:,1,1:nJ,1:nK,1)
 
        DiLevel = DiLevelNei_IIIB(+1,0,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VXB(:,1:nJ,1:nK,2,iBlock) = Flux_VFD(:,nI+1,1:nJ,1:nK,1)
+            Flux_VXB(:,1:nJ,1:nK,2,iBlock) = Dt*Flux_VFD(:,nI+1,1:nJ,1:nK,1)
     end if
 
     if(present(Flux_VYB) .and. nDim > 1)then
        DiLevel = DiLevelNei_IIIB(0,-1,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VYB(:,1:nI,1:nK,1,iBlock) = Flux_VFD(:,1:nI,1,1:nK,&
+            Flux_VYB(:,1:nI,1:nK,1,iBlock) = Dt*Flux_VFD(:,1:nI,1,1:nK,&
             min(2,nDim))
        
        DiLevel = DiLevelNei_IIIB(0,+1,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VYB(:,1:nI,1:nK,2,iBlock) = Flux_VFD(:,1:nI,nJ+1,1:nK,&
+            Flux_VYB(:,1:nI,1:nK,2,iBlock) = Dt*Flux_VFD(:,1:nI,nJ+1,1:nK,&
             min(2,nDim))
     end if
 
@@ -561,15 +571,133 @@ contains
        DiLevel = DiLevelNei_IIIB(0,0,-1,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VZB(:,1:nI,1:nJ,1,iBlock) = Flux_VFD(:,1:nI,1:nJ,1,nDim)
+            Flux_VZB(:,1:nI,1:nJ,1,iBlock) = Dt*Flux_VFD(:,1:nI,1:nJ,1,nDim)
 
        DiLevel = DiLevelNei_IIIB(0,0,+1,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VZB(:,1:nI,1:nJ,2,iBlock) = Flux_VFD(:,1:nI,1:nJ,nK+1,nDim)
+            Flux_VZB(:,1:nI,1:nJ,2,iBlock) = Dt*Flux_VFD(:,1:nI,1:nJ,nK+1,nDim)
     end if
 
-  end subroutine fill_face_flux
+  end subroutine store_face_flux
+
+  !============================================================================
+
+  subroutine apply_flux_correction(nVar, State_VGB, &
+       Flux_VXB, Flux_VYB, Flux_VZB, DoResChangeOnlyIn)
+
+    ! Correct State_VGB based on the flux differences stored in
+    ! Flux_VXB, Flux_VYB and Flux_VZB.
+
+    use BATL_size, ONLY: nI, nJ, nK, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
+         MaxBlock, nBlock
+    use BATL_tree, ONLY: Unused_B
+
+    integer, intent(in):: nVar
+    real, intent(inout):: &
+         State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
+    real, intent(inout), optional:: &
+         Flux_VXB(nVar,nJ,nK,2,MaxBlock), &
+         Flux_VYB(nVar,nI,nK,2,MaxBlock), &
+         Flux_VZB(nVar,nI,nJ,2,MaxBlock)
+    logical, intent(in), optional:: DoResChangeOnlyIn
+
+    integer:: iBlock
+    !-------------------------------------------------------------------------
+    call message_pass_face(nVar, Flux_VXB, Flux_VYB, Flux_VZB, &
+         DoResChangeOnlyIn)
+
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       
+       call apply_flux_correction_block(iBlock, nVar, State_VGB, &
+            Flux_VXB, Flux_VYB, Flux_VZB, DoResChangeOnlyIn)
+    end do
+
+  end subroutine apply_flux_correction
+
+
+  !============================================================================
+
+  subroutine apply_flux_correction_block(iBlock, nVar, State_VGB, &
+       Flux_VXB, Flux_VYB, Flux_VZB, DoResChangeOnlyIn)
+
+    ! Put Flux_VXB, Flux_VYB, Flux_VZB into State_VGB for the appropriate faces
+
+    use BATL_size, ONLY: nI, nJ, nK, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
+         MaxBlock
+    use BATL_tree, ONLY: DiLevelNei_IIIB
+    use BATL_geometry, ONLY: IsCartesian
+    use BATL_grid, ONLY: CellVolume_B, CellVolume_GB
+
+    integer, intent(in):: iBlock, nVar
+    real, intent(inout):: &
+         State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
+    real, intent(in), optional:: &
+         Flux_VXB(nVar,nJ,nK,2,MaxBlock), &
+         Flux_VYB(nVar,nI,nK,2,MaxBlock), &
+         Flux_VZB(nVar,nI,nJ,2,MaxBlock)
+    logical, intent(in), optional:: DoResChangeOnlyIn
+
+    logical:: DoResChangeOnly
+    real:: InvVolume
+    integer:: i, j, k
+    !--------------------------------------------------------------------------
+
+    DoResChangeOnly = .true.
+    if(present(DoResChangeOnlyIn)) DoResChangeOnly = DoResChangeOnlyIn
+
+    if(IsCartesian) InvVolume = 1.0/CellVolume_B(iBlock)
+
+    if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(-1,0,0,iBlock)==-1)then
+       do k = 1, nK; do j = 1, nJ
+          if(.not.IsCartesian) InvVolume = 1.0/CellVolume_GB(1,j,k,iBlock)
+          State_VGB(:,1,j,k,iBlock) = State_VGB(:,1,j,k,iBlock) &
+               - InvVolume*Flux_VXB(:,j,k,1,iBlock)
+       end do; end do
+    end if
+
+    if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(+1,0,0,iBlock)==-1)then
+       do k = 1, nK; do j = 1, nJ
+          if(.not.IsCartesian) InvVolume = 1.0/CellVolume_GB(nI,j,k,iBlock)
+          State_VGB(:,nI,j,k,iBlock) = State_VGB(:,nI,j,k,iBlock) &
+               + InvVolume*Flux_VXB(:,j,k,2,iBlock)
+       end do; end do
+    end if
+
+    if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,-1,0,iBlock)==-1)then
+       do k = 1, nK; do i = 1, nI
+          if(.not.IsCartesian) InvVolume = 1.0/CellVolume_GB(i,1,k,iBlock)
+          State_VGB(:,i,1,k,iBlock) = State_VGB(:,i,1,k,iBlock) &
+               - InvVolume*Flux_VYB(:,i,k,1,iBlock)
+       end do; end do
+    end if
+
+    if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,+1,0,iBlock)==-1)then
+       do k = 1, nK; do i = 1, nI
+          if(.not.IsCartesian) InvVolume = 1.0/CellVolume_GB(i,nJ,k,iBlock)
+          State_VGB(:,i,nJ,k,iBlock) = State_VGB(:,i,nJ,k,iBlock) &
+               + InvVolume*Flux_VYB(:,i,k,2,iBlock)
+       end do; end do
+    end if
+
+    if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,0,-1,iBlock)==-1)then
+       do j = 1, nJ; do i = 1, nI
+          if(.not.IsCartesian) InvVolume = 1.0/CellVolume_GB(i,j,1,iBlock)
+          State_VGB(:,i,j,1,iBlock) = State_VGB(:,i,j,1,iBlock) &
+               - InvVolume*Flux_VZB(:,i,j,1,iBlock)
+       end do; end do
+    end if
+
+    if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,0,+1,iBlock)==-1)then
+       do j = 1, nJ; do i = 1, nI
+          if(.not.IsCartesian) InvVolume = 1.0/CellVolume_GB(i,j,nK,iBlock)
+          State_VGB(:,i,j,nK,iBlock) = State_VGB(:,i,j,nK,iBlock) &
+               + InvVolume*Flux_VZB(:,i,j,2,iBlock)
+       end do; end do
+    end if
+
+  end subroutine apply_flux_correction_block
 
   !============================================================================
 
@@ -645,7 +773,7 @@ contains
           if(Unused_B(iBlock)) CYCLE
           call get_flux
 
-          call fill_face_flux(iBlock, nVar, Flux_VFD, &
+          call store_face_flux(iBlock, nVar, Flux_VFD, &
                Flux_VXB, Flux_VYB, Flux_VZB, &
                DoResChangeOnlyIn = DoResChangeOnly, &
                DoStoreCoarseFluxIn = .false.)
