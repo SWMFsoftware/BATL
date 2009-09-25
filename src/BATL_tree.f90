@@ -98,6 +98,9 @@ module BATL_tree
   ! Ordering along the Morton-Hilbert space filling curve
   integer, public, allocatable :: iNodeMorton_I(:)
 
+  ! Number of levels below root in level (that has occured at any time)
+  integer, public :: nLevel = 0
+
   ! Local variables -----------------------------------------------
   character(len=*), parameter:: NameMod = "BATL_tree"
 
@@ -115,9 +118,6 @@ module BATL_tree
 
   ! Maximum number of nodes including unused and skipped ones
   integer :: MaxNode = 0
-
-  ! Number of levels below root in level (that has occured at any time)
-  integer :: nLevel = 0
 
   ! The index along the Morton curve is global so that it can be used by the 
   ! recursive subroutine order_children 

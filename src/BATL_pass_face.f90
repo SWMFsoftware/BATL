@@ -19,7 +19,7 @@ module BATL_pass_face
 contains
 
   subroutine message_pass_face(nVar, Flux_VXB, Flux_VYB, Flux_VZB, &
-       DoResChangeOnlyIn, TimeOld_B, Time_B, DoTestIn)
+       DoResChangeOnlyIn, MinLevelSendIn, DoTestIn)
 
     use BATL_size, ONLY: MaxBlock, &
          nBlock, nI, nJ, nK, nIjk_D, &
@@ -29,7 +29,7 @@ contains
 
     use BATL_tree, ONLY: &
          iNodeNei_IIIB, DiLevelNei_IIIB, Unused_B, iNode_B, &
-         iTree_IA, Proc_, Block_, Coord1_, Coord2_, Coord3_
+         iTree_IA, Proc_, Block_, Coord1_, Coord2_, Coord3_, Level_
 
     use ModNumConst, ONLY: i_DD
     use ModMpi
@@ -44,8 +44,7 @@ contains
     ! Optional arguments
     logical, optional, intent(in) :: DoResChangeOnlyIn
     logical, optional, intent(in) :: DoTestIn
-    real,    optional, intent(in) :: TimeOld_B(MaxBlock)
-    real,    optional, intent(in) :: Time_B(MaxBlock)
+    integer, optional, intent(in) :: MinLevelSendIn
 
     ! Send sum of fine fluxes to coarse neighbors and 
     ! subtract it from the coarse flux (if any).
@@ -53,9 +52,8 @@ contains
     ! DoResChangeOnlyIn determines if the flux correction is applied at
     !     resolution changes only. True is the default.
     !
-    ! TimeOld_B and Time_B are the simulation times associated with the
-    !    fluxes on the two sides for local time stepping scheme. 
-    !    To be implemented !!!
+    ! MinLevelSendIn determines the lowest level of refinement that should
+    ! be sending face fluxes.
 
     ! Local variables
 
@@ -119,12 +117,17 @@ contains
        iBufferS_P = 0
     end if
 
-    ! Loop through all nodes
+    ! Loop through all blocks
     do iBlockSend = 1, nBlock
 
        if(Unused_B(iBlockSend)) CYCLE
 
        iNodeSend = iNode_B(iBlockSend)
+
+       if(present(MinLevelSendIn))then
+          ! Do not send or receive below MinLevelSendIn-1
+          if(iTree_IA(Level_,iNodeSend) < MinLevelSendIn - 1) CYCLE
+       end if
 
        do iDim = 1, nDim
           do iDimSide = 1, 2
@@ -146,6 +149,10 @@ contains
              if(DiLevel == 0)then
                 ! call do_equal !!!
              elseif(DiLevel == 1)then
+                if(present(MinLevelSendIn))then
+                   ! Do not send below MinLevelSendIn
+                   if(iTree_IA(Level_,iNodeSend) < MinLevelSendIn) CYCLE
+                end if
                 call do_restrict
              elseif(DiLevel == -1)then
                 call do_prolong
@@ -244,7 +251,6 @@ contains
       ! Copy buffer into recv block of State_VGB
 
       integer:: iBufferR, iTag, iDim, iDimSide, iSubFace1, iSubFace2, i, j, k
-      real :: TimeSend, WeightOld, WeightNew
       !------------------------------------------------------------------------
 
       do iProcSend = 0, nProc - 1
@@ -264,15 +270,6 @@ contains
             iDimSide   = iDimSide + 1
             iSubFace1  = iTag/3;   iTag = iTag - 3*iSubFace1
             iSubFace2  = iTag
-
-            if(present(Time_B))then
-               ! Get time of neighbor and interpolate/extrapolate ghost cells
-               iBufferR = iBufferR + 1
-               TimeSend  = BufferR_IP(iBufferR,iProcSend)
-               WeightOld = (TimeSend - Time_B(iBlockRecv)) &
-                    / max(TimeSend - TimeOld_B(iBlockRecv), 1e-30)
-               WeightNew = 1 - WeightOld
-            end if
 
             select case(iDim)
             case(1)
@@ -382,17 +379,6 @@ contains
 
       if(iProc == iProcRecv)then
 
-         !if(present(Time_B))then
-         !   ! Get time of neighbor and interpolate/extrapolate ghost cells
-         !   WeightOld = (Time_B(iBlockSend) - Time_B(iBlockRecv)) &
-         !        /   max(Time_B(iBlockSend) - TimeOld_B(iBlockRecv), 1e-30)
-         !   WeightNew = 1 - WeightOld
-         !else
-         !   WeightNew = 1.0
-         !   WeightOld = 0.0
-         !end if
-
-
          do iR2 = iR2Min, iR2Max
             iS2Min = 1 + Dn2*(iR2-iR2Min)
             iS2Max = iS2Min + Dn2 - 1
@@ -420,11 +406,6 @@ contains
 
          iBufferS = iBufferS + 1
 
-         !if(present(Time_B))then
-         !   iBufferS = iBufferS + 1
-         !   BufferS_IP(iBufferS,iProcRecv) = Time_B(iBlockSend)
-         !end if
-
          do iR2 = iR2Min, iR2Max
             iS2Min = 1 + Dn2*(iR2-iR2Min)
             iS2Max = iS2Min + Dn2 - 1
@@ -442,6 +423,9 @@ contains
          iBufferS_P(iProcRecv) = iBufferS
 
       end if
+
+      ! Zero out the flux that was just sent/copied
+      Flux_VFB(:,:,:,iDimSide,iBlockSend) = 0.0
 
     end subroutine do_flux
 
@@ -473,7 +457,6 @@ contains
                case(3)
                   nSize = nVar*nI*nJ/(iRatio*jRatio)
                end select
-               if(present(Time_B)) nSize = nSize + 1
                iBufferR_P(iProcRecv) = iBufferR_P(iProcRecv) + 1 + nSize
 
             end do
@@ -545,38 +528,42 @@ contains
        DiLevel = DiLevelNei_IIIB(-1,0,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VXB(:,1:nJ,1:nK,1,iBlock) = Dt*Flux_VFD(:,1,1:nJ,1:nK,1)
+            Flux_VXB(:,1:nJ,1:nK,1,iBlock) = Flux_VXB(:,1:nJ,1:nK,1,iBlock) &
+            + Dt*Flux_VFD(:,1,1:nJ,1:nK,1)
 
        DiLevel = DiLevelNei_IIIB(+1,0,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VXB(:,1:nJ,1:nK,2,iBlock) = Dt*Flux_VFD(:,nI+1,1:nJ,1:nK,1)
+            Flux_VXB(:,1:nJ,1:nK,2,iBlock) = Flux_VXB(:,1:nJ,1:nK,2,iBlock) &
+            + Dt*Flux_VFD(:,nI+1,1:nJ,1:nK,1)
     end if
 
     if(present(Flux_VYB) .and. nDim > 1)then
        DiLevel = DiLevelNei_IIIB(0,-1,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VYB(:,1:nI,1:nK,1,iBlock) = Dt*Flux_VFD(:,1:nI,1,1:nK,&
-            min(2,nDim))
+            Flux_VYB(:,1:nI,1:nK,1,iBlock) = Flux_VYB(:,1:nI,1:nK,1,iBlock) &
+            + Dt*Flux_VFD(:,1:nI,1,1:nK,min(2,nDim))
        
        DiLevel = DiLevelNei_IIIB(0,+1,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VYB(:,1:nI,1:nK,2,iBlock) = Dt*Flux_VFD(:,1:nI,nJ+1,1:nK,&
-            min(2,nDim))
+            Flux_VYB(:,1:nI,1:nK,2,iBlock) = Flux_VYB(:,1:nI,1:nK,1,iBlock) &
+            + Dt*Flux_VFD(:,1:nI,nJ+1,1:nK,min(2,nDim))
     end if
 
     if(present(Flux_VZB) .and. nDim > 2)then
        DiLevel = DiLevelNei_IIIB(0,0,-1,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VZB(:,1:nI,1:nJ,1,iBlock) = Dt*Flux_VFD(:,1:nI,1:nJ,1,nDim)
+            Flux_VZB(:,1:nI,1:nJ,1,iBlock) = Flux_VZB(:,1:nI,1:nJ,1,iBlock) &
+            + Dt*Flux_VFD(:,1:nI,1:nJ,1,nDim)
 
        DiLevel = DiLevelNei_IIIB(0,0,+1,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VZB(:,1:nI,1:nJ,2,iBlock) = Dt*Flux_VFD(:,1:nI,1:nJ,nK+1,nDim)
+            Flux_VZB(:,1:nI,1:nJ,2,iBlock) = Flux_VZB(:,1:nI,1:nJ,2,iBlock) &
+            + Dt*Flux_VFD(:,1:nI,1:nJ,nK+1,nDim)
     end if
 
   end subroutine store_face_flux
@@ -584,14 +571,14 @@ contains
   !============================================================================
 
   subroutine apply_flux_correction(nVar, State_VGB, &
-       Flux_VXB, Flux_VYB, Flux_VZB, DoResChangeOnlyIn)
+       Flux_VXB, Flux_VYB, Flux_VZB, DoResChangeOnlyIn, iStageIn)
 
     ! Correct State_VGB based on the flux differences stored in
     ! Flux_VXB, Flux_VYB and Flux_VZB.
 
     use BATL_size, ONLY: nI, nJ, nK, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
          MaxBlock, nBlock
-    use BATL_tree, ONLY: Unused_B
+    use BATL_tree, ONLY: nLevel, Unused_B, iNode_B, iTree_IA, Level_
 
     integer, intent(in):: nVar
     real, intent(inout):: &
@@ -601,15 +588,33 @@ contains
          Flux_VYB(nVar,nI,nK,2,MaxBlock), &
          Flux_VZB(nVar,nI,nJ,2,MaxBlock)
     logical, intent(in), optional:: DoResChangeOnlyIn
+    integer, intent(in), optional:: iStageIn
 
-    integer:: iBlock
+    integer:: iBlock, iNode, iStage, MinLevelSend
     !-------------------------------------------------------------------------
+    ! Set the levels MinLevelSend .. nLevel which need to send fluxes
+    if(present(iStageIn))then
+       MinLevelSend = nLevel
+       iStage = iStageIn
+       do
+          if(modulo(iStage,2) == 1)EXIT
+          iStage = iStage/2
+          MinLevelSend = MinLevelSend - 1
+       end do
+    else
+       MinLevelSend = 1
+    end if
     call message_pass_face(nVar, Flux_VXB, Flux_VYB, Flux_VZB, &
-         DoResChangeOnlyIn)
+         DoResChangeOnlyIn, MinLevelSendIn = MinLevelSend)
 
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
-       
+
+       if(present(iStageIn))then
+          ! Check if this block has received any flux correction
+          iNode = iNode_B(iBlock)
+          if(iTree_IA(Level_,iNode) < MinLevelSend - 1) CYCLE
+       end if
        call apply_flux_correction_block(iBlock, nVar, State_VGB, &
             Flux_VXB, Flux_VYB, Flux_VZB, DoResChangeOnlyIn)
     end do
@@ -633,7 +638,7 @@ contains
     integer, intent(in):: iBlock, nVar
     real, intent(inout):: &
          State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock)
-    real, intent(in), optional:: &
+    real, intent(inout), optional:: &
          Flux_VXB(nVar,nJ,nK,2,MaxBlock), &
          Flux_VYB(nVar,nI,nK,2,MaxBlock), &
          Flux_VZB(nVar,nI,nJ,2,MaxBlock)
@@ -655,6 +660,7 @@ contains
           State_VGB(:,1,j,k,iBlock) = State_VGB(:,1,j,k,iBlock) &
                - InvVolume*Flux_VXB(:,j,k,1,iBlock)
        end do; end do
+       Flux_VXB(:,:,:,1,iBlock) = 0.0
     end if
 
     if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(+1,0,0,iBlock)==-1)then
@@ -663,6 +669,7 @@ contains
           State_VGB(:,nI,j,k,iBlock) = State_VGB(:,nI,j,k,iBlock) &
                + InvVolume*Flux_VXB(:,j,k,2,iBlock)
        end do; end do
+       Flux_VXB(:,:,:,2,iBlock) = 0.0
     end if
 
     if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,-1,0,iBlock)==-1)then
@@ -671,6 +678,7 @@ contains
           State_VGB(:,i,1,k,iBlock) = State_VGB(:,i,1,k,iBlock) &
                - InvVolume*Flux_VYB(:,i,k,1,iBlock)
        end do; end do
+       Flux_VYB(:,:,:,1,iBlock) = 0.0
     end if
 
     if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,+1,0,iBlock)==-1)then
@@ -679,6 +687,7 @@ contains
           State_VGB(:,i,nJ,k,iBlock) = State_VGB(:,i,nJ,k,iBlock) &
                + InvVolume*Flux_VYB(:,i,k,2,iBlock)
        end do; end do
+       Flux_VYB(:,:,:,2,iBlock) = 0.0
     end if
 
     if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,0,-1,iBlock)==-1)then
@@ -687,6 +696,7 @@ contains
           State_VGB(:,i,j,1,iBlock) = State_VGB(:,i,j,1,iBlock) &
                - InvVolume*Flux_VZB(:,i,j,1,iBlock)
        end do; end do
+       Flux_VZB(:,:,:,1,iBlock) = 0.0
     end if
 
     if(.not.DoResChangeOnly .or. DiLevelNei_IIIB(0,0,+1,iBlock)==-1)then
@@ -695,6 +705,7 @@ contains
           State_VGB(:,i,j,nK,iBlock) = State_VGB(:,i,j,nK,iBlock) &
                + InvVolume*Flux_VZB(:,i,j,2,iBlock)
        end do; end do
+       Flux_VZB(:,:,:,2,iBlock) = 0.0
     end if
 
   end subroutine apply_flux_correction_block

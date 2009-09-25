@@ -597,7 +597,7 @@ contains
 
     use BATL_lib, ONLY: message_pass_cell, MaxBlock, nBlock, Unused_B, &
          IsCartesian, CellSize_DB, CellVolume_B, CellVolume_GB, &
-         iComm, nProc, DiLevelNei_IIIB
+         iComm, nProc, DiLevelNei_IIIB, store_face_flux, apply_flux_correction
     use ModNumConst, ONLY: i_DD
     use ModMpi
 
@@ -663,6 +663,13 @@ contains
 
           call calc_face_values(iBlock)
 
+          DtLocal =  Dt_B(iBlock) * iStageBlock/2.0
+
+          call store_face_flux(iBlock, nVar, Flux_VFD, &
+               Flux_VXB, Flux_VYB, Flux_VZB, &
+               DtIn = DtLocal, &
+               DoStoreCoarseFluxIn = .true.)
+
           if(iStageBlock == 1)then
              StateOld_VCB(:,:,:,:,iBlock) = State_VGB(:,1:nI,1:nJ,1:nK,iBlock)
           else
@@ -672,7 +679,6 @@ contains
           if(IsCartesian) InvVolume = 1.0/CellVolume_B(iBlock)
           do iDim = 1, nDim
              Di = i_DD(1,iDim); Dj = i_DD(2,iDim); Dk = i_DD(3,iDim)
-             DtLocal =  Dt_B(iBlock) * iStageBlock/2.0
              do k = 1, nK; do j = 1, nJ; do i = 1, nI
                 if(.not.IsCartesian) InvVolume = 1/CellVolume_GB(i,j,k,iBlock)
                 State_VGB(:,i,j,k,iBlock) = State_VGB(:,i,j,k,iBlock) &
@@ -689,6 +695,9 @@ contains
           iStage_B(iBlock) = 3 - iStageBlock
 
        end do
+
+       if(modulo(iStage,2) == 0) call apply_flux_correction(nVar, State_VGB, &
+            Flux_VXB, Flux_VYB, Flux_VZB, iStageIn = iStage)
 
        TimeStage = TimeStage + DtMin/2
 
