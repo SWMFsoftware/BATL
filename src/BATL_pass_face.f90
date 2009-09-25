@@ -155,6 +155,8 @@ contains
                 end if
                 call do_restrict
              elseif(DiLevel == -1)then
+                if(present(MinLevelSendIn)) write(*,*)'!!! block to receive iBlock, iSide, level:', &
+                     iBlockSend, iDimSide, iTree_IA(Level_,iNodeSend)
                 call do_prolong
              endif
           end do ! iDimSide
@@ -590,13 +592,16 @@ contains
     logical, intent(in), optional:: DoResChangeOnlyIn
     integer, intent(in), optional:: iStageIn
 
-    integer:: iBlock, iNode, iStage, MinLevelSend
+    integer:: iBlock, iNode, iLevel, iStage, MinLevelSend
     !-------------------------------------------------------------------------
     ! Set the levels MinLevelSend .. nLevel which need to send fluxes
     if(present(iStageIn))then
-       MinLevelSend = nLevel
+       MinLevelSend = nLevel + 1
        iStage = iStageIn
        do
+          write(*,*)'!!! iStageIn, iStage, nLevel, MinLevelSend=', &
+               iStageIn, iStage, nLevel, MinLevelSend
+
           if(modulo(iStage,2) == 1)EXIT
           iStage = iStage/2
           MinLevelSend = MinLevelSend - 1
@@ -609,11 +614,13 @@ contains
 
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
-
+       iNode = iNode_B(iBlock)
+       iLevel = iTree_IA(Level_,iNode)
+       ! highest level should never be corrected
+       if(iLevel == nLevel) CYCLE
        if(present(iStageIn))then
           ! Check if this block has received any flux correction
-          iNode = iNode_B(iBlock)
-          if(iTree_IA(Level_,iNode) < MinLevelSend - 1) CYCLE
+          if(iLevel < MinLevelSend - 1) CYCLE
        end if
        call apply_flux_correction_block(iBlock, nVar, State_VGB, &
             Flux_VXB, Flux_VYB, Flux_VZB, DoResChangeOnlyIn)
@@ -631,7 +638,7 @@ contains
 
     use BATL_size, ONLY: nI, nJ, nK, MinI, MaxI, MinJ, MaxJ, MinK, MaxK, &
          MaxBlock
-    use BATL_tree, ONLY: DiLevelNei_IIIB
+    use BATL_tree, ONLY: DiLevelNei_IIIB, iTree_IA, Level_, iNode_B
     use BATL_geometry, ONLY: IsCartesian
     use BATL_grid, ONLY: CellVolume_B, CellVolume_GB
 
@@ -660,6 +667,8 @@ contains
           State_VGB(:,1,j,k,iBlock) = State_VGB(:,1,j,k,iBlock) &
                - InvVolume*Flux_VXB(:,j,k,1,iBlock)
        end do; end do
+       write(*,*)'!!! corrected iBlock,level,dflux:',&
+            iBlock,iTree_IA(Level_,iNode_B(iBlock)),Flux_VXB(1,1,1,1,iBlock)
        Flux_VXB(:,:,:,1,iBlock) = 0.0
     end if
 
@@ -669,6 +678,8 @@ contains
           State_VGB(:,nI,j,k,iBlock) = State_VGB(:,nI,j,k,iBlock) &
                + InvVolume*Flux_VXB(:,j,k,2,iBlock)
        end do; end do
+       write(*,*)'!!! corrected iBlock,level,dflux:',&
+            iBlock,iTree_IA(Level_,iNode_B(iBlock)),Flux_VXB(1,1,1,2,iBlock)
        Flux_VXB(:,:,:,2,iBlock) = 0.0
     end if
 

@@ -12,7 +12,7 @@ program advect
   integer, parameter :: MaxLevel = 3
 
   ! Final simulation time, frequency of plots
-  real, parameter :: TimeMax = 20.0, DtPlot = 1.0
+  real, parameter :: TimeMax = 20.0, DtPlot = 0.01
 
   ! Advection velocity. Should be positive. For now set to 2
   real :: Velocity_D(nDim) = 2.0
@@ -294,13 +294,13 @@ contains
        write(NameFile,'(a,i1,i1,a)') 'advect',nDim,nDimAmr,'.log'
        open(UnitTmp_,file=NameFile,status='replace')
        write(UnitTmp_,'(a)')'Advection test for BATL'
-       write(UnitTmp_,'(a)')'mass volume error'
+       write(UnitTmp_,'(a)')'step time mass volume error'
 
        DoInitialize = .false.
     else
        open(UnitTmp_,file=NameFile,position='append')
     end if
-    write(UnitTmp_,'(100es15.6)') Total_I
+    write(UnitTmp_,'(i8, 100es15.6)') iStep, Time, Total_I
     close(UnitTmp_)
 
   end subroutine save_log
@@ -601,6 +601,8 @@ contains
     use ModNumConst, ONLY: i_DD
     use ModMpi
 
+    use BATL_tree, ONLY: iTree_IA, Level_, iNode_B
+
     integer:: nStage, iStage, iStageBlock, iDim, iBlock
     integer:: i, j, k, Di, Dj, Dk, iError
     real :: DtMin, DtMax, DtMinPe, DtMaxPe
@@ -644,6 +646,9 @@ contains
     TimeStage = Time
 
     ! write(*,*)'!!! nStage = ',nStage
+    Flux_VXB = 0.0
+    Flux_VYB = 0.0
+    Flux_VZB = 0.0
 
     do iStage = 1, 2*nStage
 
@@ -665,7 +670,7 @@ contains
 
           DtLocal =  Dt_B(iBlock) * iStageBlock/2.0
 
-          call store_face_flux(iBlock, nVar, Flux_VFD, &
+          if(iStageBlock==2) call store_face_flux(iBlock, nVar, Flux_VFD, &
                Flux_VXB, Flux_VYB, Flux_VZB, &
                DtIn = DtLocal, &
                DoStoreCoarseFluxIn = .true.)
@@ -676,6 +681,10 @@ contains
              State_VGB(:,1:nI,1:nJ,1:nK,iBlock) = StateOld_VCB(:,:,:,:,iBlock)
           end if
           
+          write(*,*)'!!! Block update iBlock, level, fluxL, fluxR:',&
+               iBlock,iTree_IA(Level_,iNode_B(iBlock)),&
+               Flux_VFD(1,1,1,1,1)*DtLocal, Flux_VFD(1,nI+1,1,1,1)*DtLocal
+
           if(IsCartesian) InvVolume = 1.0/CellVolume_B(iBlock)
           do iDim = 1, nDim
              Di = i_DD(1,iDim); Dj = i_DD(2,iDim); Dk = i_DD(3,iDim)
@@ -696,13 +705,16 @@ contains
 
        end do
 
-       if(modulo(iStage,2) == 0) call apply_flux_correction(nVar, State_VGB, &
-            Flux_VXB, Flux_VYB, Flux_VZB, iStageIn = iStage)
+!!!       if(modulo(iStage,4) == 0) call apply_flux_correction(nVar, State_VGB, &
+!!!            Flux_VXB, Flux_VYB, Flux_VZB, iStageIn = iStage)
 
        TimeStage = TimeStage + DtMin/2
 
        call timing_stop('update')
     end do
+
+    call apply_flux_correction(nVar, State_VGB, &
+         Flux_VXB, Flux_VYB, Flux_VZB) !!!
 
     if( maxval(Time_B, MASK=.not.Unused_B) > &
          minval(Time_B, MASK=.not.Unused_B) + 1e-10)then
