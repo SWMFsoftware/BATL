@@ -645,11 +645,6 @@ contains
     nStage = nint(DtMax / DtMin)
     TimeStage = Time
 
-    ! write(*,*)'!!! nStage = ',nStage
-    Flux_VXB = 0.0
-    Flux_VYB = 0.0
-    Flux_VZB = 0.0
-
     do iStage = 1, 2*nStage
 
        call timing_start('message_pass')
@@ -692,9 +687,10 @@ contains
              end do; end do; end do
           end do
 
+          ! Update local time and stage for the block
           TimeOld_B(iBlock) = Time_B(iBlock)
           Time_B(iBlock)    = Time_B(iBlock) + Dt_B(iBlock)/2
-          iStage_B(iBlock) = 3 - iStageBlock
+          iStage_B(iBlock)  = 3 - iStageBlock
 
        end do
 
@@ -710,10 +706,10 @@ contains
     if( maxval(Time_B, MASK=.not.Unused_B) > &
          minval(Time_B, MASK=.not.Unused_B) + 1e-10)then
 
-       write(*,*)'!!! minval(Time_B)=',minval(Time_B, MASK=.not.Unused_B)
-       write(*,*)'!!! maxval(Time_B)=',maxval(Time_B, MASK=.not.Unused_B)
-       write(*,*)'!!! minloc(Time_B)=',minloc(Time_B, MASK=.not.Unused_B)
-       write(*,*)'!!! maxloc(Time_B)=',maxloc(Time_B, MASK=.not.Unused_B)
+       write(*,*)'ERROR: minval(Time_B)=',minval(Time_B, MASK=.not.Unused_B)
+       write(*,*)'ERROR: maxval(Time_B)=',maxval(Time_B, MASK=.not.Unused_B)
+       write(*,*)'ERROR: minloc(Time_B)=',minloc(Time_B, MASK=.not.Unused_B)
+       write(*,*)'ERROR: maxloc(Time_B)=',maxloc(Time_B, MASK=.not.Unused_B)
 
        call CON_stop('time step problem')
 
