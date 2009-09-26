@@ -12,7 +12,7 @@ program advect
   integer, parameter :: MaxLevel = 3
 
   ! Final simulation time, frequency of plots
-  real, parameter :: TimeMax = 20.0, DtPlot = 0.01
+  real, parameter :: TimeMax = 20.0, DtPlot = 1.0
 
   ! Advection velocity. Should be positive. For now set to 2
   real :: Velocity_D(nDim) = 2.0
@@ -681,10 +681,6 @@ contains
              State_VGB(:,1:nI,1:nJ,1:nK,iBlock) = StateOld_VCB(:,:,:,:,iBlock)
           end if
           
-          write(*,*)'!!! Block update iBlock, level, fluxL, fluxR:',&
-               iBlock,iTree_IA(Level_,iNode_B(iBlock)),&
-               Flux_VFD(1,1,1,1,1)*DtLocal, Flux_VFD(1,nI+1,1,1,1)*DtLocal
-
           if(IsCartesian) InvVolume = 1.0/CellVolume_B(iBlock)
           do iDim = 1, nDim
              Di = i_DD(1,iDim); Dj = i_DD(2,iDim); Dk = i_DD(3,iDim)
@@ -696,25 +692,20 @@ contains
              end do; end do; end do
           end do
 
-          !write(*,*)'!!! iBlock, Time_B -> Time_B=', &
-          !     iBlock, Time_B(iBlock), Time_B(iBlock) + Dt_B(iBlock)
-
           TimeOld_B(iBlock) = Time_B(iBlock)
           Time_B(iBlock)    = Time_B(iBlock) + Dt_B(iBlock)/2
           iStage_B(iBlock) = 3 - iStageBlock
 
        end do
 
-!!!       if(modulo(iStage,4) == 0) call apply_flux_correction(nVar, State_VGB, &
-!!!            Flux_VXB, Flux_VYB, Flux_VZB, iStageIn = iStage)
+       ! Apply flux correction at the end of full steps at level n-1 or below
+       if(modulo(iStage,4) == 0) call apply_flux_correction(nVar, State_VGB, &
+            Flux_VXB, Flux_VYB, Flux_VZB, iStageIn = iStage/2)
 
        TimeStage = TimeStage + DtMin/2
 
        call timing_stop('update')
     end do
-
-    call apply_flux_correction(nVar, State_VGB, &
-         Flux_VXB, Flux_VYB, Flux_VZB) !!!
 
     if( maxval(Time_B, MASK=.not.Unused_B) > &
          minval(Time_B, MASK=.not.Unused_B) + 1e-10)then
