@@ -155,8 +155,6 @@ contains
                 end if
                 call do_restrict
              elseif(DiLevel == -1)then
-                if(present(MinLevelSendIn)) write(*,*)'!!! block to receive iBlock, iSide, level:', &
-                     iBlockSend, iDimSide, iTree_IA(Level_,iNodeSend)
                 call do_prolong
              endif
           end do ! iDimSide
@@ -178,9 +176,6 @@ contains
        if(iBufferR_P(iProcSend) == 0) CYCLE
        iRequestR = iRequestR + 1
 
-       !write(*,*)'!!! MPI_irecv:iProcRecv,iProcSend,iBufferR=',&
-       !     iProc,iProcSend,iBufferR_P(iProcSend)
-
        call MPI_irecv(BufferR_IP(1,iProcSend), iBufferR_P(iProcSend), &
             MPI_REAL, iProcSend, 1, iComm, iRequestR_I(iRequestR), &
             iError)
@@ -191,9 +186,6 @@ contains
     do iProcRecv = 0, nProc-1
        if(iBufferS_P(iProcRecv) == 0) CYCLE
        iRequestS = iRequestS + 1
-
-       !write(*,*)'!!! MPI_isend:iProcRecv,iProcSend,iBufferS=',&
-       !     iProcRecv,iProc,iBufferS_P(iProcRecv)
 
        call MPI_isend(BufferS_IP(1,iProcRecv), iBufferS_P(iProcRecv), &
             MPI_REAL, iProcRecv, 1, iComm, iRequestS_I(iRequestS), &
@@ -599,9 +591,6 @@ contains
        MinLevelSend = nLevel + 1
        iStage = iStageIn
        do
-          write(*,*)'!!! iStageIn, iStage, nLevel, MinLevelSend=', &
-               iStageIn, iStage, nLevel, MinLevelSend
-
           if(modulo(iStage,2) == 1)EXIT
           iStage = iStage/2
           MinLevelSend = MinLevelSend - 1
@@ -667,8 +656,6 @@ contains
           State_VGB(:,1,j,k,iBlock) = State_VGB(:,1,j,k,iBlock) &
                - InvVolume*Flux_VXB(:,j,k,1,iBlock)
        end do; end do
-       write(*,*)'!!! corrected iBlock,level,dflux:',&
-            iBlock,iTree_IA(Level_,iNode_B(iBlock)),Flux_VXB(1,1,1,1,iBlock)
        Flux_VXB(:,:,:,1,iBlock) = 0.0
     end if
 
@@ -678,8 +665,6 @@ contains
           State_VGB(:,nI,j,k,iBlock) = State_VGB(:,nI,j,k,iBlock) &
                + InvVolume*Flux_VXB(:,j,k,2,iBlock)
        end do; end do
-       write(*,*)'!!! corrected iBlock,level,dflux:',&
-            iBlock,iTree_IA(Level_,iNode_B(iBlock)),Flux_VXB(1,1,1,2,iBlock)
        Flux_VXB(:,:,:,2,iBlock) = 0.0
     end if
 
