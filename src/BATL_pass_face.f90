@@ -542,7 +542,7 @@ contains
        DiLevel = DiLevelNei_IIIB(0,+1,0,iBlock)
        if(.not. DoResChangeOnly .or. DiLevel == 1 &
             .or. DiLevel == -1 .and. DoStoreCoarseFlux) &
-            Flux_VYB(:,1:nI,1:nK,2,iBlock) = Flux_VYB(:,1:nI,1:nK,1,iBlock) &
+            Flux_VYB(:,1:nI,1:nK,2,iBlock) = Flux_VYB(:,1:nI,1:nK,2,iBlock) &
             + Dt*Flux_VFD(:,1:nI,nJ+1,1:nK,min(2,nDim))
     end if
 
