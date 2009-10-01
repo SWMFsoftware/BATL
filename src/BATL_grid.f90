@@ -2,7 +2,7 @@ module BATL_grid
 
   use BATL_size
   use BATL_tree
-  use BATL_geometry, ONLY: IsCartesian
+  use BATL_geometry, ONLY: IsCartesian, TypeGeometry
 
   implicit none
 
@@ -102,20 +102,38 @@ contains
     CellSize_DB(:,iBlock) = (CoordMax_DB(:,iBlock) - CoordMin_DB(:,iBlock)) &
          / nIJK_D
 
-    if(IsCartesian)then
+    if(IsCartesian .or. TypeGeometry == 'rz')then
+       ! For RZ geometry this is true in generalized coordinate sense only
        CellVolume_B(iBlock) = product(CellSize_DB(:,iBlock))
-
-       if(allocated(CellVolume_GB)) &
-            CellVolume_GB(:,:,:,iBlock) = CellVolume_B(iBlock)
-
        CellFace_DB(:,iBlock) = CellVolume_B(iBlock) / CellSize_DB(:,iBlock)
 
        do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
           Xyz_DGB(:,i,j,k,iBlock) = CoordMin_DB(:,iBlock) + &
                ( (/i, j, k/) - 0.5 ) * CellSize_DB(:,iBlock)
        end do; end do; end do
+
+       if(TypeGeometry == 'rz')then
+          do j = MinJ, MaxJ
+             CellVolume_GB(:,j,:,iBlock) = &
+                  CellVolume_B(iBlock)*abs(Xyz_DGB(2,1,j,1,iBlock))
+          end do
+          do j = 1, nJ
+             CellFace_DFB(1,:,j,1:nK,iBlock) = &
+                  CellFace_DB(1,iBlock)*abs(Xyz_DGB(2,1,j,1,iBlock))
+          end do
+          do j = 1, nJ+1
+             ! Could use node coordinate here !!!
+             CellFace_DFB(2,1:nI,j,1:nK,iBlock) = CellFace_DB(2,iBlock) &
+                  *0.5*sum(abs(Xyz_DGB(2,1,j-1:j,1,iBlock)))
+          end do
+       else
+          ! In case full array is allocated. To be implemented !!! 
+          if(allocated(CellVolume_GB)) &
+               CellVolume_GB(:,:,:,iBlock) = CellVolume_B(iBlock)
+       end if
     else
-       call CON_stop(NameSub//' non-Cartesian is not yet implemented')
+       call CON_stop(NameSub//': '//TypeGeometry// &
+            ' geometry is not yet implemented')
     end if
 
   end subroutine create_grid_block
@@ -151,8 +169,13 @@ contains
     write(*,*)'CoordMin  =', CoordMin_DB(:,iBlock)
     write(*,*)'CoordMax  =', CoordMax_DB(:,iBlock)
     write(*,*)'CellSize  =', CellSize_DB(:,iBlock)
-    write(*,*)'CellFace  =', CellFace_DB(:,iBlock)
-    write(*,*)'CellVolume=', CellVolume_B(iBlock)
+    if(IsCartesian)then
+       write(*,*)'CellFace  =', CellFace_DB(:,iBlock)
+       write(*,*)'CellVolume=', CellVolume_B(iBlock)
+    else
+       write(*,*)'CellFace(1, 1, 1)  =', CellFace_DFB(1:nDim,1,1,1,iBlock)
+       write(*,*)'CellVolume(1, 1, 1)=', CellVolume_GB(1,1,1,iBlock)
+    end if
     write(*,*)'Xyz( 1, 1, 1)=', Xyz_DGB(:, 1, 1, 1,iBlock)
     write(*,*)'Xyz(nI, 1, 1)=', Xyz_DGB(:,nI, 1, 1,iBlock)
     write(*,*)'Xyz( 1,nJ, 1)=', Xyz_DGB(:, 1,nJ, 1,iBlock)
@@ -192,6 +215,7 @@ contains
 
     use BATL_mpi, ONLY: iProc
     use BATL_geometry, ONLY: init_geometry
+    use ModNumConst, ONLY: i_DD
 
     integer :: iBlock, nBlockAll, Int_D(MaxDim)
 
@@ -201,6 +225,13 @@ contains
     real:: DomainMin_D(MaxDim) = (/ 3.0, 2.0, 1.0 /)
     real:: DomainMax_D(MaxDim) = (/ 9.0, 6.0, 4.0 /)
 
+    real, parameter:: Tolerance = 1e-6
+
+    integer:: i, j, k, Di, Dj, iDim
+    real:: Radius
+    real, allocatable:: CellVolumeCart_B(:), CellFaceCart_DB(:,:)
+
+
     logical:: DoTestMe
     character(len=*), parameter :: NameSub = 'test_grid'
     !-----------------------------------------------------------------------
@@ -208,9 +239,11 @@ contains
 
     if(DoTestMe) write(*,*)'Testing init_grid'
     if(DoTestMe) write(*,*)'nDimAmr, nIJK_D=', nDimAmr, nIJK_D
+
+    ! Set Cartesian grid geometry before initializing tree and grid
+    call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
     call init_tree(MaxBlockTest)
     call init_grid( DomainMin_D(1:nDim), DomainMax_D(1:nDim) )
-    call init_geometry( IsPeriodicIn_D = IsPeriodicTest_D(1:nDim) )
     call set_tree_root( nRootTest_D(1:nDim))
 
     call refine_tree_node(3)
@@ -221,6 +254,52 @@ contains
     call create_grid
 
     call show_grid
+
+    if(nDim == 2)then
+       if(DoTestMe) write(*,*)'Testing create_grid in RZ geometry'
+
+       ! Store Cartesian values for checking
+       allocate(CellVolumeCart_B(MaxBlock), CellFaceCart_DB(MaxDim,MaxBlock))
+       CellFaceCart_DB = CellFace_DB
+       CellVolumeCart_B= CellVolume_B
+
+       ! Clean Cartesian grid
+       call clean_grid
+
+       ! Initialize RZ grid
+       call init_geometry(TypeGeometryIn = 'rz')
+       call init_grid( DomainMin_D(1:nDim), DomainMax_D(1:nDim) )
+       call create_grid
+       call show_grid
+
+       ! Check relative to Cartesian
+       do iBlock = 1, nBlock
+          do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
+             if(abs( CellVolume_GB(i,j,k,iBlock) &
+                  - abs(Xyz_DGB(2,i,j,k,iBlock))*CellVolumeCart_B(iBlock)) &
+                  < Tolerance) CYCLE
+             write(*,*)NameSub,' ERROR: incorrect cell volume=', &
+                  CellVolume_GB(i,j,k,iBlock),' should be', &
+                  abs(Xyz_DGB(2,i,j,k,iBlock))*CellVolumeCart_B(iBlock), &
+                  ' at i,j,k,iBlock,iProc=', i, j, k, iBlock, iProc
+          end do; end do; end do
+          do iDim = 1, nDim
+             Di = i_DD(1,iDim); Dj = i_DD(2,iDim)
+             do k = 1, nK; do j = 1, nJ+Dj; do i = 1, nI+Di
+                Radius = 0.5*sum(abs(Xyz_DGB(2,i-Di:i,j-Dj:j,k,iBlock)))
+                if(abs(CellFace_DFB(iDim,i,j,k,iBlock) - &
+                     Radius*CellFaceCart_DB(iDim,iBlock)) &
+                      < Tolerance) CYCLE
+                write(*,*)NameSub,' ERROR: incorrect face area=', &
+                     CellFace_DFB(iDim,i,j,k,iBlock),' should be', &
+                     Radius*CellFaceCart_DB(iDim,iBlock), &
+                     ' at iDim,i,j,k,iBlock,iProc=', &
+                     iDim, i, j, k, iBlock, iProc
+
+             end do; end do; end do
+          end do
+       end do
+    end if
 
     if(DoTestMe) write(*,*)'Testing clean_grid'
     call clean_grid
