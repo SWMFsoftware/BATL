@@ -10,6 +10,7 @@ bin:
 run:
 	mkdir -p run/plots
 	cd run; \
+		cp ../input/PARAM.in.cart PARAM.in; \
 		ln -s ${BINDIR}/ADVECT.exe .; \
 		ln -s ${BINDIR}/BATL.exe .; \
 		ln -s ${BINDIR}/PostIDL.exe .; \
@@ -38,7 +39,7 @@ test11:
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test11.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -b \
-		run/test11.ref src/test11.ref > test11.diff)
+		run/test11.ref output/test11.ref > test11.diff)
 	ls -l test11.diff
 
 test21:
@@ -46,7 +47,7 @@ test21:
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test21.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -b \
-		run/test21.ref src/test21.ref > test21.diff)
+		run/test21.ref output/test21.ref > test21.diff)
 	ls -l test21.diff
 
 test22:
@@ -54,7 +55,7 @@ test22:
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test22.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -b \
-		run/test22.ref src/test22.ref > test22.diff)
+		run/test22.ref output/test22.ref > test22.diff)
 	ls -l test22.diff
 
 test31:
@@ -62,7 +63,7 @@ test31:
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test31.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -b \
-		run/test31.ref src/test31.ref > test31.diff)
+		run/test31.ref output/test31.ref > test31.diff)
 	ls -l test31.diff
 
 test32:
@@ -70,7 +71,7 @@ test32:
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test32.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -b \
-		run/test32.ref src/test32.ref > test32.diff)
+		run/test32.ref output/test32.ref > test32.diff)
 	ls -l test32.diff
 
 test33:
@@ -78,7 +79,7 @@ test33:
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test33.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -b \
-		run/test33.ref src/test33.ref > test33.diff)
+		run/test33.ref output/test33.ref > test33.diff)
 	ls -l test33.diff
 
 test_advect11: 
@@ -125,32 +126,32 @@ test_advect33:
 
 test_advect11_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect11.log src/advect11.log > advect11.diff)
+		run/advect11.log output/advect11.log > advect11.diff)
 	ls -l advect11.diff
 
 test_advect21_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect21.log src/advect21.log > advect21.diff)
+		run/advect21.log output/advect21.log > advect21.diff)
 	ls -l advect21.diff
 
 test_advect22_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect22.log src/advect22.log > advect22.diff)
+		run/advect22.log output/advect22.log > advect22.diff)
 	ls -l advect22.diff
 
 test_advect31_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect31.log src/advect31.log > advect31.diff)
+		run/advect31.log output/advect31.log > advect31.diff)
 	ls -l advect31.diff
 
 test_advect32_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect32.log src/advect32.log > advect32.diff)
+		run/advect32.log output/advect32.log > advect32.diff)
 	ls -l advect32.diff
 
 test_advect33_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
-		run/advect33.log src/advect33.log > advect33.diff)
+		run/advect33.log output/advect33.log > advect33.diff)
 	ls -l advect33.diff
 
 clean:
