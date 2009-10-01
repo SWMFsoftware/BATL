@@ -5,6 +5,9 @@ program advect
 
   implicit none
 
+  ! Geometry
+  character(len=20):: TypeGeometry = 'cartesian'
+
   ! Square of the radius of the sphere
   real, parameter :: Radius2 = 25.0
 
@@ -177,18 +180,42 @@ contains
   subroutine initialize
 
     use BATL_lib, ONLY: init_mpi, init_batl, init_grid_batl, &
-         iProc, MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
+         iProc, iComm, MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
          iTree_IA, iStatusNew_A, MaxLevel_, Refine_
 
-    integer :: i, j, k, iBlock, iLevel, iError
+    use ModReadParam, ONLY: read_file, read_init, &
+         read_line, read_command, read_var
+
+    character(len=100):: StringLine, NameCommand
+
+    integer :: iDim, i, j, k, iBlock, iLevel, iError
     !------------------------------------------------------------------------
 
     call init_mpi
+
+    call read_file('PARAM.in', iComm)
+    call read_init('  ', iSessionIn=1)
+    READPARAM: do
+       if(.not.read_line(StringLine) ) EXIT READPARAM
+       if(.not.read_command(NameCommand)) CYCLE READPARAM
+       select case(NameCommand)
+       case("#GRIDGEOMETRY")
+          call read_var('TypeGeometry', TypeGeometry)
+       case("#VELOCITY")
+          do iDim = 1, nDim
+             call read_var('Velocity_D', Velocity_D(iDim))
+          end do
+       case default
+          call CON_stop(NameSub//' unknown command='//trim(NameCommand))
+       end select
+    end do READPARAM
+
     call init_batl( &
          MaxBlockIn     = 8000, &          
-         CoordMinIn_D   = DomainMin_D, &
-         CoordMaxIn_D   = DomainMax_D, &
-         nRootIn_D      = (/4,4,2/),   & 
+         CoordMinIn_D   = DomainMin_D,  &
+         CoordMaxIn_D   = DomainMax_D,  &
+         nRootIn_D      = (/4,4,2/),    & 
+         TypeGeometryIn = TypeGeometry, &
          IsPeriodicIn_D = (/.true.,.true.,.true./) )
 
     ! Allow only one level of refinement
