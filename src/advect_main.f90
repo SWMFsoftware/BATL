@@ -9,7 +9,8 @@ program advect
   character(len=20):: TypeGeometry = 'cartesian'
 
   ! Square of the radius of the sphere
-  real, parameter :: Radius2 = 25.0
+  real :: BlobRadius2 = 25.0
+  real :: BlobCenter_D(nDim) = 0.0
 
   ! Maximum refinement level
   integer, parameter :: MaxLevel = 3
@@ -31,9 +32,9 @@ program advect
   real, parameter :: Cfl = 0.8
 
   ! Size of the computational domain
-  real, parameter :: &
-       DomainMax_D(3) = (/ 10.0, 5.0, 5.0 /), &
-       DomainMin_D(3) = -DomainMax_D
+  real :: &
+       DomainMax_D(3) = (/ +10.0, +5.0, +5.0 /), &
+       DomainMin_D(3) = (/ -10.0, -5.0, -5.0 /)
 
   ! Time step counter and simulation time
   integer :: iStep
@@ -129,18 +130,26 @@ contains
   subroutine adapt_grid
 
     use BATL_lib, ONLY: regrid_batl, nBlock, Unused_B, iNode_B, &
-         iStatusNew_A, Refine_, Coarsen_
+         iStatusNew_A, Refine_, Coarsen_, IsRzGeometry, Xyz_DGB
 
-    integer:: iBlock
+    real :: Factor
+    integer:: iBlock, i, j, k
     !------------------------------------------------------------------------
-    do iBlock = 1, nBlock
+    Factor = 1.0
+    BLOCK: do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
-       if(maxval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))>1.5)then !!! 1.1
-          iStatusNew_A(iNode_B(iBlock)) = Refine_
-       elseif(minval(State_VGB(Rho_,1:nI,1:nJ,1:nK,iBlock))<1.4)then !!! 1.05
-          iStatusNew_A(iNode_B(iBlock)) = Coarsen_
-       end if
-    end do
+       do k = 1, nK; do j = 1, nJ; do i = 1, nI
+          if(IsRzGeometry) Factor = 1./Xyz_DGB(2,i,j,k,iBlock)
+          if(State_VGB(Rho_,i,j,k,iBlock) > Factor*1.5) then
+             iStatusNew_A(iNode_B(iBlock)) = Refine_
+             CYCLE BLOCK
+          end if
+          if(State_VGB(Rho_,i,j,k,iBlock) < Factor*1.4)then 
+             iStatusNew_A(iNode_B(iBlock)) = Coarsen_
+             CYCLE BLOCK
+          end if
+       end do; end do; end do
+    end do BLOCK
 
     call regrid_batl(nVar,State_VGB,DoBalanceEachLevelIn=UseLocalStep)
 
@@ -148,6 +157,7 @@ contains
   !===========================================================================
   real function exact_density(Xyz_D)
 
+    use BATL_lib,    ONLY: IsRzGeometry
     use ModNumConst, ONLY: cHalfPi
 
     real, intent(in):: Xyz_D(nDim)
@@ -155,24 +165,27 @@ contains
     ! Square of the radius of the circle/sphere
     real:: XyzShift_D(nDim)
 
-    real :: r2
+    real :: r2, Rho
 
-    real, parameter:: DomainSize_D(nDim) = &
-         DomainMax_D(1:nDim)-DomainMin_D(1:nDim)
+    real:: DomainSize_D(nDim)
     !-------------------------------------------------------------------------
     ! Move position back to initial point
     XyzShift_D = Xyz_D - Time*Velocity_D
+
+    DomainSize_D = DomainMax_D(1:nDim)-DomainMin_D(1:nDim)
 
     ! Take periodicity into account
     XyzShift_D = modulo(XyzShift_D - DomainMin_D(1:nDim), DomainSize_D) &
          + DomainMin_D(1:nDim)
 
-    r2 = sum(XyzShift_D**2)
-    if(r2 < Radius2)then
-       exact_density = 1 + cos(cHalfPi*sqrt(r2/Radius2))**2
-    else
-       exact_density = 1
-    end if
+    r2 = sum((XyzShift_D - BlobCenter_D)**2)
+
+    Rho = 1.0
+    if(r2 < BlobRadius2) Rho = Rho + cos(cHalfPi*sqrt(r2/BlobRadius2))**2
+
+    exact_density = Rho
+    ! Scale by 1/r so radial flow has no effect in RZ geometry
+    if(IsRzGeometry) exact_density = Rho/Xyz_D(2)
 
   end function exact_density
 
@@ -180,7 +193,7 @@ contains
   subroutine initialize
 
     use BATL_lib, ONLY: init_mpi, init_batl, init_grid_batl, &
-         iProc, iComm, MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
+         iProc, iComm, MaxDim, MaxBlock, nBlock, Unused_B, Xyz_DGB, iNode_B, &
          iTree_IA, iStatusNew_A, MaxLevel_, Refine_
 
     use ModReadParam, ONLY: read_file, read_init, &
@@ -188,6 +201,8 @@ contains
 
     character(len=100):: StringLine, NameCommand
 
+    integer:: nRoot_D(MaxDim) = (/4,4,2/)
+    real :: BlobRadius
     integer :: iDim, i, j, k, iBlock, iLevel, iError
     !------------------------------------------------------------------------
 
@@ -199,8 +214,22 @@ contains
        if(.not.read_line(StringLine) ) EXIT READPARAM
        if(.not.read_command(NameCommand)) CYCLE READPARAM
        select case(NameCommand)
+       case("#GRID")
+          do iDim = 1, nDim
+             call read_var('nRoot_D', nRoot_D(iDim))
+          end do
+          do iDim = 1, nDim
+             call read_var('DomainMin_D', DomainMin_D(iDim))
+             call read_var('DomainMax_D', DomainMax_D(iDim))
+          end do
        case("#GRIDGEOMETRY")
           call read_var('TypeGeometry', TypeGeometry)
+       case("#BLOB")
+          call read_var('BlobRadius', BlobRadius)
+          BlobRadius2 = BlobRadius**2
+          do iDim = 1, nDim
+             call read_var('BlobCenter_D', BlobCenter_D(iDim))
+          end do
        case("#VELOCITY")
           do iDim = 1, nDim
              call read_var('Velocity_D', Velocity_D(iDim))
@@ -214,9 +243,9 @@ contains
          MaxBlockIn     = 8000, &          
          CoordMinIn_D   = DomainMin_D,  &
          CoordMaxIn_D   = DomainMax_D,  &
-         nRootIn_D      = (/4,4,2/),    & 
+         nRootIn_D      = nRoot_D,      & 
          TypeGeometryIn = TypeGeometry, &
-         IsPeriodicIn_D = (/.true.,.true.,.true./) )
+         IsPeriodicIn_D = (/.true.,TypeGeometry /= 'rz',.true./) )
 
     ! Allow only one level of refinement
     iTree_IA(MaxLevel_,:) = MaxLevel
@@ -225,7 +254,8 @@ contains
        LOOPBLOCK: do iBlock = 1, nBlock
           if(Unused_B(iBlock)) CYCLE
           do k = 1, nK; do j = 1, nJ; do i = 1, nI
-             if(sum(Xyz_DGB(:,i,j,k,iBlock)**2) < Radius2)then
+             if(sum((Xyz_DGB(1:nDim,i,j,k,iBlock) - BlobCenter_D)**2) &
+                  < BlobRadius2)then
                 iStatusNew_A(iNode_B(iBlock)) = Refine_
                 CYCLE LOOPBLOCK
              end if
@@ -276,7 +306,7 @@ contains
   subroutine save_log
 
     ! Calculate the totals on processor 0
-    use BATL_lib, ONLY: nDimAmr, nBlock, Unused_B, CellVolume_B, Xyz_DGB, &
+    use BATL_lib, ONLY: nDimAmr, nBlock, Unused_B, CellVolume_GB, Xyz_DGB, &
          iComm, iProc, nProc
     use ModMpi,    ONLY: MPI_reduce, MPI_REAL, MPI_SUM
     use ModIoUnit, ONLY: UnitTmp_
@@ -285,22 +315,20 @@ contains
     integer, parameter:: Volume_=nVar+1, Error_=nVar+2
     real:: TotalPe_I(Error_), Total_I(Error_), Error
 
-    character(len=100):: NameFile = '???'
+    character(len=100):: NameFile = 'advect.log'
     logical :: DoInitialize = .true.
     !------------------------------------------------------------------------
     Total_I = 0.0
     do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
-       do iVar = 1, nVar
-          Total_I(iVar) = Total_I(iVar) + CellVolume_B(iBlock) &
-               *sum(State_VGB(iVar,1:nI,1:nJ,1:nK,iBlock))
-       end do
-       Total_I(Volume_) = Total_I(Volume_) &
-            + CellVolume_B(iBlock)*nI*nJ*nK
+       do k = 1, nK; do j = 1, nJ; do i = 1, nI
+          Total_I(1:nVar) = Total_I(1:nVar) + &
+               CellVolume_GB(i,j,k,iBlock)*State_VGB(1:nVar,i,j,k,iBlock)
 
-       do k=1,nK; do j=1,nJ; do i=1,nI
+          Total_I(Volume_) = Total_I(Volume_) + CellVolume_GB(i,j,k,iBlock)
+
           Total_I(Error_) = Total_I(Error_) &
-               + CellVolume_B(iBlock) &
+               + CellVolume_GB(i,j,k,iBlock) &
                *abs(State_VGB(Rho_,i,j,k,iBlock)  &
                -    exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock)))
        end do; end do; end do
@@ -318,8 +346,7 @@ contains
     Total_I(Error_) = Total_I(Error_) / Total_I(1)
 
     if(DoInitialize)then
-       write(NameFile,'(a,i1,i1,a)') 'advect',nDim,nDimAmr,'.log'
-       open(UnitTmp_,file=NameFile,status='replace')
+       open(UnitTmp_,file=NameFile, status='replace')
        write(UnitTmp_,'(a)')'Advection test for BATL'
        write(UnitTmp_,'(a)')'step time mass volume error'
 
@@ -331,7 +358,6 @@ contains
     close(UnitTmp_)
 
   end subroutine save_log
-
 
   !===========================================================================
 
