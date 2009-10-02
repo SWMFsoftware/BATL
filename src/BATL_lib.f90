@@ -40,7 +40,7 @@ module BATL_lib
 
   ! Inherited from BATL_geometry
   public:: TypeGeometry, IsCartesian, IsRzGeometry, IsSpherical, &
-       IsCylindrical, IsPeriodic_D
+       IsCylindrical, IsPeriodic_D, x_, y_, z_, r_
 
   ! Inherited from BATL_grid
   public:: CoordMin_D, CoordMax_D, CoordMin_DB, CoordMax_DB, CellSize_DB
@@ -117,15 +117,19 @@ contains
     DoBalanceEachLevel = .false.
     if(present(DoBalanceEachLevelIn)) DoBalanceEachLevel = DoBalanceEachLevelIn
 
+    ! Coarsen and refine the tree nodes
     call adapt_tree
+    ! Load balance the tree
     if(DoBalanceEachLevel)then
        call distribute_tree(DoMove=.false.,iTypeNode_A=iTree_IA(Level_,:)+1)
     else
        call distribute_tree(DoMove=.false.)
     end if
+    ! Coarsen, refine and load balance the flow variables
     call do_amr(nVar,State_VGB)
+
+    ! Finalize the tree information
     call move_tree
-    call create_grid
 
   end subroutine regrid_batl
 
