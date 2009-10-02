@@ -21,6 +21,9 @@ module BATL_geometry
   ! Periodicity of the domain per dimension
   logical, public:: IsPeriodic_D(MaxDim) = .false.
 
+  ! Index names for coordinates
+  integer, parameter, public:: x_=1, y_=min(nDim,2), z_=min(nDim,3), r_=y_ 
+
 contains
 
   subroutine init_geometry(TypeGeometryIn, IsPeriodicIn_D)
