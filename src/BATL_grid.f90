@@ -58,8 +58,7 @@ contains
          allocate(CellFace_DFB(MaxDim,1:nI+1,1:nJ+1,1:nK+1,MaxBlock))
 
     allocate(CellVolume_B(MaxBlock))
-    if(.not.IsCartesian) &
-         allocate(CellVolume_GB(MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
+    allocate(CellVolume_GB(MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
     allocate(Xyz_DGB(MaxDim,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
 
   end subroutine init_grid
@@ -127,9 +126,8 @@ contains
                   *0.5*sum(abs(Xyz_DGB(2,1,j-1:j,1,iBlock)))
           end do
        else
-          ! In case full array is allocated. To be implemented !!! 
-          if(allocated(CellVolume_GB)) &
-               CellVolume_GB(:,:,:,iBlock) = CellVolume_B(iBlock)
+          ! Also useful for Cartesian to keep code simple
+          CellVolume_GB(:,:,:,iBlock) = CellVolume_B(iBlock)
        end if
     else
        call CON_stop(NameSub//': '//TypeGeometry// &
