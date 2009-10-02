@@ -459,8 +459,12 @@ contains
                    ! Don't check the node itself
                    if(iNode == jNode) CYCLE
 
+                   ! Don't check if neighbor is outside the domain
+                   if(jNode == Unset_) CYCLE
+
                    ! Get the current and requested level for the neighbor node
                    jLevel = iTree_IA(Level_,jNode)
+
                    jLevelNew = jLevel
                    if(iStatusNew_A(jNode) == Refine_)  jLevelNew = jLevel + 1
                    if(iStatusNew_A(jNode) == Coarsen_) jLevelNew = jLevel - 1
