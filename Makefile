@@ -86,42 +86,56 @@ test_advect11:
 	Config.pl -g=1,1,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect11.log
-	cd run; ${MPIRUN} ADVECT.exe > runlog
+	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect11.log
 	make test_advect11_check
 
 test_advect21:
 	Config.pl -g=2,1,4,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect21.log
-	cd run; ${MPIRUN} ADVECT.exe > runlog
+	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect21.log
 	make test_advect21_check
 
 test_advect22: 
 	Config.pl -g=2,2,4,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect22.log
-	cd run; ${MPIRUN} ADVECT.exe > runlog
+	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect22.log
 	make test_advect22_check
+
+test_advect22_rz: 
+	Config.pl -g=2,2,4,4
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect22_rz.log
+	rm -f input/PARAM.in; cp input/PARAM.in.rz run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect22_rz.log
+	make test_advect22_rz_check
 
 test_advect31: 
 	Config.pl -g=3,1,4,4,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect31.log
-	cd run; ${MPIRUN} ADVECT.exe > runlog
+	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect31.log
 	make test_advect31_check
 
 test_advect32:
 	Config.pl -g=3,2,4,4,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect32.log
-	cd run; ${MPIRUN} ADVECT.exe > runlog
+	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect32.log
 	make test_advect32_check
 
 test_advect33: 
 	Config.pl -g=3,3,4,4,4
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect33.log
-	cd run; ${MPIRUN} ADVECT.exe > runlog
+	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect33.log
 	make test_advect33_check
 
 test_advect11_check:
@@ -138,6 +152,11 @@ test_advect22_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
 		run/advect22.log output/advect22.log > advect22.diff)
 	ls -l advect22.diff
+
+test_advect22_rz_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect22_rz.log output/advect22_rz.log > advect22_rz.diff)
+	ls -l advect22_rz.diff
 
 test_advect31_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
