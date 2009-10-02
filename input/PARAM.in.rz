@@ -3,4 +3,17 @@ rz
 
 #VELOCITY
 2.0		Ux
-0.01		Uy = Ur
+0.1		Uy = Ur
+
+#GRID
+40		nRootX
+40		nRootY
+-10.0		xMin
++10.0		xMax
+1.0		yMin = rMin
+5.0		yMax = rMax
+
+#BLOB
+1.0		radius
+0.0		xCenter
+2.0		yCenter
