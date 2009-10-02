@@ -26,6 +26,9 @@ contains
          iTree_IA, iProcNew_A, Proc_, Block_, Coord1_, Coord2_, Coord3_, &
          Status_, Child1_, ChildLast_, Used_, Refine_, CoarsenNew_
 
+    use BATL_geometry, ONLY: IsCartesian
+    use BATL_grid, ONLY: create_grid_block, CellVolume_GB
+
     use ModMpi
 
     ! Arguments
@@ -176,6 +179,9 @@ contains
       ! Make the new block used
       Unused_BP(iBlock,iProcRecv) = .false.
 
+      ! Create the grid info (x,y,z,volume,faces)
+      if(iProc == iProcRecv) call create_grid_block(iBlock, iNodeRecv)
+
       ! Find next available block
       do
          iBlock = iBlock + 1
@@ -239,20 +245,34 @@ contains
 
       use BATL_size, ONLY: InvIjkRatio
 
-      integer :: i, j, k, iVar, iBuffer
+      integer :: i, j, k, i2, j2, k2, iVar, iBuffer
+      real:: InvVolume
       !-----------------------------------------------------------------------
       iBuffer = 0
-      do k = 1, nK, kRatio; do j = 1, nJ, jRatio; do i=1, nI, iRatio
-         do iVar = 1, nVar
-            Buffer_I(iBuffer+iVar) = InvIjkRatio * &
-                 sum(State_VGB(iVar,i:i+iRatio-1,j:j+jRatio-1,k:k+kRatio-1,&
-                 iBlockSend))
-         end do
-         iBuffer = iBuffer + nVar
-      end do; end do; end do
+      if(IsCartesian)then !!!
+         do k = 1, nK, kRatio; do j = 1, nJ, jRatio; do i=1, nI, iRatio
+            do iVar = 1, nVar
+               Buffer_I(iBuffer+iVar) = InvIjkRatio * &
+                    sum(State_VGB(iVar,i:i+iRatio-1,j:j+jRatio-1,k:k+kRatio-1,&
+                    iBlockSend))
+            end do
+            iBuffer = iBuffer + nVar
+         end do; end do; end do
+      else
+         do k = 1, nK, kRatio; do j = 1, nJ, jRatio; do i=1, nI, iRatio
+            i2 = i+iRatio-1; j2 = j+jRatio-1; k2 = k+kRatio-1
+            InvVolume = 1.0/sum(CellVolume_GB(i:i2,j:j2,k:k2,iBlockSend))
+            do iVar = 1, nVar
+               Buffer_I(iBuffer+iVar) = InvVolume * sum( &
+                    CellVolume_GB(i:i2,j:j2,k:k2,iBlockSend)* &
+                    State_VGB(iVar,i:i2,j:j2,k:k2,iBlockSend))
+            end do
+            iBuffer = iBuffer + nVar
+         end do; end do; end do
+      end if
 
-      if(iProcRecv /= iProcSend) &
-           call MPI_send(Buffer_I, iBuffer, MPI_REAL, iProcRecv, 1, iComm, iError)
+      if(iProcRecv /= iProcSend) call MPI_send(Buffer_I, iBuffer, &
+           MPI_REAL, iProcRecv, 1, iComm, iError)
 
     end subroutine send_coarsened_block
     !==========================================================================
@@ -318,10 +338,18 @@ contains
       end if
 
       iBuffer = 0
-      do k = kMin, kMax; do j = jMin, jMax; do i = iMin, iMax
-         Buffer_I(iBuffer+1:iBuffer+nVar) = State_VGB(:,i,j,k,iBlockSend)
-         iBuffer = iBuffer + nVar
-      enddo; end do; end do
+      if(IsCartesian)then
+         do k = kMin, kMax; do j = jMin, jMax; do i = iMin, iMax
+            Buffer_I(iBuffer+1:iBuffer+nVar) = State_VGB(:,i,j,k,iBlockSend)
+            iBuffer = iBuffer + nVar
+         enddo; end do; end do
+      else
+         do k = kMin, kMax; do j = jMin, jMax; do i = iMin, iMax
+            Buffer_I(iBuffer+1:iBuffer+nVar) = State_VGB(:,i,j,k,iBlockSend) &
+                 *CellVolume_GB(i,j,k,iBlockSend)
+            iBuffer = iBuffer + nVar
+         enddo; end do; end do
+      end if
 
       if(iProcRecv /= iProcSend) &
            call MPI_send(Buffer_I, iBuffer, MPI_REAL, iProcRecv, 1, &
@@ -333,12 +361,15 @@ contains
 
       ! Copy buffer into recv block of State_VGB
 
+      use BATL_size, ONLY: InvIjkRatio
+
       integer:: iSize = 1, jSize = 1, kSize = 1
       integer:: iBuffer, i, j, k
 
       integer:: iP, jP, kP, iR, jR, kR
       integer, parameter:: Di=iRatio-1, Dj=jRatio-1, Dk=kRatio-1
       !------------------------------------------------------------------------
+
       if(iProcRecv /= iProcSend)then
          call MPI_recv(Buffer_I, nSizeP, MPI_REAL, iProcSend, 1, iComm, &
               Status_I, iError)
@@ -425,6 +456,15 @@ contains
             end do
          end do
       end do
+
+      if(IsCartesian) RETURN
+
+      ! Divide back by volume and IjkRatio
+      do kR = 1, nK; do jR = 1, nJ; do iR = 1, nI
+         State_VGB(:,iR,jR,kR,iBlockRecv) = State_VGB(:,iR,jR,kR,iBlockRecv) &
+              * InvIjkRatio / CellVolume_GB(iR,jR,kR,iBlockRecv)
+      end do; end do; end do
+
     end subroutine recv_refined_block
 
   end subroutine do_amr
