@@ -1,7 +1,7 @@
 program advect
 
-  use BATL_lib, ONLY: nDim, nI, nJ, nK, &
-       MinI, MaxI, MinJ, MaxJ, MinK, MaxK, iProc, barrier_mpi
+  use BATL_lib, ONLY: nDim, nDimAmr, nI, nJ, nK, &
+       MinI, MaxI, MinJ, MaxJ, MinK, MaxK, iProc, barrier_mpi, r_
 
   implicit none
 
@@ -90,7 +90,7 @@ program advect
      if(DoTest)call barrier_mpi
 
      call timing_start('explicit')
-     UseLocalStep = Time > 0.5*TimeMax
+     UseLocalStep = (Time > 0.49999*TimeMax .and. nDimAmr == nDim)
      if(UseLocalStep)then
         call advance_localstep
      else
@@ -138,13 +138,18 @@ contains
     Factor = 1.0
     BLOCK: do iBlock = 1, nBlock
        if(Unused_B(iBlock)) CYCLE
+       ! Check refinement first
        do k = 1, nK; do j = 1, nJ; do i = 1, nI
-          if(IsRzGeometry) Factor = 1./Xyz_DGB(2,i,j,k,iBlock)
+          if(IsRzGeometry) Factor = 1./Xyz_DGB(r_,i,j,k,iBlock)
           if(State_VGB(Rho_,i,j,k,iBlock) > Factor*1.5) then
              iStatusNew_A(iNode_B(iBlock)) = Refine_
              CYCLE BLOCK
           end if
-          if(State_VGB(Rho_,i,j,k,iBlock) < Factor*1.4)then 
+       end do; end do; end do
+       ! If not refined, check for coarsening
+       do k = 1, nK; do j = 1, nJ; do i = 1, nI
+          if(IsRzGeometry) Factor = 1./Xyz_DGB(r_,i,j,k,iBlock)
+          if(State_VGB(Rho_,i,j,k,iBlock) < Factor*1.4)then
              iStatusNew_A(iNode_B(iBlock)) = Coarsen_
              CYCLE BLOCK
           end if
@@ -185,7 +190,7 @@ contains
 
     exact_density = Rho
     ! Scale by 1/r so radial flow has no effect in RZ geometry
-    if(IsRzGeometry) exact_density = Rho/Xyz_D(2)
+    if(IsRzGeometry) exact_density = Rho/Xyz_D(r_)
 
   end function exact_density
 
