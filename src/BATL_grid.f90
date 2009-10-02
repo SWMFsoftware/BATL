@@ -81,18 +81,25 @@ contains
 
   !===========================================================================
 
-  subroutine create_grid_block(iBlock)
+  subroutine create_grid_block(iBlock, iNodeIn)
 
     ! Create geometrical information for block iBlock on the local PE
 
     integer, intent(in):: iBlock
+
+    ! In case iNode_B is not set, iNodeIn can provide the node info
+    integer, optional, intent(in):: iNodeIn
 
     character(len=*), parameter:: NameSub = 'create_grid_block'
 
     real :: PositionMin_D(MaxDim), PositionMax_D(MaxDim)
     integer :: iNode, i, j, k
     !----------------------------------------------------------------------
-    iNode = iNode_B(iBlock)
+    if(present(iNodeIn))then
+       iNode = iNodeIn
+    else
+       iNode = iNode_B(iBlock)
+    end if
     call get_tree_position(iNode, PositionMin_D, PositionMax_D)
 
     CoordMin_DB(:,iBlock)= CoordMin_D + (CoordMax_D - CoordMin_D)*PositionMin_D
