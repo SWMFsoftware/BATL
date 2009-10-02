@@ -14,6 +14,7 @@ module BATL_geometry
 
   ! Cartesian, cylindrical or spherical coordinates
   logical, public:: IsCartesian   = .true.
+  logical, public:: IsRzGeometry  = .false.
   logical, public:: IsSpherical   = .false.
   logical, public:: IsCylindrical = .false.
 
@@ -32,6 +33,7 @@ contains
     if(present(TypeGeometryIn)) TypeGeometry = TypeGeometryIn
 
     IsCartesian   = TypeGeometry(1:9)  == 'cartesian'
+    IsRzGeometry  = TypeGeometry(1:2)  == 'rz'
     IsSpherical   = TypeGeometry(1:9)  == 'spherical'
     IsCylindrical = TypeGeometry(1:11) == 'cylindrical'
 
