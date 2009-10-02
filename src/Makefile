@@ -29,6 +29,9 @@ ALLOBJECTS = \
 DEPEND:
 	@perl ${SCRIPTDIR}/depend.pl ${SEARCH} ${ALLOBJECTS}
 
+BATL_size.f90: BATL_size_orig.f90
+	cp -f BATL_size_orig.f90 BATL_size.f90
+
 BATL:
 	make DEPEND
 	make ${BINDIR}/BATL.exe
