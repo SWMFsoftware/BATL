@@ -6,8 +6,8 @@ rz
 0.1		Uy = Ur
 
 #GRID
-40		nRootX
-40		nRootY
+20		nRootX
+20		nRootY
 -10.0		xMin
 +10.0		xMax
 1.0		yMin = rMin
