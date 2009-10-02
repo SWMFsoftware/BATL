@@ -39,7 +39,8 @@ module BATL_lib
   public:: iTree_IA, MinLevel_, MaxLevel_
 
   ! Inherited from BATL_geometry
-  public:: IsCartesian, TypeGeometry, IsPeriodic_D
+  public:: TypeGeometry, IsCartesian, IsRzGeometry, IsSpherical, &
+       IsCylindrical, IsPeriodic_D
 
   ! Inherited from BATL_grid
   public:: CoordMin_D, CoordMax_D, CoordMin_DB, CoordMax_DB, CellSize_DB
