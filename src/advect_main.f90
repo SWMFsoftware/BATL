@@ -51,9 +51,6 @@ program advect
   ! Face centered flux for conservation fix
   real, allocatable, dimension(:,:,:,:,:):: Flux_VXB, Flux_VYB, Flux_VZB
 
-  ! Total initial mass
-  real:: TotalIni_I(0:nVar) = -1.0
-
   logical, parameter :: DoTest = .false.
   character(len=*), parameter:: NameSub = 'advect_main'
   !--------------------------------------------------------------------------
@@ -208,7 +205,7 @@ contains
 
     integer:: nRoot_D(MaxDim) = (/4,4,2/)
     real :: BlobRadius
-    integer :: iDim, i, j, k, iBlock, iLevel, iError
+    integer :: iDim, i, j, k, iBlock, iLevel
     !------------------------------------------------------------------------
 
     call init_mpi
@@ -311,14 +308,14 @@ contains
   subroutine save_log
 
     ! Calculate the totals on processor 0
-    use BATL_lib, ONLY: nDimAmr, nBlock, Unused_B, CellVolume_GB, Xyz_DGB, &
+    use BATL_lib, ONLY: nBlock, Unused_B, CellVolume_GB, Xyz_DGB, &
          iComm, iProc, nProc
     use ModMpi,    ONLY: MPI_reduce, MPI_REAL, MPI_SUM
     use ModIoUnit, ONLY: UnitTmp_
 
-    integer:: iBlock, i, j, k, iVar, iError
+    integer:: iBlock, i, j, k, iError
     integer, parameter:: Volume_=nVar+1, Error_=nVar+2
-    real:: TotalPe_I(Error_), Total_I(Error_), Error
+    real:: TotalPe_I(Error_), Total_I(Error_)
 
     character(len=100):: NameFile = 'advect.log'
     logical :: DoInitialize = .true.
@@ -368,7 +365,7 @@ contains
 
   subroutine save_plot
 
-    use BATL_lib, ONLY: MaxDim, nDimAmr, nIJK, nBlock, Unused_B, &
+    use BATL_lib, ONLY: MaxDim, nBlock, Unused_B, &
          iComm, nProc, iProc, iNode_B, &
          TypeGeometry, CellSize_DB, Xyz_DGB, CoordMin_DB, CoordMax_DB
 
@@ -495,6 +492,69 @@ contains
 
   end subroutine finalize
   !===========================================================================
+  subroutine set_boundary
+
+    use BATL_lib, ONLY: nDim, IsPeriodic_D, nBlock, Unused_B, &
+         DiLevelNei_IIIB, Unset_, Xyz_DGB
+    ! Set ghost cells outside computational domain
+
+    integer:: iBlock, i, j, k
+    !------------------------------------------------------------------------
+    if(all(IsPeriodic_D(1:nDim))) RETURN
+
+    do iBlock = 1, nBlock
+       if(Unused_B(iBlock)) CYCLE
+       if(.not.IsPeriodic_D(1))then
+          ! Min in dimension 1
+          if(DiLevelNei_IIIB(-1,0,0,iBlock) == Unset_)then
+             do k = MinK, MaxK; do j = MinJ, MaxJ; do i = MinI, 0
+                State_VGB(1,i,j,k,iBlock) &
+                     = exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
+             end do; end do; end do
+          end if
+          if(DiLevelNei_IIIB(+1,0,0,iBlock) == Unset_)then
+             do k = MinK, MaxK; do j = MinJ, MaxJ; do i = nI+1, MaxI
+                State_VGB(1,i,j,k,iBlock) &
+                     = exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
+             end do; end do; end do
+          end if
+       end if
+
+       if(.not.IsPeriodic_D(2) .and. nDim > 1)then
+          ! Min in dimension 2
+          if(DiLevelNei_IIIB(0,-1,0,iBlock) == Unset_)then
+             do k = MinK, MaxK; do j = MinJ, 0; do i = MinI, MaxI
+                State_VGB(1,i,j,k,iBlock) &
+                     = exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
+             end do; end do; end do
+          end if
+          if(DiLevelNei_IIIB(0,+1,0,iBlock) == Unset_)then
+             do k = MinK, MaxK; do j = nJ+1, MaxJ; do i = MinI, MaxI
+                State_VGB(1,i,j,k,iBlock) &
+                     = exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
+             end do; end do; end do
+          end if
+       end if
+
+       if(.not.IsPeriodic_D(3) .and. nDim > 2)then
+          ! Min in dimension 3
+          if(DiLevelNei_IIIB(0,0,-1,iBlock) == Unset_)then
+             do k = MinK, 0; do j = MinJ, MaxJ; do i = MinI, MaxI
+                State_VGB(1,i,j,k,iBlock) &
+                     = exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
+             end do; end do; end do
+          end if
+          if(DiLevelNei_IIIB(0,0,+1,iBlock) == Unset_)then
+             do k = nK+1, MaxK; do j = MinJ, MaxJ; do i = MinI, MaxI
+                State_VGB(1,i,j,k,iBlock) &
+                     = exact_density(Xyz_DGB(1:nDim,i,j,k,iBlock))
+             end do; end do; end do
+          end if
+       end if
+    end do
+
+  end subroutine set_boundary
+  !===========================================================================
   subroutine calc_face_values(iBlock)
 
     use ModNumConst, ONLY: i_DD
@@ -543,7 +603,6 @@ contains
     end do
 
   end subroutine calc_face_values
-
   !===========================================================================
   subroutine limit_slope(State_VG, Slope_VGD)
 
@@ -606,11 +665,12 @@ contains
     do iStage = 1, nOrder
 
        if(DoTest)write(*,*)NameSub,' advance_expl iProc, iStage=',iProc,iStage       
-
        call timing_start('message_pass')
        call message_pass_cell(nVar, State_VGB, &
             DoSendCornerIn=.true., nProlongOrderIn=2)
        call timing_stop('message_pass')
+
+       call set_boundary
 
        if(DoTest)write(*,*)NameSub,' finished message_pass iProc=',iProc
 
@@ -655,11 +715,9 @@ contains
 
     use BATL_lib, ONLY: message_pass_cell, MaxBlock, nBlock, Unused_B, &
          IsCartesian, CellSize_DB, CellVolume_B, CellVolume_GB, &
-         iComm, nProc, DiLevelNei_IIIB, store_face_flux, apply_flux_correction
+         iComm, nProc, store_face_flux, apply_flux_correction
     use ModNumConst, ONLY: i_DD
     use ModMpi
-
-    use BATL_tree, ONLY: iTree_IA, Level_, iNode_B
 
     integer:: nStage, iStage, iStageBlock, iDim, iBlock
     integer:: i, j, k, Di, Dj, Dk, iError
@@ -711,6 +769,8 @@ contains
             TimeOld_B=TimeOld_B, Time_B=Time_B)
 
        call timing_stop('message_pass')
+
+       call set_boundary
 
        call timing_start('update')
        do iBlock = 1, nBlock
