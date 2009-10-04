@@ -36,7 +36,7 @@ module BATL_lib
   public:: iNode_B
   public:: DiLevelNei_IIIB, iNodeNei_IIIB
   public:: iStatusNew_A, Refine_, Coarsen_
-  public:: iTree_IA, MinLevel_, MaxLevel_
+  public:: iTree_IA, MinLevel_, MaxLevel_, Unset_
 
   ! Inherited from BATL_geometry
   public:: TypeGeometry, IsCartesian, IsRzGeometry, IsSpherical, &
