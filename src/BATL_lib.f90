@@ -62,11 +62,15 @@ contains
        CoordMinIn_D, CoordMaxIn_D, MaxBlockIn, &
        TypeGeometryIn, IsPeriodicIn_D, nRootIn_D)
 
-    integer, intent(in):: MaxBlockIn
-    real,    intent(in):: CoordMinIn_D(nDim), CoordMaxIn_D(nDim)
+    integer, intent(in):: MaxBlockIn         ! max number of blocks/processor
+    real,    intent(in):: CoordMinIn_D(nDim) ! min (gen) coordinates of domain
+    real,    intent(in):: CoordMaxIn_D(nDim) ! max (gen) coordinates of domain
 
+    ! Number of blocks per dimension on the tree root level
     integer,          optional, intent(in):: nRootIn_D(nDim)
+    ! Grid geometry type (cartesian, spherical, etc.)
     character(len=*), optional, intent(in):: TypeGeometryIn
+    ! Periodicity of grid boundaries per dimention
     logical,          optional, intent(in):: IsPeriodicIn_D(nDim)
     !-------------------------------------------------------------------------
     call init_tree(MaxBlockIn)
