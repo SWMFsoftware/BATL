@@ -32,6 +32,18 @@ DEPEND:
 BATL_size.f90: BATL_size_orig.f90
 	cp -f BATL_size_orig.f90 BATL_size.f90
 
+MY_LIB = libBATL.a
+
+LIB: DEPEND
+	make ${MY_LIB}
+	@echo
+	@echo ${MY_LIB} has been brought up to date.
+	@echo
+
+${MY_LIB}: ${OBJECTS}
+	rm -f ${MY_LIB}
+	${AR} ${MY_LIB} ${OBJECTS}
+
 BATL:
 	make DEPEND
 	make ${BINDIR}/BATL.exe
