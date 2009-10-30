@@ -108,10 +108,12 @@ module BATL_tree
   integer, parameter :: MaxLevel = 30
 
   ! The maximum integer coordinate for a given level below root nodes
-  ! The loop variable has to be declared to work-around NAG f95 bug
-  integer :: L__
-  integer, parameter :: &
-       MaxCoord_I(0:MaxLevel) = (/ (2**L__, L__=0,MaxLevel) /)
+  ! Implied do loop was not understooed by the pgf90 compiler, so list them
+  integer, parameter :: MaxCoord_I(0:MaxLevel) = &
+       (/ 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, &
+       16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, &
+       4194304, 8388608, 16777216, 33554432, 67108864, 134217728, &
+       268435456, 536870912, 1073741824 /)
 
   ! The number of root nodes in all dimensions, and altogether
   integer :: nRoot_D(MaxDim) = 0, nRoot = 0
