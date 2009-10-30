@@ -467,17 +467,21 @@ contains
 
     subroutine set_range
 
-      ! Full face
-      iReceive_DII(:,0,Min_) = 1
-      iReceive_DII(:,0,Max_) = nIjk_D
+      integer:: iDim
 
-      ! Lower subface
-      iReceive_DII(:,1,Min_) = 1
-      iReceive_DII(:,1,Max_) = nIjk_D/2
+      do iDim = 1, MaxDim
+         ! Full face
+         iReceive_DII(iDim,0,Min_) = 1
+         iReceive_DII(iDim,0,Max_) = nIjk_D(iDim)
 
-      ! Upper subface
-      iReceive_DII(:,2,Min_) = nIjk_D/2 + 1
-      iReceive_DII(:,2,Max_) = nIjk_D
+         ! Lower subface
+         iReceive_DII(iDim,1,Min_) = 1
+         iReceive_DII(iDim,1,Max_) = nIjk_D(iDim)/2
+
+         ! Upper subface
+         iReceive_DII(iDim,2,Min_) = nIjk_D(iDim)/2 + 1
+         iReceive_DII(iDim,2,Max_) = nIjk_D(iDim)
+      end do
 
     end subroutine set_range
 

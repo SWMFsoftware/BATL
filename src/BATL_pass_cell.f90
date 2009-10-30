@@ -862,8 +862,11 @@ contains
       iRestrictR_DII(:,0,Min_) = 1 - nWidth
       iRestrictR_DII(:,0,Max_) = 0
       iRestrictR_DII(:,1,Min_) = 1
-      iRestrictR_DII(:,1,Max_) = nIjk_D/iRatio_D
-      iRestrictR_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
+      do iDim = 1, MaxDim
+         ! This loop is used to avoid the NAG 5.1 (282) bug on nyx
+         iRestrictR_DII(iDim,1,Max_) = nIjk_D(iDim)/iRatio_D(iDim)
+         iRestrictR_DII(iDim,2,Min_) = nIjk_D(iDim)/iRatio_D(iDim) + 1
+      end do
       iRestrictR_DII(:,2,Max_) = nIjk_D
       iRestrictR_DII(:,3,Min_) = nIjk_D + 1
       iRestrictR_DII(:,3,Max_) = nIjk_D + nWidth
@@ -878,14 +881,17 @@ contains
       end if
 
       ! Indexed by iSend/jSend,kSend = 0..3
-      iProlongS_DII(:,0,Min_) = 1
-      iProlongS_DII(:,0,Max_) = nWidthProlongS_D
-      iProlongS_DII(:,1,Min_) = 1
-      iProlongS_DII(:,1,Max_) = nIjk_D/iRatio_D
-      iProlongS_DII(:,2,Min_) = nIjk_D/iRatio_D + 1
-      iProlongS_DII(:,2,Max_) = nIjk_D
-      iProlongS_DII(:,3,Min_) = nIjk_D + 1 - nWidthProlongS_D
-      iProlongS_DII(:,3,Max_) = nIjk_D
+      do iDim = 1, MaxDim
+         ! This loop is used to avoid the NAG 5.1 (282) bug on nyx
+         iProlongS_DII(iDim,0,Min_) = 1
+         iProlongS_DII(iDim,0,Max_) = nWidthProlongS_D(iDim)
+         iProlongS_DII(iDim,1,Min_) = 1
+         iProlongS_DII(iDim,1,Max_) = nIjk_D(iDim)/iRatio_D(iDim)
+         iProlongS_DII(iDim,2,Min_) = nIjk_D(iDim)/iRatio_D(iDim) + 1
+         iProlongS_DII(iDim,2,Max_) = nIjk_D(iDim)
+         iProlongS_DII(iDim,3,Min_) = nIjk_D(iDim) + 1 - nWidthProlongS_D(iDim)
+         iProlongS_DII(iDim,3,Max_) = nIjk_D(iDim)
+      end do
 
       ! Indexed by iRecv/jRecv/kRecv = 0,1,2,3
       iProlongR_DII(:, 0,Min_) = 1 - nWidth
