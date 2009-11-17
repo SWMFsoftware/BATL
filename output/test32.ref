@@ -22,6 +22,7 @@
       6      1      0      1      3      0     30      3      2      1   -100   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 6 6 3
  iNodeMorton_I = 1 2 3 4 5 6
+ iMortonNode_A = 1 2 3 4 5 6
  IsPeriodic_D = T T F
  DiLevelNei_IIIB(:,0,0,First)= 0 0 0
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
@@ -45,6 +46,7 @@
      10      1      1      1      5      0     30      6      4      1      6   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 10 9 4
  iNodeMorton_I = 1 2 3 4 5 7 8 9 10
+ iMortonNode_A = 1 2 3 4 5 -100 6 7 8 9
  IsPeriodic_D = T T F
  DiLevelNei_IIIB(:,0,0,First)= 0 0 0
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
@@ -66,6 +68,7 @@
      10      1      1      1      5      0     30      6      4      1      6   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 10 9 4
  iNodeMorton_I = 1 2 3 4 5 7 8 9 10
+ iMortonNode_A = 1 2 3 4 5 -100 6 7 8 9
  IsPeriodic_D = T T F
  DiLevelNei_IIIB(:,0,0,First)= 0 0 0
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
@@ -87,6 +90,7 @@
      10      1      1      1      4      0     30      6      4      1      6   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 10 9 5
  iNodeMorton_I = 1 2 3 4 5 7 8 9 10
+ iMortonNode_A = 1 2 3 4 5 -100 6 7 8 9
  IsPeriodic_D = T T F
  DiLevelNei_IIIB(:,0,0,First)= 0 0 0
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
@@ -143,6 +147,7 @@
      10      1      1      0      5      0     30      4      2      1      2   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 10 9 5
  iNodeMorton_I = 1 7 8 9 10 3 4 5 6
+ iMortonNode_A = 1 -100 6 7 8 9 2 3 4 5
  IsPeriodic_D = T T F
  DiLevelNei_IIIB(:,0,0,First)= 0 0 -1
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
@@ -179,6 +184,7 @@
      10      1      1      0      5      0     30      4      2      1      2   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 10 9 5
  iNodeMorton_I = 1 7 8 9 10 3 4 5 6
+ iMortonNode_A = 1 -100 6 7 8 9 2 3 4 5
  IsPeriodic_D = T T F
  DiLevelNei_IIIB(:,0,0,First)= 0 0 -1
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
@@ -340,6 +346,7 @@
      31      1      1      1      2      0     30      4      4      2     14   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 31 30 15
  iNodeMorton_I = 1 2 3 4 5 6 7 8 9 10 11 12 13 28 29 30 31 15 16 17 18 19 20 21 22 23 24 25 26 27
+ iMortonNode_A = 1 2 3 4 5 6 7 8 9 10 11 12 13 -100 18 19 20 21 22 23 24 25 26 27 28 29 30 14 15 16 17
  IsPeriodic_D = T T T
  DiLevelNei_IIIB(:,0,0,First)= 0 0 0
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
@@ -405,6 +412,7 @@
      31      1      1      1      2      0     30      4      4      2     14   -100   -100   -100   -100
  nNode, nNodeUsed, nBlock= 31 30 15
  iNodeMorton_I = 1 2 3 4 5 6 7 8 9 10 11 12 13 28 29 30 31 15 16 17 18 19 20 21 22 23 24 25 26 27
+ iMortonNode_A = 1 2 3 4 5 6 7 8 9 10 11 12 13 -100 18 19 20 21 22 23 24 25 26 27 28 29 30 14 15 16 17
  IsPeriodic_D = T T T
  DiLevelNei_IIIB(:,0,0,First)= 0 0 0
  DiLevelNei_IIIB(0,:,0,First)= 0 0 0
