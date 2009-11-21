@@ -12,6 +12,11 @@ our $Help;
 our $Show;
 our $ShowGridSize;
 our $NewGridSize;
+our $AmrRatio;
+our $NewAmrRatio;
+
+our %Remaining; # Unprocessed arguments
+
 
 # Source code directory
 my $Src         = 'src';
@@ -19,21 +24,25 @@ my $Src         = 'src';
 # Grid size variables
 my $NameGridFile = "$Src/BATL_size.f90";
 my $GridSize;
-my ($nDim, $nDimAmr, $nI, $nJ, $nK);
+my ($nI, $nJ, $nK, $iRatio, $jRatio, $kRatio);
 
 &print_help if $Help;
 
 # Read previous grid size
 &get_settings;
 
-# Read previous grid size, equation and user module
-&set_grid_size if $NewGridSize and $NewGridSize ne $GridSize;
+foreach (@Arguments){
+    if(/^-r=(.*)$/)     {$NewAmrRatio=$1; next};
+    warn "WARNING: Unknown flag $_\n" if $Remaining{$_};
+}
 
+# Set new grid size and AMR dimensions
+&set_grid_size if ($NewGridSize and $NewGridSize ne $GridSize)
+    or            ($NewAmrRatio and $NewAmrRatio ne $AmrRatio);
+
+# Show grid size and AMR dimensions
 if($ShowGridSize or $Show){
-    print "Config.pl -g=$nDim,$nDimAmr,$nI";
-    print ",$nJ" if $nDim > 1;
-    print ",$nK" if $nDim > 2;
-    print "\n";
+    print "Config.pl -g=$nI,$nJ,$nK -r=$iRatio,$jRatio,$kRatio\n";
 }
 
 exit;
@@ -46,79 +55,76 @@ sub get_settings{
     open(MODSIZE,$NameGridFile) or die "$ERROR could not open $NameGridFile\n";
     while(<MODSIZE>){
         next if /^\s*!/; # skip commented out lines
-	$nDim=$1         if /\bnDim\s*=\s*(\d+)/i;
-	$nDimAmr=$1      if /\bnDimAmr\s*=\s*(\d+)/i;
         $nI=$1           if /\bnI\s*=\s*(\d+)/i;
         $nJ=$1           if /\bnJ\s*=\s*(\d+)/i;
         $nK=$1           if /\bnK\s*=\s*(\d+)/i;
+	$iRatio=$1       if /\biRatio\s*=\s*min\(\s*(\d)/;
+	$jRatio=$1       if /\bjRatio\s*=\s*min\(\s*(\d)/;
+	$kRatio=$1       if /\bkRatio\s*=\s*min\(\s*(\d)/;
     }
     close MODSIZE;
 
-    die "$ERROR could not read nDimAmr from $NameGridFile\n" 
-	unless length($nDimAmr);
-    die "$ERROR could not read nDim from $NameGridFile\n" 
-	unless length($nDim);
     die "$ERROR could not read nI from $NameGridFile\n" unless length($nI);
     die "$ERROR could not read nJ from $NameGridFile\n" unless length($nJ);
     die "$ERROR could not read nK from $NameGridFile\n" unless length($nK);
 
-    $GridSize  = "$nDim,$nDimAmr,$nI";
-    $GridSize .= ",$nJ" if $nDim > 1;
-    $GridSize .= ",$nK" if $nDim > 2;
+    die "$ERROR could not read iRatio from $NameGridFile\n" 
+	unless length($iRatio);
+    die "$ERROR could not read jRatio from $NameGridFile\n" 
+	unless length($jRatio);
+    die "$ERROR could not read kRatio from $NameGridFile\n" 
+	unless length($kRatio);
+
+    $GridSize  = "$nI,$nJ,$nK";
+    $AmrRatio  = "$iRatio,$jRatio,$kRatio";
 }
 
 #############################################################################
 
 sub set_grid_size{
 
-    $GridSize = $NewGridSize;
+    $GridSize = $NewGridSize if $NewGridSize;
 
-    if($GridSize =~ /^\d+(,\d+){2,4}$/){
-	($nDim,$nDimAmr,$nI,$nJ,$nK) = split(',', $GridSize);
-	if($nDim == 1){
-	    die "$ERROR for nDim=1 ".
-		"-g=$GridSize should contain 3 positive integers\n"
-		if $nJ > 0;
-	    $nJ = 1; $nK = 1;
-	}elsif($nDim == 2){
-	    die "$ERROR for nDim=2 ".
-		"-g=$GridSize should contain 4 positive integers\n"
-		if $nJ < 1 or $nK > 0;
-	    $nK = 1;
-	}elsif($nDim == 3){
-	    die "$ERROR for nDim=3 ".
-		"-g=$GridSize should contain 5 integers\n"
-		if $nJ < 1 or $nK < 1;
-	}
+    if($GridSize =~ /^[1-9]\d*,[1-9]\d*,[1-9]\d*$/){
+	($nI,$nJ,$nK) = split(',', $GridSize);
     }elsif($GridSize){
 	die "$ERROR ".
-	    "-g=$GridSize should be 3 to 5 integers separated by commas\n";
+	    "-g=$GridSize should be 3 positive integers separated by commas\n";
+    }
+
+    $AmrRatio = $NewAmrRatio if $NewAmrRatio;
+
+    if($AmrRatio =~ /^[12],[12],[12]$/){
+	($iRatio,$jRatio,$kRatio) = split(',', $AmrRatio);
+    }elsif($GridSize){
+	die "$ERROR ".
+	    "-r=$AmrRatio should be 3 integers = 1 or 2 separated by commas\n";
     }
 
     # Check the grid size (to be set)
-    die "$ERROR nDim=$nDim must be 1, 2 or 3\n" if $nDim < 1 or $nDim > 3;
-    die "$ERROR nDimAmr=$nDimAmr must be 1 to nDim=$nDim\n" 
-	if $nDimAmr < 1 or $nDimAmr > $nDim;
+    die "$ERROR nK=$nK must be 1 if nJ is 1\n" 
+	if $nJ == 1 and $nK > 1;
+    die "$ERROR nI=$nI must be an even integer >= 4 if iRatio=2\n" 
+	if $iRatio==2 and ($nI<4 or $nI%2!=0);
+    die "$ERROR nJ=$nJ must be 1 or an even integer >= 4 if jRatio=2\n" 
+	if $jRatio==2 and $nJ>1 and ($nJ==2 or $nJ%2!=0);
+    die "$ERROR nK=$nK must be 1 or an even integer >= 4 if kRatio=2\n" 
+	if $kRatio==2 and $nK > 1 and $nK < 4;
 
-    die "$ERROR nI=$nI must be 4 or more\n" if $nI < 4;
-    die "$ERROR nJ=$nJ must be 4 or more\n" if $nJ < 2 and $nDimAmr > 1;
-    die "$ERROR nK=$nK must be 4 or more\n" if $nK < 2 and $nDimAmr > 2;
-
-    die "$ERROR nI=$nI must be an even integer\n" if $nI%2!=0;
-    die "$ERROR nJ=$nJ must be an even integer\n" if $nJ%2!=0 and $nDimAmr > 1;
-    die "$ERROR nK=$nK must be an even integer\n" if $nK%2!=0 and $nDimAmr > 2;
-
-    print "Writing new grid size $GridSize into $NameGridFile...\n";
+    print "Writing new grid size $GridSize and AMR ratio $AmrRatio ".
+	"into $NameGridFile...\n";
 
     @ARGV = ($NameGridFile);
 
     while(<>){
 	if(/^\s*!/){print; next} # Skip commented out lines
-	s/\b(nDim\s*=[^0-9]*)(\d+)/$1$nDim/i;
-	s/\b(nDimAmr\s*=[^0-9]*)(\d+)/$1$nDimAmr/i;
+
 	s/\b(nI\s*=[^0-9]*)(\d+)/$1$nI/i;
 	s/\b(nJ\s*=[^0-9]*)(\d+)/$1$nJ/i;
 	s/\b(nK\s*=[^0-9]*)(\d+)/$1$nK/i;
+	s/\b(iRatio\s*=[^0-9]*)(\d+)/$1$iRatio/i;
+	s/\b(jRatio\s*=[^0-9]*)(\d+)/$1$jRatio/i;
+	s/\b(kRatio\s*=[^0-9]*)(\d+)/$1$kRatio/i;
 	print;
     }
 
@@ -131,14 +137,16 @@ sub print_help{
     print "
 Additional options for BATL/Config.pl:
 
--g[=NDIM,NDIMAMR,NI[,NJ[,NK]]]
+-g=NI,NJ,NK
     If -g is used without a value, it shows grid size. 
-    Otherwise set grid and AMR dimensionality and the AMR block size.
-    NDIM=1,2 or 3 is the dimensionality of the problem. 
-    NDIMAMR is the dimensionality of the AMR tree: 1..NDIM.
+    Otherwise set grid dimensionality and the grid block size.
     NI, NJ and NK are the number of cells in a block in the I, J and K 
-    directions, respectively. The number of cells is always 1 in the 
-    ignored dimensions, and should not be set.
+    directions, respectively. If nK=1 the last dimension is ignored: 2D grid.
+    If nJ=1 and nK=1 then the last two dimensions are ignored: 1D grid.
+
+-r=IRATIO,JRATIO,KRATIO
+    Set the AMR ratio for each (non-ignored) dimensions. The value can be 1
+    (for no adaptation), or 2 for adaptation in the given direction.
 
 Examples for BATS/Config.pl:
 
@@ -148,11 +156,11 @@ Show grid size:
 
 Set 3D domain with 3D AMR and block size 8x8x8 cells:
 
-    Config.pl -g=3,3,8,8,8
+    Config.pl -g=8,8,8 -r=2,2,2
 
-Set 2D domain with 1D AMR and block size 40x10 cells:
+Set block size 40x10x1 cells (2D grid) with AMR in the first dimension only:
 
-    Config.pl -g=2,1,40,10
+    Config.pl -g=40,10,1 -r=2,1,1
 \n";
     exit 0;
 }
