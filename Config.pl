@@ -109,7 +109,7 @@ sub set_grid_size{
     die "$ERROR nJ=$nJ must be 1 or an even integer >= 4 if jRatio=2\n" 
 	if $jRatio==2 and $nJ>1 and ($nJ==2 or $nJ%2!=0);
     die "$ERROR nK=$nK must be 1 or an even integer >= 4 if kRatio=2\n" 
-	if $kRatio==2 and $nK > 1 and $nK < 4;
+	if $kRatio==2 and $nK>1 and ($nK==2 or $nK%2!=0);;
 
     print "Writing new grid size $GridSize and AMR ratio $AmrRatio ".
 	"into $NameGridFile...\n";
@@ -145,8 +145,8 @@ Additional options for BATL/Config.pl:
     If nJ=1 and nK=1 then the last two dimensions are ignored: 1D grid.
 
 -r=IRATIO,JRATIO,KRATIO
-    Set the AMR ratio for each (non-ignored) dimensions. The value can be 1
-    (for no adaptation), or 2 for adaptation in the given direction.
+    Set the AMR ratio for each (non-ignored) dimensions. The value can be
+    1 (for no adaptation), or 2 for adaptation in the given direction.
 
 Examples for BATS/Config.pl:
 
