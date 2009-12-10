@@ -158,7 +158,7 @@ test_advect22_check:
 	ls -l advect22.diff
 
 test_advect22_rz_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
 		run/advect22_rz.log output/advect22_rz.log > advect22_rz.diff)
 	ls -l advect22_rz.diff
 
