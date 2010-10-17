@@ -28,10 +28,11 @@ ADVECT: bin run
 
 test:	test_unit test_advect
 
-test_unit: test11 test21 test22 test31 test32 test33
+test_unit: test11 test12 test21 test22 test31 test32 test33
 	ls -l test??.diff
 
 test_advect:	test_advect11 test_advect21 test_advect22 \
+		test_advect12 \
 		test_advect31 test_advect32 test_advect33 \
 		test_advect22_rz
 	ls -l advect??*.diff
@@ -45,6 +46,14 @@ test11:
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/test11.ref output/test11.ref > test11.diff)
 	ls -l test11.diff
+
+test12:
+	Config.pl -g=8,4,1 -r=1,2,1
+	make BATL
+	cd run; ${MPIRUN} BATL.exe > test12.ref
+	-@(${SCRIPTDIR}/DiffNum.pl -t \
+		run/test12.ref output/test12.ref > test12.diff)
+	ls -l test12.diff
 
 test21:
 	Config.pl -g=8,4,1 -r=2,1,1
@@ -61,6 +70,7 @@ test22:
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/test22.ref output/test22.ref > test22.diff)
 	ls -l test22.diff
+	sleep 1
 
 test31:
 	Config.pl -g=8,4,2 -r=2,1,1
@@ -69,6 +79,7 @@ test31:
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/test31.ref output/test31.ref > test31.diff)
 	ls -l test31.diff
+	sleep 1
 
 test32:
 	Config.pl -g=8,4,2 -r=2,2,1
@@ -77,6 +88,7 @@ test32:
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/test32.ref output/test32.ref > test32.diff)
 	ls -l test32.diff
+	sleep 1
 
 test33:
 	Config.pl -g=8,6,4 -r=2,2,2
@@ -85,6 +97,7 @@ test33:
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/test33.ref output/test33.ref > test33.diff)
 	ls -l test33.diff
+	sleep 1
 
 test_advect11: 
 	Config.pl -g=4,1,1 -r=2,2,2
@@ -93,6 +106,14 @@ test_advect11:
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
 	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect11.log
 	make test_advect11_check
+
+test_advect12:
+	Config.pl -g=4,4,1 -r=1,2,1
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect12.log
+	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect12.log
+	make test_advect12_check
 
 test_advect21:
 	Config.pl -g=4,4,1 -r=2,1,1
@@ -146,6 +167,11 @@ test_advect11_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
 		run/advect11.log output/advect11.log > advect11.diff)
 	ls -l advect11.diff
+
+test_advect12_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect12.log output/advect12.log > advect12.diff)
+	ls -l advect12.diff
 
 test_advect21_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
