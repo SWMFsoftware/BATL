@@ -470,7 +470,7 @@
  iProc, iProcNew_A= 0 -100 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0
  after do_amr
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
-      1     -2      0      0      1      0     30      1      1      1   -100     28     29
+      1     -1      0      0      1      0     30      1      1      1   -100     28     29
       2      1      0      0      2      0     30      2      1      1   -100   -100   -100
       3      1      0      0      3      0     30      3      1      1   -100   -100   -100
       4      1      0      0      4      0     30      1      2      1   -100   -100   -100
@@ -497,8 +497,8 @@
      25      1      0      1     12      0     30      1      3      3   -100   -100   -100
      26      1      0      1     13      0     30      2      3      3   -100   -100   -100
      27      1      0      1     14      0     30      3      3      3   -100   -100   -100
-     28      2      1      0     14      0     30      1      1      1      1   -100   -100
-     29      2      1      0     15      0     30      2      1      1      1   -100   -100
+     28      3      1      0     14      0     30      1      1      1      1   -100   -100
+     29      3      1      0     15      0     30      2      1      1      1   -100   -100
  after move_tree
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
       1     -1      0   -100   -100      0     30      1      1      1   -100     28     29
@@ -597,7 +597,7 @@
  iProc, iProcNew_A= 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1
  after do_amr
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
-      1      4      0      0      1      0     30      1      1      1   -100     28     29
+      1      5      0      0      1      0     30      1      1      1   -100     28     29
       2      1      0      0      2      0     30      2      1      1   -100   -100   -100
       3      1      0      0      3      0     30      3      1      1   -100   -100   -100
       4      1      0      0      4      0     30      1      2      1   -100   -100   -100
@@ -624,8 +624,8 @@
      25      1      0      1     12      0     30      1      3      3   -100   -100   -100
      26      1      0      1     13      0     30      2      3      3   -100   -100   -100
      27      1      0      1     14      0     30      3      3      3   -100   -100   -100
-     28     -4      1      0     14      0     30      1      1      1      1   -100   -100
-     29     -4      1      0     15      0     30      2      1      1      1   -100   -100
+     28     -1      1      0     14      0     30      1      1      1      1   -100   -100
+     29     -1      1      0     15      0     30      2      1      1      1   -100   -100
  after move_tree
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
       1      1      0      0      1      0     30      1      1      1   -100   -100   -100
