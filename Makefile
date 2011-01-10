@@ -26,6 +26,9 @@ ADVECT: bin run
 	cd ${TIMINGDIR}; make LIB
 	cd src; make ADVECT
 
+NOMPI:
+	cd util/NOMPI/src; make LIB
+
 test:	test_unit test_advect
 
 test_unit: test11 test12 test21 test22 test31 test32 test33
