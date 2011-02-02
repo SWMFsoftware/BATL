@@ -5,5 +5,5 @@ Makefile.conf
 share
 util
 *.diff
-
+.git*
 
