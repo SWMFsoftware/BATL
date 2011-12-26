@@ -1,0 +1,33 @@
+#GRIDGEOMETRY
+cylindrical
+
+#VELOCITY
+2.0		Ux
+0.1		Uy = Ur
+
+#GRID
+80		nRootX
+80		nRootY
+  1.0		rMin
+ 10.0		rMax
+  0.0		PhiMin
+360.0		PhiMax
+
+#BLOB
+1.0		radius
+2.0		xCenter
+1.0		yCenter
+
+#STOP
+1.0		TimeMax
+
+#SAVEPLOT
+0.1		DtPlot
+
+#AMR
+0		MaxLevel
+
+#SCHEME
+2		nOrder
+1.5		BetaLimiter
+T		DoLimitVolumeState
