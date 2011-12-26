@@ -4,9 +4,6 @@ install:
 	touch src/Makefile.DEPEND
 	cp -f src/BATL_size_orig.f90 src/BATL_size.f90
 
-bin:
-	mkdir -p bin
-
 run:
 	mkdir -p run/plots
 	cd run; \
@@ -16,12 +13,12 @@ run:
 		ln -s ${BINDIR}/PostIDL.exe .; \
 		ln -s ${BINDIR}/pIDL .
 
-BATL:	bin run
+BATL:	run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
 	cd src; make BATL
 
-ADVECT: bin run
+ADVECT: run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
 	cd src; make ADVECT
@@ -213,5 +210,5 @@ clean:
 allclean:
 	touch src/Makefile.DEPEND
 	cd src; make distclean
-	rm -rf run bin *.diff
+	rm -rf run bin/*.exe *.diff
 
