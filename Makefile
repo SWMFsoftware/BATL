@@ -34,7 +34,7 @@ test_unit: test11 test12 test21 test22 test31 test32 test33
 test_advect:	test_advect11 test_advect21 test_advect22 \
 		test_advect12 \
 		test_advect31 test_advect32 test_advect33 \
-		test_advect22_rz advect22_cyl
+		test_advect22_rz test_advect22_cyl
 	ls -l advect??*.diff
 
 MPIRUN = mpirun -np 2
