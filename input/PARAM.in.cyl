@@ -1,6 +1,9 @@
 #GRIDGEOMETRY
 cylindrical
 
+#GRIDTYPE
+T		IsNodeBasedGrid
+
 #VELOCITY
 2.0		Ux
 0.1		Uy = Ur
