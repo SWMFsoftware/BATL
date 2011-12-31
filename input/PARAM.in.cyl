@@ -1,36 +1,36 @@
 #GRIDGEOMETRY
-cylindrical
+cylindrical_lnr		TypeGeometry
 
 #GRIDTYPE
-T		IsNodeBasedGrid
+T			IsNodeBasedGrid
 
 #VELOCITY
-2.0		Ux
-0.1		Uy = Ur
+2.0			Ux
+0.1			Uy
 
 #GRID
-20		nRootX
-20		nRootY
-  1.0		rMin
- 10.0		rMax
-  0.0		PhiMin
-360.0		PhiMax
+20			nRootX
+20			nRootY
+  1.0			rMin
+ 10.0			rMax
+  0.0			PhiMin
+360.0			PhiMax
 
 #BLOB
-1.0		radius
-2.0		xCenter
-1.0		yCenter
+3.0			radius
+4.0			xCenter
+-1.0			yCenter
 
 #STOP
-1.0		TimeMax
+1.0			TimeMax
 
 #SAVEPLOT
-0.1		DtPlot
+0.1			DtPlot
 
 #AMR
-2		MaxLevel
+2			MaxLevel
 
 #SCHEME
-2		nOrder
-1.5		BetaLimiter
-F		DoLimitVolumeState
+2			nOrder
+1.5			BetaLimiter
+F			DoLimitVolumeState
