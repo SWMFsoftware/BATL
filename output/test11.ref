@@ -1,3 +1,4 @@
+ Starting test_tree
  Testing init_tree
  Testing init_geometry
  Testing i_node_new()
@@ -145,6 +146,11 @@
  iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
  Testing clean_tree
  MaxNode= 0
+ Starting test_geometry
+ Testing init_geometry for Cartesian
+ Testing xyz_to_coord for Cartesian
+ Testing coord_to_xyz for Cartesian
+ Starting test_grid
  Testing init_grid
  nDimAmr, nIJK_D= 1 8 1 1
  After distribute_tree
@@ -200,6 +206,7 @@
  Xyz( 1, 1,nK)=   8.0625000000000000   0.0000000000000000   0.0000000000000000
  Xyz(nI,nJ,nK)=   8.9375000000000000   0.0000000000000000   0.0000000000000000
  Testing find_grid_block
+ Testing interpolate_grid
  Testing clean_grid
  Starting test_pass_cell
  test_pass_cell middle node= 2
@@ -241,6 +248,8 @@
  testing message_pass_cell with nProlongOrder= 2  nCoarseLayer= 1  nWidth= 2
  testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
  testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell_scalar with operator= min 
+ testing message_pass_cell_scalar with operator= max 
  Starting test_pass_face
  test_pass_face middle node= 2
  test_pass_face
@@ -261,6 +270,10 @@
  iNodeNei_IIIB(1,:,1,  First)= -100 1 1 -100
  iNodeNei_IIIB(1,1,:,  First)= -100 1 1 -100
  testing message_pass_face with DoResChangeOnly= T
+ Starting test_pass_node
+ testing message_pass_node with operator=mean
+ testing message_pass_node with operator=min 
+ testing message_pass_node with operator=max 
  Starting test_amr
  after create_grid
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
@@ -327,3 +340,5 @@
       2      1      0      1      1      0     30      2      1      1   -100   -100   -100
       3      1      0      1      2      0     30      3      1      1   -100   -100   -100
  iAmrChange_B= 3
+ test masked cells and extra data
+ Starting test_amr_criteria
