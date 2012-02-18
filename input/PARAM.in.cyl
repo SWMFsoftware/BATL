@@ -1,24 +1,24 @@
 #GRIDGEOMETRY
-cylindrical_lnr		TypeGeometry
+cylindrical		TypeGeometry
 
 #GRIDTYPE
 T			IsNodeBasedGrid
 
 #VELOCITY
-2.0			Ux
+8.0			Ux
 0.1			Uy
 
 #GRID
-20			nRootX
-20			nRootY
-  1.0			rMin
+10			nRootX
+10			nRootY
+  0.0			rMin
  10.0			rMax
   0.0			PhiMin
 360.0			PhiMax
 
 #BLOB
 3.0			radius
-4.0			xCenter
+-4.0			xCenter
 -1.0			yCenter
 
 #STOP
@@ -28,7 +28,7 @@ T			IsNodeBasedGrid
 0.1			DtPlot
 
 #AMR
-2			MaxLevel
+1			MaxLevel
 
 #SCHEME
 2			nOrder

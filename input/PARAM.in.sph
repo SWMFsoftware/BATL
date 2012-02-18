@@ -1,30 +1,30 @@
 #GRIDGEOMETRY
-spherical	TypeGeometry
+spherical_lnr	TypeGeometry
 
 #GRIDTYPE
 T		IsNodeBasedGrid
 
 #VELOCITY
-2.0		Ux
+8.0		Ux
 0.1		Uy
 0.5		Uz
 
 #GRID
-10		nRootX
-10		nRootY
+5		nRootX
+5		nRootY
 10		nRootZ
   1.0		rMin
  10.0		rMax
- 45.0		ThetaMin
-135.0		ThetaMax
+  0.0		ThetaMin
+180.0		ThetaMax
   0.0		PhiMin
 360.0		PhiMax
 
 #BLOB
 3.0		radius
-4.0		xCenter
--1.0		yCenter
--0.5		zCenter
+-4.0		xCenter
+0.0		yCenter
+4.0		zCenter
 
 #STOP
 1.0		TimeMax
@@ -33,7 +33,7 @@ T		IsNodeBasedGrid
 0.1		DtPlot
 
 #AMR
-2		MaxLevel
+1		MaxLevel
 
 #SCHEME
 2		nOrder
