@@ -1,0 +1,36 @@
+#GRIDGEOMETRY
+roundcube		TypeGeometry
+
+#GRIDTYPE
+T			IsNodeBasedGrid
+
+#VELOCITY
+8.0			Ux
+0.1			Uy
+
+#GRID
+10			nRootX
+10			nRootY
+-10.0			xMin
+ 10.0			xMax
+-10.0			yMin
+ 10.0			yMax
+
+#BLOB
+3.0			radius
+-4.0			xCenter
+-1.0			yCenter
+
+#STOP
+1.0			TimeMax
+
+#SAVEPLOT
+0.1			DtPlot
+
+#AMR
+1			MaxLevel
+
+#SCHEME
+2			nOrder
+1.5			BetaLimiter
+F			DoLimitVolumeState
