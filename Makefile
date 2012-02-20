@@ -35,7 +35,7 @@ test_advect:	test_advect11 test_advect21 test_advect22 \
 		test_advect12 \
 		test_advect31 test_advect32 test_advect33 \
 		test_advect22_rz test_advect22_cyl test_advect22_round \
-		test_advect33_sph test_advect33_rlonlat
+		test_advect33_sph test_advect33_rlonlat test_advect33_round
 	ls -l advect??*.diff
 
 MPIRUN = mpirun -np 2
@@ -173,6 +173,14 @@ test_advect33_rlonlat:
 		mv advect.log advect33_rlonlat.log
 	make test_advect33_rlonlat_check
 
+test_advect33_round: 
+	Config.pl -g=4,4,4 -r=2,2,2
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect33_round.log
+	rm -f input/PARAM.in; cp input/PARAM.in.round3d run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect33_round.log
+	make test_advect33_round_check
+
 test_advect31: 
 	Config.pl -g=4,4,4 -r=2,1,1
 	make ADVECT
@@ -260,6 +268,12 @@ test_advect33_rlonlat_check:
 		run/advect33_rlonlat.log output/advect33_rlonlat.log \
 						> advect33_rlonlat.diff)
 	ls -l advect33_rlonlat.diff
+
+test_advect33_round_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
+		run/advect33_round.log output/advect33_round.log \
+							> advect33_round.diff)
+	ls -l advect33_round.diff
 
 clean:
 	cd share; make clean
