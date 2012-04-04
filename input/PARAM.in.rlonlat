@@ -1,8 +1,8 @@
 #GRIDGEOMETRY
 rlonlat_lnr	TypeGeometry
 
-#GRIDTYPE
-T		IsNodeBasedGrid
+#UNIFORMAXIS
+T		UseUniformAxis
 
 #VELOCITY
 8.0		Ux
