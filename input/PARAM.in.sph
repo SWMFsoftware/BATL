@@ -1,9 +1,6 @@
 #GRIDGEOMETRY
 spherical_lnr	TypeGeometry
 
-#GRIDTYPE
-T		IsNodeBasedGrid
-
 #VELOCITY
 8.0		Ux
 0.1		Uy
