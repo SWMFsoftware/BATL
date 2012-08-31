@@ -46,17 +46,15 @@ module ModReadAmr
 
 contains
   !============================================================================
-  subroutine readamr_init(NameFile, IsVerboseIn)
+  subroutine readamr_init(NameFile, IsVerbose)
 
     use ModIoUnit, ONLY: UnitTmp_
     use BATL_lib,  ONLY: MaxDim, nDim, nIJK, nProc, init_batl
     use BATL_grid, ONLY: create_grid
     use BATL_tree, ONLY: read_tree_file, distribute_tree
 
-    character(len=*), intent(in):: NameFile
-    logical, optional, intent(in):: IsVerboseIn ! provide verbose output
-
-    logical:: IsVerbose
+    character(len=*), intent(in):: NameFile  ! base name
+    logical,          intent(in):: IsVerbose ! provide verbose output
 
     integer:: i, iDim, iError
 
@@ -73,9 +71,6 @@ contains
 
     character(len=*), parameter:: NameSub = 'readamr_init'
     !-------------------------------------------------------------------------
-    IsVerbose = .false.
-    if(present(IsVerboseIn)) IsVerbose = IsVerboseIn
-
     open(UnitTmp_, file=trim(NameFile)//'.info', status='old', iostat=iError)
     if(iError /= 0) call CON_stop(NameSub// &
          ' ERROR: could not open '//trim(NameFile)//'.info')
@@ -122,12 +117,15 @@ contains
     read(UnitTmp_,'(a)') TypeGeometry
     if(index(TypeGeometry,'genr') > 0)then
        read(UnitTmp_,*) nRgen
+       if(allocated(Rgen_I)) deallocate(Rgen_I)
        allocate(Rgen_I(nRgen))
        do i = 1, nRgen
           read(UnitTmp_,*) Rgen_I(i)
        end do
        ! For some reason we store the logarithm of the radius, so take exp
        Rgen_I = exp(Rgen_I)
+    else
+       allocate(Rgen_I(1))
     end if
 
     read(UnitTmp_,'(a)') TypeDataFile  ! TypeFile for IDL data
@@ -160,6 +158,8 @@ contains
     call distribute_tree(.true.)
     call create_grid
 
+    deallocate(Rgen_I)
+
   end subroutine readamr_init
   !============================================================================
   subroutine readamr_read(NameFile, iVarIn_I, IsNewGridIn, IsVerboseIn, &
@@ -179,6 +179,7 @@ contains
     logical, optional, intent(in):: UseSinTest  ! store sin(coord) into State
 
     logical:: IsNewGrid
+    logical:: IsVerbose
 
     ! Allocatable arrays for holding linear file data
     real, allocatable  :: State_VI(:,:), Xyz_DI(:,:)
@@ -191,15 +192,18 @@ contains
     IsNewGrid = .true.
     if(present(IsNewGridIn)) IsNewGrid = IsNewGridIn
  
+    IsVerbose = .false.
+    if(present(IsVerboseIn)) IsVerbose = IsVerboseIn
+
+    if(IsVerbose)write(*,*) NameSub,&
+         ' starting with IsNewGrid, UseXyzTest, UseSinTest=', &
+         IsNewGrid, present(UseXyzTest), present(UseSinTest)
+
     ! Read grid info if necessary
     if(IsNewGrid)then
        l = index(NameFile,".",BACK=.true.)
        call readamr_init(NameFile(1:l-1), IsVerboseIn)
-       if(allocated(State_VGB)) deallocate(State_VGB)
-       allocate(&
-            State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
     end if
-    State_VGB = 0.0
 
     nVar = nVarData
     if(present(iVarIn_I))then
@@ -209,12 +213,26 @@ contains
           call CON_stop(NameSub//': invalid iVarIn_I array')
        end if
     end if
+    if(IsVerbose)write(*,*) NameSub,&
+         ' nVarData, nVar, present(iVarIn_I)=',nVarData, nVar, present(iVarIn_I)
+
+    if(IsNewGrid)then
+       if(allocated(State_VGB)) deallocate(State_VGB)
+       allocate(&
+            State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
+       if(IsVerbose)write(*,*) NameSub,&
+            ' allocated State_VGB with nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock=',&
+            nVar,MinI,MaxI,MinJ,MaxJ,MinK,MaxK,MaxBlock
+    end if
+    State_VGB = 0.0
 
     ! The tests need at least nDim variables to be stored
     if(present(UseXyzTest) .or. present(UseSinTest)) nVar = max(nVar, nDim)
 
     !!! IMPLEMENT READING ALTERNATIVE FILE FORMATS !!!
+
     allocate(State_VI(nVarData,nCellData), Xyz_DI(nDim,nCellData))
+
     call read_plot_file(NameFile, TypeFileIn=TypeDataFile, &
          CoordOut_DI=Xyz_DI, VarOut_VI = State_VI)
 
@@ -222,6 +240,7 @@ contains
     do iCell = 1, nCellData
        ! find cell on the grid
        Xyz_D(1:nDim) = Xyz_DI(:,iCell)
+
        call find_grid_block(Xyz_D, iProcFound, iBlock, iCell_D)
 
        if(iBlock < 0)then
@@ -248,16 +267,16 @@ contains
           State_VGB(:,i,j,k,iBlock) = State_VI(:,iCell)
        end if
 
-
        ! For verification tests
        if(present(UseXyzTest))then
           ! Store x,y,z coordinates into first nDim elements
-          State_VGB(1:nDim,i,j,k,iBlock) = Xyz_DI(:,iCell)
+          State_VGB(1:nDim,i,j,k,iBlock) = Xyz_D(1:nDim)
        elseif(present(UseSinTest))then
           call xyz_to_coord(Xyz_D, Coord_D)
           State_VGB(1:nDim,i,j,k,iBlock) = sin(cTwoPi*Coord_D(1:nDim) &
                /(CoordMax_D(1:nDim) - CoordMin_D(1:nDim)))
        end if
+
     enddo
 
     if(IsVerboseIn)write(*,*)NameSub,' read data'
@@ -275,7 +294,7 @@ contains
   !============================================================================
   subroutine readamr_get(Xyz_D, State_V, Weight, IsFound)
 
-    use BATL_lib, ONLY: nDim, nG, iProc, &
+    use BATL_lib, ONLY: nDim, nG, iProc, Xyz_DGB, &
          interpolate_grid, find_grid_block
 
     real,    intent(in)  :: Xyz_D(MaxDim)
@@ -294,7 +313,7 @@ contains
     integer:: iCell, nCell, iCell_II(0:nDim,2**nDim), iCell_D(MaxDim), i, j, k
     real:: Weight_I(2**nDim)
 
-    logical, parameter:: DoDebug = .true.
+    logical, parameter:: DoDebug = .false.
 
     character(len=*), parameter:: NameSub='readamr_get'
     !-------------------------------------------------------------------------
@@ -362,8 +381,9 @@ contains
           Weight = Weight  + Weight_I(iCell)
           State_V= State_V + Weight_I(iCell)*State_VGB(:,i,j,k,iBlock)
 
-          if(DoDebug)write(*,*)NameSub,': iProc,iCell,iBlock,i,j,k,Weight=',&
-               iProc, iCell, iBlock, i, j, k, Weight
+          if(DoDebug)write(*,*)NameSub,': iProc,iBlock,i,j,k,Weight,Xyz,State=',&
+               iProc, iBlock, i, j, k, Weight_I(iCell), &
+               Xyz_DGB(:,i,j,k,iBlock), State_VGB(1:nDim,i,j,k,iBlock)
        end do
     end if
 
@@ -376,6 +396,7 @@ contains
 
     call clean_batl
     if(allocated(State_VGB)) deallocate(State_VGB)
+    if(allocated(ParamData_I)) deallocate(ParamData_I)
     nVar       = 0
     nVarData   = 0
     nBlockData = 0
