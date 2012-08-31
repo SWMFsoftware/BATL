@@ -1,9 +1,10 @@
 program read_amr
 
   ! reconstruct AMR grid and populate data onto that grid
-  use BATL_lib, ONLY: iProc, init_mpi, clean_mpi, coord_to_xyz
+  use BATL_lib, ONLY: iProc, nProc, iComm, init_mpi, clean_mpi, coord_to_xyz
   use ModReadAmr, ONLY: nVar, CoordMin_D, CoordMax_D, &
-       readamr_init, readamr_read, readamr_get, readamr_clean
+       readamr_read, readamr_get, readamr_clean
+  use ModMpi, ONLY: MPI_CHARACTER, MPI_BCAST
 
   implicit none
   
@@ -12,20 +13,21 @@ program read_amr
 
   real :: Xyz_D(3), Coord_D(3), Weight
   real, allocatable:: State_V(:)
+  integer:: iError
   logical:: IsFound
   !----------------------------------------------------------------------------
   ! Initialize MPI (for parallel execution)
   call init_mpi
 
-
-  ! NameFile='input/3d__all_2_n0000010'
-  NameFile='input/3d__all_1_t25.60000_n0000386'
-
-  if(iProc==0) write(*,*) 'Initializing READAMR'
-  call readamr_init(NameFile, IsVerboseIn = iProc==0)
+  if(iProc==0)then
+     write(*,*)'Provide data file name:'
+     read(*,'(a)') NameFile
+  end if
+  if(nProc > 0) call MPI_bcast(NameFile, len(NameFile), MPI_CHARACTER, 0, &
+       iComm, iError)
 
   if(iProc==0) write(*,*) 'Reading data'
-  call readamr_read(trim(NameFile)//'.out', UseXyzTest=.true.)
+  call readamr_read(NameFile, IsVerboseIn = iProc==0, UseXyzTest=.true.)
 
   ! Allocate state array
   allocate(State_V(nVar))
@@ -35,7 +37,7 @@ program read_amr
   Coord_D = (CoordMin_D + CoordMax_D)/2
   call coord_to_xyz(Coord_D, Xyz_D)
   if(iProc==0)write(*,*)'Testing at Coord_D, Xyz_D=', Coord_D, Xyz_D
-  call readamr_get(Xyz_D, nVar, State_V, Weight, IsFound)
+  call readamr_get(Xyz_D, State_V, Weight, IsFound)
   if(Weight>0.0) write(*,*)'iProc,Weight,State_V=', iProc, Weight, State_V
 
   deallocate(State_V)
