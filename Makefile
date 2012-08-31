@@ -2,6 +2,7 @@ include Makefile.def
 
 install:
 	touch src/Makefile.DEPEND
+	mkdir -p lib
 	cp -f src/BATL_size_orig.f90 src/BATL_size.f90
 
 run:
@@ -10,8 +11,10 @@ run:
 		cp ../input/PARAM.in.cart PARAM.in; \
 		ln -s ${BINDIR}/ADVECT.exe .; \
 		ln -s ${BINDIR}/BATL.exe .; \
+		ln -s ${BINDIR}/READAMR.exe .; \
 		ln -s ${BINDIR}/PostIDL.exe .; \
-		ln -s ${BINDIR}/pIDL .
+		ln -s ${BINDIR}/pIDL .; \
+		ln -s ${DIR}/data .
 
 BATL:	run
 	cd ${SHAREDIR}; make LIB
@@ -22,6 +25,15 @@ ADVECT: run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
 	cd src; make ADVECT
+
+READAMRLIB:
+	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
+	cd src; make LIB
+	cd srcReadAmr; make LIB
+
+READAMR: READAMRLIB run
+	cd srcReadAmr; make EXE
 
 NOMPI:
 	cd util/NOMPI/src; make LIB
@@ -275,6 +287,12 @@ test_advect33_round_check:
 							> advect33_round.diff)
 	ls -l advect33_round.diff
 
+
+test_readamr:
+	Config.pl -g=64,2,2 -r=2,2,2 -ng=0 -f
+	make READAMR
+	cd run; echo "data/3d__all_1_t25.60000_n0000386.out" | READAMR.exe
+
 clean:
 	cd share; make clean
 	cd src; make clean
@@ -282,5 +300,4 @@ clean:
 allclean:
 	touch src/Makefile.DEPEND
 	cd src; make distclean
-	rm -rf run bin/*.exe *.diff
-
+	rm -rf run lib bin/*.exe *.diff
