@@ -11,13 +11,12 @@ module ModReadAmr
   private !except
 
   ! Public methods 
-  public:: readamr_init   ! read AMR tree information
   public:: readamr_read   ! read AMR data
   public:: readamr_get    ! get data at some point
   public:: readamr_clean  ! clean all variables
 
   ! Public data (optional)
-  real, public, allocatable:: State_VGB(:,:,:,:,:)
+  real, public, allocatable:: State_VGB(:,:,:,:,:) ! variables stored in blocks
 
   integer, public:: nVar=0                 ! number of variables in State_VGB
 
@@ -163,27 +162,45 @@ contains
 
   end subroutine readamr_init
   !============================================================================
-  subroutine readamr_read(NameFile, iVarIn_I, UseXyzTest, UseSinTest)
+  subroutine readamr_read(NameFile, iVarIn_I, IsNewGridIn, IsVerboseIn, &
+       UseXyzTest, UseSinTest)
 
     use BATL_lib, ONLY: nDim, &
-         MinI, MaxI, MinJ, MaxJ, MinK, MaxK, MaxBlock, nG, iProc, &
+         MinI, MaxI, MinJ, MaxJ, MinK, MaxK, MaxBlock, nG, iProc, Xyz_DGB, &
          find_grid_block, message_pass_cell, xyz_to_coord
     use ModPlotFile, ONLY: read_plot_file
     use ModConst,    ONLY: cTwoPi
 
     character(len=*), intent(in):: NameFile     ! data file name
     integer, optional, intent(in):: iVarIn_I(:) ! index of variables to store
+    logical, optional, intent(in):: IsNewGridIn ! new grid (read info/tree)
+    logical, optional, intent(in):: IsVerboseIn ! provide verbose output
     logical, optional, intent(in):: UseXyzTest  ! store x,y,z into State
     logical, optional, intent(in):: UseSinTest  ! store sin(coord) into State
+
+    logical:: IsNewGrid
 
     ! Allocatable arrays for holding linear file data
     real, allocatable  :: State_VI(:,:), Xyz_DI(:,:)
 
     real:: Xyz_D(MaxDim) = 0.0, Coord_D(MaxDim)
-    integer:: iCell, iCell_D(MaxDim), i, j, k, iBlock, iProcFound
+    integer:: iCell, iCell_D(MaxDim), i, j, k, l, iBlock, iProcFound
 
     character(len=*), parameter:: NameSub = 'readamr_read'
     !--------------------------------------------------------------------------
+    IsNewGrid = .true.
+    if(present(IsNewGridIn)) IsNewGrid = IsNewGridIn
+ 
+    ! Read grid info if necessary
+    if(IsNewGrid)then
+       l = index(NameFile,".",BACK=.true.)
+       call readamr_init(NameFile(1:l-1), IsVerboseIn)
+       if(allocated(State_VGB)) deallocate(State_VGB)
+       allocate(&
+            State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
+    end if
+    State_VGB = 0.0
+
     nVar = nVarData
     if(present(iVarIn_I))then
        nVar = size(iVarIn_I)
@@ -196,18 +213,12 @@ contains
     ! The tests need at least nDim variables to be stored
     if(present(UseXyzTest) .or. present(UseSinTest)) nVar = max(nVar, nDim)
 
+    !!! IMPLEMENT READING ALTERNATIVE FILE FORMATS !!!
     allocate(State_VI(nVarData,nCellData), Xyz_DI(nDim,nCellData))
-
     call read_plot_file(NameFile, TypeFileIn=TypeDataFile, &
          CoordOut_DI=Xyz_DI, VarOut_VI = State_VI)
 
-    ! allocate block-AMR data structure
-    allocate(&
-         State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
-
-    State_VGB = 0.0
-
-    ! find node containing point 
+    ! put each data point into the tree
     do iCell = 1, nCellData
        ! find cell on the grid
        Xyz_D(1:nDim) = Xyz_DI(:,iCell)
@@ -222,11 +233,21 @@ contains
        if (iProcFound /= iProc) CYCLE
 
        i = iCell_D(1); j = iCell_D(2); k = iCell_D(3)
+
+       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-6))then
+          write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
+               iCell, i, j, k, iBlock, iProc
+          write(*,*)NameSub,' Xyz_DI =', Xyz_DI(:,iCell)
+          write(*,*)NameSub,' Xyz_DGB=', Xyz_DGB(:,i,j,k,iBlock)
+          call CON_stop(NameSub//': incorrect coordinates')
+       end if
+
        if(present(iVarIn_I))then
           State_VGB(:,i,j,k,iBlock) = State_VI(iVarIn_I,iCell)
        else
           State_VGB(:,i,j,k,iBlock) = State_VI(:,iCell)
        end if
+
 
        ! For verification tests
        if(present(UseXyzTest))then
@@ -239,23 +260,26 @@ contains
        end if
     enddo
 
+    if(IsVerboseIn)write(*,*)NameSub,' read data'
+
     ! deallocate to save memory
-    deallocate (State_VI, Xyz_DI) 
+    if(allocated(State_VI)) deallocate (State_VI, Xyz_DI) 
 
     ! Set ghost cells if any
     if(nG > 0) call message_pass_cell(nVar, State_VGB)
 
+    if(IsVerboseIn)write(*,*)NameSub,' done'
+
   end subroutine readamr_read
 
   !============================================================================
-  subroutine readamr_get(Xyz_D, nVarIn, State_V, Weight, IsFound)
+  subroutine readamr_get(Xyz_D, State_V, Weight, IsFound)
 
     use BATL_lib, ONLY: nDim, nG, iProc, &
          interpolate_grid, find_grid_block
 
     real,    intent(in)  :: Xyz_D(MaxDim)
-    integer, intent(in)  :: nVarIn
-    real,    intent(out) :: State_V(nVarIn)
+    real,    intent(out) :: State_V(nVar)
     real,    intent(out) :: Weight
     logical, intent(out) :: IsFound
 
@@ -269,11 +293,20 @@ contains
     ! Variables for AMR interpolation without ghost cells
     integer:: iCell, nCell, iCell_II(0:nDim,2**nDim), iCell_D(MaxDim), i, j, k
     real:: Weight_I(2**nDim)
+
+    logical, parameter:: DoDebug = .true.
+
+    character(len=*), parameter:: NameSub='readamr_get'
     !-------------------------------------------------------------------------
+    if(DoDebug)write(*,*)NameSub,' starting with Xyz_D, nG=', Xyz_D, nG
+
     State_V = 0.0
     Weight  = 0.0
     if(nG > 0)then
        call find_grid_block(Xyz_D, iProcOut, iBlock, iCell_D, Dist_D)
+       if(DoDebug)write(*,*)NameSub,' found iProcOut, iBlock, iCell_D, Dist_D=', &
+            iProcOut, iBlock, iCell_D, Dist_D
+       
        IsFound = iBlock > 0
        if(iProcOut /= iProc) RETURN
        Dx1 = Dist_D(1); Dx2 = 1 - Dx1
@@ -310,10 +343,15 @@ contains
     else
        ! Check if position is covered by blocks
        call find_grid_block(Xyz_D, iProcOut, iBlock)
+       if(DoDebug)write(*,*)NameSub,' found iProcOut, iBlock=', iProcOut, iBlock
+
        IsFound = iBlock > 0
        if(.not.IsFound) RETURN
 
        call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)
+
+       if(DoDebug)write(*,*)NameSub,': interpolate iProc, nCell=',iProc, nCell
+
        do iCell = 1, nCell
           iBlock  = iCell_II(0,iCell)
           iCell_D = 1
@@ -323,8 +361,13 @@ contains
           k      = iCell_D(3)
           Weight = Weight  + Weight_I(iCell)
           State_V= State_V + Weight_I(iCell)*State_VGB(:,i,j,k,iBlock)
+
+          if(DoDebug)write(*,*)NameSub,': iProc,iCell,iBlock,i,j,k,Weight=',&
+               iProc, iCell, iBlock, i, j, k, Weight
        end do
     end if
+
+    if(DoDebug)write(*,*)NameSub,' finished with State_V=', State_V
 
   end subroutine readamr_get
   !============================================================================
