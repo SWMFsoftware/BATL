@@ -32,13 +32,16 @@ READAMRLIB:
 	cd src; make LIB
 	cd srcReadAmr; make LIB
 
-READAMR: READAMRLIB run
+READAMR: run
+	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
+	cd src; make LIB
 	cd srcReadAmr; make EXE
 
 NOMPI:
 	cd util/NOMPI/src; make LIB
 
-test:	test_unit test_advect
+test:	test_unit test_advect test_readamr
 
 test_unit: test11 test12 test21 test22 test31 test32 test33
 	ls -l test??.diff
@@ -287,17 +290,40 @@ test_advect33_round_check:
 							> advect33_round.diff)
 	ls -l advect33_round.diff
 
+test_readamr: test_readamr_2d test_readamr_3d test_readamr_sph
+	ls -l readamr_*.diff
 
-test_readamr:
-	Config.pl -g=64,2,2 -r=2,2,2 -ng=0 -f
+test_readamr_2d:
+	Config.pl -g=4,4,1 -r=2,2,1 -ng=0
 	make READAMR
-	cd run; echo "data/3d__all_1_t25.60000_n0000386.out" | READAMR.exe
+	cd run; ${MPIRUN} READAMR.exe > readamr_2d.ref
+	-@(${SCRIPTDIR}/DiffNum.pl -t \
+		run/readamr_2d.ref output/readamr_2d.ref > readamr_2d.diff)
+	ls -l readamr_2d.diff
+
+test_readamr_3d:
+	Config.pl -g=4,4,4 -r=2,2,2 -ng=0
+	make READAMR
+	cd run; ${MPIRUN} READAMR.exe > readamr_3d.ref
+	-@(${SCRIPTDIR}/DiffNum.pl -t \
+		run/readamr_3d.ref output/readamr_3d.ref > readamr_3d.diff)
+	ls -l readamr_3d.diff
+
+test_readamr_sph:
+	Config.pl -g=6,4,4 -r=2,2,2 -ng=0
+	make READAMR
+	cd run; ${MPIRUN} READAMR.exe > readamr_sph.ref
+	-@(${SCRIPTDIR}/DiffNum.pl -t \
+		run/readamr_sph.ref output/readamr_sph.ref > readamr_sph.diff)
+	ls -l readamr_sph.diff
 
 clean:
 	cd share; make clean
 	cd src; make clean
+	cd srcReadAmr; make clean
 
 allclean:
 	touch src/Makefile.DEPEND
 	cd src; make distclean
+	cd srcReadAmr; make distclean
 	rm -rf run lib bin/*.exe *.diff
