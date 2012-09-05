@@ -6,25 +6,28 @@ SEARCH_EXTRA = -I../src
 
 include ../Makefile.conf
 
-OBJECTS= ModReadAmr.o
+LIBBATL = ../src/libBATL.a
+
+OBJECTS = ModReadAmr.o
+
+${OBJECTS}: ${LIBBATL}
+
+read_amr.o: ${OBJECTS}
 
 MY_LIB = ${LIBDIR}/libREADAMR.a
 
-EXE = ${BINDIR}/READAMR.exe
+LIB: ${MY_LIB}
 
-LIB:
-	make ${MY_LIB}
-
-LIBBATL = ../src/libBATL.a
-
-LIB: ${LIBBATL} ${OBJECTS}
-	@cp -f ${LIBBATL} ${MY_LIB}
+${MY_LIB}: ${LIBBATL} ${OBJECTS}
+	cp -f ${LIBBATL} ${MY_LIB}
 	${AR} ${MY_LIB} ${OBJECTS}
 
-EXE:    ${EXE}
+MY_EXE = ${BINDIR}/READAMR.exe
 
-${EXE}: LIB read_amr.o
-	${LINK.f90} -o ${EXE} read_amr.o \
-		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${LFLAG2}
+EXE:    ${MY_EXE}
+
+${MY_EXE}: LIB read_amr.o
+	${LINK.f90} -o ${MY_EXE} read_amr.o \
+		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${LFLAG1}
 
 distclean: clean
