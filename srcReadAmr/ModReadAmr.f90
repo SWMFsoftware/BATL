@@ -49,7 +49,7 @@ contains
   subroutine readamr_init(NameFile, IsVerbose)
 
     use ModIoUnit, ONLY: UnitTmp_
-    use BATL_lib,  ONLY: MaxDim, nDim, nIJK, nProc, init_batl
+    use BATL_lib,  ONLY: MaxDim, nDim, nIjk, nIjk_D, iProc, nProc, init_batl
     use BATL_grid, ONLY: create_grid
     use BATL_tree, ONLY: read_tree_file, distribute_tree
 
@@ -58,7 +58,7 @@ contains
 
     integer:: i, iDim, iError
 
-    character(len=500):: NameFileOrig
+    character(len=500):: NameFileOrig, NameHeaderFile
 
     integer:: MaxBlock
     integer:: nRgen=0
@@ -66,34 +66,43 @@ contains
 
     real:: CellSizePlot_D(MaxDim), CellSizeMin_D(MaxDim)
 
-    ! Variables read from tree file
-    integer:: nDimIn, nInfoIn, nNodeIn, iRatioIn_D(nDim),  nRoot_D(nDim)
+    integer:: nIjkIn_D(MaxDim),  nRoot_D(nDim)
+    logical:: IsPeriodic_D(MaxDim)
 
     character(len=*), parameter:: NameSub = 'readamr_init'
     !-------------------------------------------------------------------------
-    open(UnitTmp_, file=trim(NameFile)//'.info', status='old', iostat=iError)
+    NameHeaderFile = trim(NameFile)//'.info'
+    open(UnitTmp_, file=NameHeaderFile, status='old', iostat=iError)
+    if(iError /= 0) then
+       NameHeaderFile = trim(NameFile)//'.h'
+       open(UnitTmp_, file=NameHeaderFile, status='old', iostat=iError)
+    end if
     if(iError /= 0) call CON_stop(NameSub// &
-         ' ERROR: could not open '//trim(NameFile)//'.info')
+         ' ERROR: could not open '//trim(NameFile)//'.h or .info')
 
-    ! Read information from the .info file
+
+    if(IsVerbose) write(*,*) NameSub,' reading ',trim(NameHeaderFile)
+
+    ! Read information from the header file
     read(UnitTmp_,'(a)') NameFileOrig
     read(UnitTmp_,*) nProcData
     read(UnitTmp_,*) nStepData
     read(UnitTmp_,*) TimeData
 
-    if(IsVerbose) write(*,*)'nStepData=', nStepData, ' TimeData=', TimeData
+    if(IsVerbose) write(*,*) NameSub, &
+         ' nStepData=', nStepData, ' TimeData=', TimeData
 
     read(UnitTmp_,*) (CoordMin_D(iDim), CoordMax_D(iDim), iDim=1,MaxDim)
-    if(IsVerbose) write(*,*)'CoordMin_D=', CoordMin_D
-    if(IsVerbose) write(*,*)'CoordMax_D=', CoordMax_D
+    if(IsVerbose) write(*,*) NameSub, ' CoordMin_D=', CoordMin_D
+    if(IsVerbose) write(*,*) NameSub, ' CoordMax_D=', CoordMax_D
 
     read(UnitTmp_,*) CellSizePlot_D, CellSizeMin_D, nCellData
     if(CellSizePlot_D(1) >= 0.0) call CON_stop(NameSub// &
          ': the resolution should be set to -1 for file'//trim(NameFile))
-    if(IsVerbose) write(*,*)'nCellData=', nCellData
+    if(IsVerbose) write(*,*) NameSub, ' nCellData=', nCellData
 
     ! Total number of blocks in the data file
-    nBlockData = nCellData / nIJK
+    nBlockData = nCellData / nIjk
 
     ! Number of blocks per processor !!! this is wrong for box cut from sphere
     MaxBlock  = (nBlockData + nProc - 1) / nProc
@@ -102,19 +111,25 @@ contains
     read(UnitTmp_,*) nParamData
     allocate(ParamData_I(nParamData))
     read(UnitTmp_,*) ParamData_I
-    if(IsVerbose) write(*,*)'nVarData=',nVarData,' nParamData=', nParamData, &
-         ' ParamData_I=', ParamData_I
+    if(IsVerbose)then
+       write(*,*) NameSub,' nVarData=',nVarData,' nParamData=', nParamData
+       write(*,*) NameSub,' ParamData_I=', ParamData_I
+    end if
 
     read(UnitTmp_,'(a)') NameVarData
-    if(IsVerbose) write(*,*)'NameVarData =',trim(NameVarData)
+    if(IsVerbose) write(*,*) NameSub,' NameVarData =',trim(NameVarData)
 
     read(UnitTmp_,'(a)') NameUnitData
-    if(IsVerbose)write(*,*) 'NameUnitData=', trim(NameUnitData)
+    if(IsVerbose) write(*,*) NameSub,' NameUnitData=', trim(NameUnitData)
 
     read(UnitTmp_,*) IsBinary
     if(IsBinary) read(UnitTmp_,*) nByteReal
 
+    if(IsVerbose) write(*,*) NameSub,' IsBinary, nByteReal=', &
+         IsBinary, nByteReal
+
     read(UnitTmp_,'(a)') TypeGeometry
+    if(IsVerbose) write(*,*) NameSub,' TypeGeometry=',trim(TypeGeometry)
     if(index(TypeGeometry,'genr') > 0)then
        read(UnitTmp_,*) nRgen
        if(allocated(Rgen_I)) deallocate(Rgen_I)
@@ -129,18 +144,26 @@ contains
     end if
 
     read(UnitTmp_,'(a)') TypeDataFile  ! TypeFile for IDL data
+    if(IsVerbose) write(*,*) NameSub,' TypeDataFile=', TypeDataFile
+
+    read(UnitTmp_,*) nRoot_D
+    read(UnitTmp_,*) nIjkIn_D
+    read(UnitTmp_,*) IsPeriodic_D
+
+    if(IsVerbose)then
+       write(*,*) NameSub, ' nRoot_D     = ', nRoot_D
+       write(*,*) NameSub, ' nIjkIn_D    = ', nIjkIn_D
+       write(*,*) NameSub, ' IsPeriodic_D= ', IsPeriodic_D
+    end if
 
     close(UnitTmp_)
 
-    ! Read root block information from the tree file
-    open(UnitTmp_, file=trim(NameFile)//'.tree', status='old', &
-         form='unformatted', iostat=iError)
-    if(iError /= 0) call CON_stop(NameSub// &
-         ': could not open tree file'//trim(NameFile)//'.tree')
-    read(UnitTmp_) nDimIn, nInfoIn, nNodeIn
-    read(UnitTmp_) iRatioIn_D
-    read(UnitTmp_) nRoot_D
-    close(UnitTmp_)
+    if(iProc == 0 .and. any(nIjkIn_D /= nIjk_D))then
+       write(*,*) 'ERROR in ',NameSub,' while reading ',trim(NameHeaderFile)
+       write(*,*) 'Block size in header file        =', nIjkIn_D
+       write(*,*) 'READAMR is configured to nI,nJ,nK=', nIjk_D
+       call CON_stop('Read other file or reconfigure and recompile READAMR')
+    end if
 
     ! Initialize BATL (using generalized coordinates and radians)
     if(TypeGeometry(1:9)=='spherical') then
@@ -151,6 +174,7 @@ contains
 
     call init_batl(CoordMin_D, CoordMax_D, MaxBlock, &
          TypeGeometryBatl, rGenIn_I=rGen_I, nRootIn_D=nRoot_D, &
+         IsPeriodicIn_D=IsPeriodic_D, &
          UseRadiusIn=.false., UseDegreeIn=.false.)
 
     ! Read the full tree information and create grid
@@ -163,20 +187,19 @@ contains
   end subroutine readamr_init
   !============================================================================
   subroutine readamr_read(NameFile, iVarIn_I, IsNewGridIn, IsVerboseIn, &
-       UseXyzTest, UseSinTest)
+       UseCoordTest)
 
     use BATL_lib, ONLY: nDim, &
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, MaxBlock, nG, iProc, Xyz_DGB, &
          find_grid_block, message_pass_cell, xyz_to_coord
     use ModPlotFile, ONLY: read_plot_file
-    use ModConst,    ONLY: cTwoPi
+    use ModConst,    ONLY: cPi
 
     character(len=*), intent(in):: NameFile     ! data file name
     integer, optional, intent(in):: iVarIn_I(:) ! index of variables to store
     logical, optional, intent(in):: IsNewGridIn ! new grid (read info/tree)
     logical, optional, intent(in):: IsVerboseIn ! provide verbose output
-    logical, optional, intent(in):: UseXyzTest  ! store x,y,z into State
-    logical, optional, intent(in):: UseSinTest  ! store sin(coord) into State
+    logical, optional, intent(in):: UseCoordTest! store cos^2(coord) into State
 
     logical:: IsNewGrid
     logical:: IsVerbose
@@ -187,6 +210,8 @@ contains
     real:: Xyz_D(MaxDim) = 0.0, Coord_D(MaxDim)
     integer:: iCell, iCell_D(MaxDim), i, j, k, l, iBlock, iProcFound
 
+    integer:: nVarLast = -1, MaxBlockLast = -1
+
     character(len=*), parameter:: NameSub = 'readamr_read'
     !--------------------------------------------------------------------------
     IsNewGrid = .true.
@@ -196,8 +221,8 @@ contains
     if(present(IsVerboseIn)) IsVerbose = IsVerboseIn
 
     if(IsVerbose)write(*,*) NameSub,&
-         ' starting with IsNewGrid, UseXyzTest, UseSinTest=', &
-         IsNewGrid, present(UseXyzTest), present(UseSinTest)
+         ' starting with IsNewGrid, UseCoordTest,=', &
+         IsNewGrid, present(UseCoordTest)
 
     ! Read grid info if necessary
     if(IsNewGrid)then
@@ -213,21 +238,24 @@ contains
           call CON_stop(NameSub//': invalid iVarIn_I array')
        end if
     end if
-    if(IsVerbose)write(*,*) NameSub,&
-         ' nVarData, nVar, present(iVarIn_I)=',nVarData, nVar, present(iVarIn_I)
+    if(IsVerbose)write(*,*) NameSub,' nVarData, nVar, present(iVarIn_I)=', &
+         nVarData, nVar, present(iVarIn_I)
 
-    if(IsNewGrid)then
+    if(.not. allocated(State_VGB) .or. &
+         nVar /= nVarLast .or. MaxBlock /= MaxBlockLast)then
        if(allocated(State_VGB)) deallocate(State_VGB)
        allocate(&
             State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
-       if(IsVerbose)write(*,*) NameSub,&
-            ' allocated State_VGB with nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock=',&
-            nVar,MinI,MaxI,MinJ,MaxJ,MinK,MaxK,MaxBlock
+       if(IsVerbose)write(*,*) NameSub,' allocated State_VGB(', &
+            nVar,',',MinI,':',MaxI,',',MinJ,':',MaxJ,',',MinK,':',MaxK, &
+            ',',MaxBlock,')'
+
+       nVarLast = nVar; MaxBlockLast = MaxBlock
     end if
     State_VGB = 0.0
 
     ! The tests need at least nDim variables to be stored
-    if(present(UseXyzTest) .or. present(UseSinTest)) nVar = max(nVar, nDim)
+    if(present(UseCoordTest)) nVar = max(nVar, MaxDim)
 
     !!! IMPLEMENT READING ALTERNATIVE FILE FORMATS !!!
 
@@ -253,7 +281,7 @@ contains
 
        i = iCell_D(1); j = iCell_D(2); k = iCell_D(3)
 
-       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-6))then
+       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-5))then
           write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
                iCell, i, j, k, iBlock, iProc
           write(*,*)NameSub,' Xyz_DI =', Xyz_DI(:,iCell)
@@ -268,13 +296,11 @@ contains
        end if
 
        ! For verification tests
-       if(present(UseXyzTest))then
-          ! Store x,y,z coordinates into first nDim elements
-          State_VGB(1:nDim,i,j,k,iBlock) = Xyz_D(1:nDim)
-       elseif(present(UseSinTest))then
+       if(present(UseCoordTest))then
+          ! Store cos^2 of generalized coordinates into first MaxDim elements
           call xyz_to_coord(Xyz_D, Coord_D)
-          State_VGB(1:nDim,i,j,k,iBlock) = sin(cTwoPi*Coord_D(1:nDim) &
-               /(CoordMax_D(1:nDim) - CoordMin_D(1:nDim)))
+          State_VGB(1:MaxDim,i,j,k,iBlock) = &
+               cos(cPi*(Coord_D - CoordMin_D)/(CoordMax_D - CoordMin_D))**2
        end if
 
     enddo
@@ -284,7 +310,7 @@ contains
     ! deallocate to save memory
     if(allocated(State_VI)) deallocate (State_VI, Xyz_DI) 
 
-    ! Set ghost cells if any
+    ! Set ghost cells if any. Note that OUTER ghost cells are not set!
     if(nG > 0) call message_pass_cell(nVar, State_VGB)
 
     if(IsVerboseIn)write(*,*)NameSub,' done'
@@ -292,15 +318,14 @@ contains
   end subroutine readamr_read
 
   !============================================================================
-  subroutine readamr_get(Xyz_D, State_V, Weight, IsFound)
+  subroutine readamr_get(Xyz_D, State_V, IsFound)
 
-    use BATL_lib, ONLY: nDim, nG, iProc, Xyz_DGB, &
+    use BATL_lib, ONLY: nDim, nG, nIJK_D, iProc, Xyz_DGB, &
          interpolate_grid, find_grid_block
 
-    real,    intent(in)  :: Xyz_D(MaxDim)
-    real,    intent(out) :: State_V(nVar)
-    real,    intent(out) :: Weight
-    logical, intent(out) :: IsFound
+    real,    intent(in)  :: Xyz_D(MaxDim)   ! location on grid
+    real,    intent(out) :: State_V(0:nVar) ! weight and variables
+    logical, intent(out) :: IsFound         ! true if found on grid
 
     ! Block and processor index for the point
     integer:: iBlock, iProcOut
@@ -317,17 +342,27 @@ contains
 
     character(len=*), parameter:: NameSub='readamr_get'
     !-------------------------------------------------------------------------
-    if(DoDebug)write(*,*)NameSub,' starting with Xyz_D, nG=', Xyz_D, nG
+    if(DoDebug)write(*,*)NameSub,' starting with Xyz_D=', Xyz_D
 
     State_V = 0.0
-    Weight  = 0.0
-    if(nG > 0)then
-       call find_grid_block(Xyz_D, iProcOut, iBlock, iCell_D, Dist_D)
-       if(DoDebug)write(*,*)NameSub,' found iProcOut, iBlock, iCell_D, Dist_D=', &
-            iProcOut, iBlock, iCell_D, Dist_D
+
+    call find_grid_block(Xyz_D, iProcOut, iBlock, iCell_D, Dist_D)
+    if(DoDebug)write(*,*)NameSub,&
+         ' found iProcOut, iBlock, iCell_D, Dist_D=', &
+         iProcOut, iBlock, iCell_D, Dist_D
+
+    IsFound = iBlock > 0
+    if(.not.IsFound) RETURN
+
+    ! Check if all surrounding cells are inside a single block
+    if(all(iCell_D(1:nDim) > 0 .and. iCell_D(1:nDim) < nIJK_D(1:nDim)))then
        
-       IsFound = iBlock > 0
        if(iProcOut /= iProc) RETURN
+
+       ! Set weight to 1.0
+       State_V(0) = 1.0
+
+       ! Set indexes and distances for interpolation
        Dx1 = Dist_D(1); Dx2 = 1 - Dx1
        i1  = iCell_D(1); i2 = i1 + 1
        if(nDim > 1)then
@@ -338,35 +373,38 @@ contains
           Dz1 = Dist_D(3); Dz2 = 1 - Dz1
           k1 = iCell_D(3); k2 = k1 + 1
        end if
+
+       ! Interpolate
        if(nDim == 1)then
-          State_V = Dx2*State_VGB(:,i1,j1,k1,iBlock)   &
-               +    Dx1*State_VGB(:,i2,j1,k1,iBlock)
+          State_V(1:nVar) = Dx2*State_VGB(:,i1,j1,k1,iBlock)  &
+               +            Dx1*State_VGB(:,i2,j1,k1,iBlock)
        end if
        if(nDim == 2)then
-          State_V = Dy2*(Dx2*State_VGB(:,i1,j1,k1,iBlock)   &
-               +         Dx1*State_VGB(:,i2,j1,k1,iBlock))  &
-               +    Dy1*(Dx2*State_VGB(:,i1,j2,k1,iBlock)   &
-               +         Dx1*State_VGB(:,i2,j2,k1,iBlock))
+          State_V(1:nVar) = Dy2*(Dx2*State_VGB(:,i1,j1,k1,iBlock)   &
+               +                 Dx1*State_VGB(:,i2,j1,k1,iBlock))  &
+               +            Dy1*(Dx2*State_VGB(:,i1,j2,k1,iBlock)   &
+               +                 Dx1*State_VGB(:,i2,j2,k1,iBlock))
        end if
        if(nDim == 3)then
-          State_V = Dz2*(Dy2*(Dx2*State_VGB(:,i1,j1,k1,iBlock)   &
-               +              Dx1*State_VGB(:,i2,j1,k1,iBlock))  &
-               +         Dy1*(Dx2*State_VGB(:,i1,j2,k1,iBlock)   &
-               +              Dx1*State_VGB(:,i2,j2,k1,iBlock))) &
-               +    Dz1*(Dy2*(Dx2*State_VGB(:,i1,j1,k2,iBlock)   &
-               +              Dx1*State_VGB(:,i2,j1,k2,iBlock))  &
-               +         Dy1*(Dx2*State_VGB(:,i1,j2,k2,iBlock)   &
-               +              Dx1*State_VGB(:,i2,j2,k2,iBlock)))
+          State_V(1:nVar) = Dz2*(Dy2*(Dx2*State_VGB(:,i1,j1,k1,iBlock)   &
+               +                      Dx1*State_VGB(:,i2,j1,k1,iBlock))  &
+               +                 Dy1*(Dx2*State_VGB(:,i1,j2,k1,iBlock)   &
+               +                      Dx1*State_VGB(:,i2,j2,k1,iBlock))) &
+               +            Dz1*(Dy2*(Dx2*State_VGB(:,i1,j1,k2,iBlock)   &
+               +                      Dx1*State_VGB(:,i2,j1,k2,iBlock))  &
+               +                 Dy1*(Dx2*State_VGB(:,i1,j2,k2,iBlock)   &
+               +                      Dx1*State_VGB(:,i2,j2,k2,iBlock)))
        end if
-       Weight = 1.0
+
+       if(DoDebug)then
+          write(*,*)'!!! i1,j1,k1,i2,j2,k2=',i1,j1,k1,i2,j2,k2
+          write(*,*)'!!! Dx1,Dx2,Dy1,Dy2,Dz1,Dz2=',Dx1,Dx2,Dy1,Dy2,Dz1,Dz2
+          write(*,*)'!!! State_VGB(1,i1:i2,j1:j2,k1:k2,iBlock) = ',&
+               State_VGB(1,i1:i2,j1:j2,k1:k2,iBlock)
+       end if
+
     else
-       ! Check if position is covered by blocks
-       call find_grid_block(Xyz_D, iProcOut, iBlock)
-       if(DoDebug)write(*,*)NameSub,' found iProcOut, iBlock=', iProcOut, iBlock
-
-       IsFound = iBlock > 0
-       if(.not.IsFound) RETURN
-
+       ! Use interpolation algorithm that does not rely on ghost cells at all
        call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)
 
        if(DoDebug)write(*,*)NameSub,': interpolate iProc, nCell=',iProc, nCell
@@ -378,12 +416,16 @@ contains
           i      = iCell_D(1)
           j      = iCell_D(2)
           k      = iCell_D(3)
-          Weight = Weight  + Weight_I(iCell)
-          State_V= State_V + Weight_I(iCell)*State_VGB(:,i,j,k,iBlock)
+          if(DoDebug)write(*,*)NameSub,': iProc,iBlock,i,j,k,=',&
+               iProc, iBlock, i, j, k
 
-          if(DoDebug)write(*,*)NameSub,': iProc,iBlock,i,j,k,Weight,Xyz,State=',&
-               iProc, iBlock, i, j, k, Weight_I(iCell), &
-               Xyz_DGB(:,i,j,k,iBlock), State_VGB(1:nDim,i,j,k,iBlock)
+          State_V(0) = State_V(0)  + Weight_I(iCell)
+          State_V(1:nVar) = State_V(1:nVar) &
+               + Weight_I(iCell)*State_VGB(:,i,j,k,iBlock)
+
+          if(DoDebug)write(*,*)NameSub, ': iProc,iBlock,i,j,k,Xyz,State=', &
+               iProc, iBlock, i, j, k, &
+               Xyz_DGB(:,i,j,k,iBlock), State_VGB(0:nDim,i,j,k,iBlock)
        end do
     end if
 
