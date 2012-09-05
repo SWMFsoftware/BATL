@@ -1,0 +1,33 @@
+ READAMRTEST is starting with nI, nJ, nK= 6 4 4
+ READAMRTEST get variables 1,3 from data/3d__var_4_t00000000_n0000010.out
+ readamr_read starting with IsNewGrid, UseCoordTest,= T F
+ readamr_init reading data/3d__var_4_t00000000_n0000010.h
+ readamr_init nStepData= 10  TimeData=   3.8684499999999997E-02
+ readamr_init CoordMin_D=   0.0000000000000000   0.0000000000000000  -1.5707963268000000
+ readamr_init CoordMax_D=   3.1780538303000001   6.2831853072000001   1.5707963268000000
+ readamr_init nCellData= 12288
+ readamr_init nVarData= 4  nParamData= 10
+ readamr_init ParamData_I=   1.6666700000000001   2.9979000000000000E+08  -0.0000000000000000   3.0000000000000000   6.0000000000000000   4.0000000000000000   6.0000000000000000   4.0000000000000000   4.0000000000000000   3.0000000000000000
+ readamr_init NameVarData =rho ux uy uz g c th p1 p2 p3 NX NY NZ R
+ readamr_init NameUnitData=
+ readamr_init IsBinary, nByteReal= T 8
+ readamr_init TypeGeometry=spherical_lnr
+ readamr_init TypeDataFile=real4
+ readamr_init nRoot_D     =  3 6 4
+ readamr_init nIjkIn_D    =  6 4 4
+ readamr_init IsPeriodic_D=  F T F
+ readamr_read nVarData, nVar, present(iVarIn_I)= 4 2 T
+ readamr_read allocated State_VGB( 2 , 1 : 6 , 1 : 4 , 1 : 4 , 64 )
+ readamr_read read data
+ readamr_read done
+ READAMRTEST at Xyz_D=   0.3429598635482003   1.0555219259688313  -1.5275656816182019
+ READAMRTEST  State_V=   1.0000000000000004   0.1503142067193986  -0.1961035062223676
+ READAMRTEST reread data and do verification test
+ readamr_read starting with IsNewGrid, UseCoordTest,= F T
+ readamr_read nVarData, nVar, present(iVarIn_I)= 4 4 F
+ readamr_read allocated State_VGB( 4 , 1 : 6 , 1 : 4 , 1 : 4 , 64 )
+ readamr_read read data
+ readamr_read done
+ READAMRTEST number of stored variables= 4
+ READAMRTEST check state on (n+1)^3 grid. n= 10
+ READAMRTEST finished
