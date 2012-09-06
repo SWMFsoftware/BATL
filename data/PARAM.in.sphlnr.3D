@@ -1,0 +1,124 @@
+#ECHO
+T
+
+#PLANET
+NONE
+
+#IOUNITS
+NONE
+
+#NORMALIZATION
+NONE
+
+#CHECKGRIDSIZE
+6                       nI
+4                       nJ
+4                       nK
+200                     MinBlockALL
+
+#GRIDGEOMETRY
+spherical_lnr		TypeGeometry
+
+#LIMITRADIUS
+1.0			rMin
+24.0			rMax
+
+#GRID
+3			nRootR
+6			nRootLon
+4			nRootLat
+-24.			xMin
+ 24.			xMax
+-24.			yMin
+ 24.			yMax
+-24.			zMin
+ 24.			zMax
+
+#GRIDLEVEL
+1			nLevel
+initial			NameArea
+
+#GRIDLEVEL
+1			nLevel
+box_gen			NameArea
+4.0			rMinBox
+0.0			LonMinBox
+-45.0			LatMinBox
+6.0			rMaxBox
+200.0			LonMaxBox
+45.0			LatMaxBox
+
+#SHOCKTUBE
+1.		rho (left state)
+0.		Ux
+0.		Uy
+0.		Uz
+0.75		Bx
+1.		By
+0.		Bz
+1.		P
+0.125		rho (right state)
+0.		Ux
+0.		Uy
+0.		Uz
+0.75		Bx
+-1.		By
+0.		Bz
+0.1		P
+
+#FACEBOUNDARY
+6		MinFaceBoundary
+-2		MaxFaceBoundary
+
+#OUTERBOUNDARY
+float		xMinBc
+float		xMaxBc
+periodic	yMinBc
+periodic	yMaxBc
+periodic	zMinBc
+periodic	zMaxBc
+
+#TIMESTEPPING
+2		nStage
+0.8		CflExpl
+
+#SCHEME
+2		nOrder
+Rusanov		TypeFlux
+mc3		TypeLimiter
+1.5		LimiterBeta
+
+#SAVELOGFILE
+T		DoSaveLogfile
+raw		StringLogfile
+1		DnSaveLogfile
+-1.		DtSaveLogfile
+
+#SAVERESTART
+F		DoSaverestart
+
+#SAVEPLOT
+4		nPlotfile
+x=0 mhd idl	PlotString
+-1		DnSavePlot
+10.0		DtSavePlot
+-1.0		DxSavePlot
+y=0 mhd idl	PlotString
+-1		DnSavePlot
+10.0		DtSavePlot
+-1.0		DxSavePlot
+z=0 mhd idl	PlotString
+-1		DnSavePlot
+10.0		DtSavePlot
+-1.0		DxSavePlot
+3d VAR idl	PlotString
+-1              DnSavePlot
+10.0            DtSavePlot
+-1.0            DxSavePlot
+rho ux uy uz	NameVar
+rBody g	  	NamePar
+
+#STOP
+10		MaxIteration
+-1.0		tSimulationMax
+
