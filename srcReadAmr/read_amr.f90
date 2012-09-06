@@ -29,7 +29,7 @@ program read_amr_test
 
   ! The tests are distinguished based on the configuration
   if(nI==4.and.nJ==4.and.nK==1)then
-     NameFIle = "data/z=0_mhd_1_t00000010_n0000042.out"
+     NameFIle = "data/2d__mhd_1_t00000010_n0000042.out"
      Tolerance=0.05
   elseif(nI==4.and.nJ==4.and.nK==4)then
      NameFIle = "data/3d__all_3_t00000010_n0000059.out"
