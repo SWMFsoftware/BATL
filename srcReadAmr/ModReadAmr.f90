@@ -193,6 +193,7 @@ contains
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, MaxBlock, nG, iProc, Xyz_DGB, &
          find_grid_block, message_pass_cell, xyz_to_coord
     use ModPlotFile, ONLY: read_plot_file
+    use ModIoUnit,   ONLY: UnitTmp_
     use ModConst,    ONLY: cPi
 
     character(len=*), intent(in):: NameFile     ! data file name
@@ -205,12 +206,14 @@ contains
     logical:: IsVerbose
 
     ! Allocatable arrays for holding linear file data
-    real, allocatable  :: State_VI(:,:), Xyz_DI(:,:)
+    real, allocatable  :: State_V(:), State_VI(:,:), Xyz_DI(:,:)
 
     real:: Xyz_D(MaxDim) = 0.0, Coord_D(MaxDim)
-    integer:: iCell, iCell_D(MaxDim), i, j, k, l, iBlock, iProcFound
+    integer:: iCell, iCell_D(MaxDim), i, j, k, l, iBlock, iProcFound, iError
 
     integer:: nVarLast = -1, MaxBlockLast = -1
+
+    character(len=1):: StringTmp
 
     character(len=*), parameter:: NameSub = 'readamr_read'
     !--------------------------------------------------------------------------
@@ -259,16 +262,33 @@ contains
 
     !!! IMPLEMENT READING ALTERNATIVE FILE FORMATS !!!
 
-    allocate(State_VI(nVarData,nCellData), Xyz_DI(nDim,nCellData))
+    if(TypeDataFile == 'ascii')then
+       open(UnitTmp_, file=NameFile, status='old', iostat=iError)
+       if(iError /= 0) call CON_stop(NameSub// &
+            ' ERROR: could not open ascii file '//trim(NameFile))
+       ! Read and discard header lines
+       do i = 1, 5
+          read(UnitTmp_,*) StringTmp
+       end do
+       if(IsVerbose)write(*,*) NameSub,' read header lines from ascii file'
+    else
+       allocate(State_VI(nVarData,nCellData), Xyz_DI(nDim,nCellData))
+       call read_plot_file(NameFile, TypeFileIn=TypeDataFile, &
+            CoordOut_DI=Xyz_DI, VarOut_VI = State_VI)
+    end if
 
-    call read_plot_file(NameFile, TypeFileIn=TypeDataFile, &
-         CoordOut_DI=Xyz_DI, VarOut_VI = State_VI)
+    ! State variables for one cell
+    allocate(State_V(nVarData))
 
     ! put each data point into the tree
     do iCell = 1, nCellData
        ! find cell on the grid
-       Xyz_D(1:nDim) = Xyz_DI(:,iCell)
-
+       if(TypeDataFile == 'ascii')then
+          read(UnitTmp_,*) Xyz_D(1:nDim), State_V
+       else
+          Xyz_D(1:nDim) = Xyz_DI(:,iCell)
+          State_V = State_VI(:,iCell)
+       end if
        call find_grid_block(Xyz_D, iProcFound, iBlock, iCell_D)
 
        if(iBlock < 0)then
@@ -284,15 +304,15 @@ contains
        if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-5))then
           write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
                iCell, i, j, k, iBlock, iProc
-          write(*,*)NameSub,' Xyz_DI =', Xyz_DI(:,iCell)
+          write(*,*)NameSub,' Xyz_D  =', Xyz_D
           write(*,*)NameSub,' Xyz_DGB=', Xyz_DGB(:,i,j,k,iBlock)
           call CON_stop(NameSub//': incorrect coordinates')
        end if
 
        if(present(iVarIn_I))then
-          State_VGB(:,i,j,k,iBlock) = State_VI(iVarIn_I,iCell)
+          State_VGB(:,i,j,k,iBlock) = State_V(iVarIn_I)
        else
-          State_VGB(:,i,j,k,iBlock) = State_VI(:,iCell)
+          State_VGB(:,i,j,k,iBlock) = State_V
        end if
 
        ! For verification tests
@@ -305,9 +325,12 @@ contains
 
     enddo
 
+    if(TypeDataFile == 'ascii') close(UnitTmp_)
+
     if(IsVerboseIn)write(*,*)NameSub,' read data'
 
     ! deallocate to save memory
+    deallocate(State_V)
     if(allocated(State_VI)) deallocate (State_VI, Xyz_DI) 
 
     ! Set ghost cells if any. Note that OUTER ghost cells are not set!
