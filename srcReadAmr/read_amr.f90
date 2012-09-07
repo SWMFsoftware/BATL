@@ -32,7 +32,7 @@ program read_amr_test
      NameFIle = "data/2d__mhd_1_t00000010_n0000042.out"
      Tolerance=0.05
   elseif(nI==4.and.nJ==4.and.nK==4)then
-     NameFIle = "data/3d__all_3_t00000010_n0000059.out"
+     NameFIle = "data/3d__all_3_t00000010_n0000059.idl"
      Tolerance=0.05
   elseif(nI==6.and.nJ==4.and.nK==4)then
      NameFIle = "data/3d__var_4_t00000000_n0000010.out"
