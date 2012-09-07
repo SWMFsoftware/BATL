@@ -268,9 +268,9 @@ contains
        if(allocated(State_VGB)) deallocate(State_VGB)
        allocate(&
             State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
-       if(IsVerbose)write(*,*) NameSub,' allocated State_VGB(', &
-            nVar,',',MinI,':',MaxI,',',MinJ,':',MaxJ,',',MinK,':',MaxK, &
-            ',',MaxBlock,')'
+       !if(IsVerbose)write(*,*) NameSub,' allocated State_VGB(', &
+       !     nVar,',',MinI,':',MaxI,',',MinJ,':',MaxJ,',',MinK,':',MaxK, &
+       !     ',',MaxBlock,')'
 
        nVarLast = nVar; MaxBlockLast = MaxBlock
     end if
