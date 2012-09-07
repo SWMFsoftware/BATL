@@ -294,7 +294,7 @@ test_readamr: test_readamr_2d test_readamr_3d test_readamr_sph
 	ls -l readamr_*.diff
 
 test_readamr_2d:
-	Config.pl -g=4,4,1 -r=2,2,1 -ng=0
+	Config.pl -double -g=4,4,1 -r=2,2,1 -ng=0
 	make READAMR
 	cd run; ${MPIRUN} READAMR.exe > readamr_2d.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -302,15 +302,15 @@ test_readamr_2d:
 	ls -l readamr_2d.diff
 
 test_readamr_3d:
-	Config.pl -g=4,4,4 -r=2,2,2 -ng=0
+	Config.pl -single -g=4,4,4 -r=2,2,2 -ng=0
 	make READAMR
 	cd run; ${MPIRUN} READAMR.exe > readamr_3d.ref
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
 		run/readamr_3d.ref output/readamr_3d.ref > readamr_3d.diff)
 	ls -l readamr_3d.diff
 
 test_readamr_sph:
-	Config.pl -g=6,4,4 -r=2,2,2 -ng=0
+	Config.pl -double -g=6,4,4 -r=2,2,2 -ng=0
 	make READAMR
 	cd run; ${MPIRUN} READAMR.exe > readamr_sph.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
