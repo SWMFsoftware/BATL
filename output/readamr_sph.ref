@@ -16,6 +16,7 @@
  readamr_init nRoot_D     =  3 6 4
  readamr_init nIjkIn_D    =  6 4 4
  readamr_init IsPeriodic_D=  F T F
+ readamr_read TypeDataFile=real4
  readamr_read nVarData, nVar, present(iVarIn_I)= 4 2 T
  readamr_read allocated State_VGB( 2 , 1 : 6 , 1 : 4 , 1 : 4 , 64 )
  readamr_read read data
@@ -24,6 +25,7 @@
  READAMRTEST  State_V=   1.0000000000000004   0.1503142067193986  -0.1961035062223676
  READAMRTEST reread data and do verification test
  readamr_read starting with IsNewGrid, UseCoordTest,= F T
+ readamr_read TypeDataFile=real4
  readamr_read nVarData, nVar, present(iVarIn_I)= 4 4 F
  readamr_read allocated State_VGB( 4 , 1 : 6 , 1 : 4 , 1 : 4 , 64 )
  readamr_read read data

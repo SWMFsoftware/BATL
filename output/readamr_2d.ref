@@ -16,16 +16,20 @@
  readamr_init nRoot_D     =  10 4
  readamr_init nIjkIn_D    =  4 4 1
  readamr_init IsPeriodic_D=  F T F
+ readamr_read TypeDataFile=ascii
  readamr_read nVarData, nVar, present(iVarIn_I)= 11 2 T
  readamr_read allocated State_VGB( 2 , 1 : 4 , 1 : 4 , 1 : 1 , 23 )
+ readamr_read read header lines from ascii file
  readamr_read read data
  readamr_read done
  READAMRTEST at Xyz_D= -38.3999999999999986 -12.0000000000000000  -5.9999999999999997E-07
  READAMRTEST  State_V=   0.9999999999999991   0.9999998269244990  -1.1357007811049988E-07
  READAMRTEST reread data and do verification test
  readamr_read starting with IsNewGrid, UseCoordTest,= F T
+ readamr_read TypeDataFile=ascii
  readamr_read nVarData, nVar, present(iVarIn_I)= 11 11 F
  readamr_read allocated State_VGB( 11 , 1 : 4 , 1 : 4 , 1 : 1 , 23 )
+ readamr_read read header lines from ascii file
  readamr_read read data
  readamr_read done
  READAMRTEST number of stored variables= 11
