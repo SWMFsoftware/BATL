@@ -189,6 +189,7 @@ contains
   subroutine readamr_read(NameFile, iVarIn_I, IsNewGridIn, IsVerboseIn, &
        UseCoordTest)
 
+    use ModKind,  ONLY: Real4_, Real8_
     use BATL_lib, ONLY: nDim, &
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, MaxBlock, nG, iProc, Xyz_DGB, &
          find_grid_block, message_pass_cell, xyz_to_coord
@@ -209,6 +210,12 @@ contains
     real, allocatable  :: State_V(:), State_VI(:,:), Xyz_DI(:,:)
 
     real:: Xyz_D(MaxDim) = 0.0, Coord_D(MaxDim)
+
+    real(Real4_)              :: DxCell4, Xyz4_D(3)
+    real(Real4_), allocatable :: State4_V(:)
+    real(Real8_)              :: DxCell8, Xyz8_D(3)
+    real(Real8_), allocatable :: State8_V(:)
+
     integer:: iCell, iCell_D(MaxDim), i, j, k, l, iBlock, iProcFound, iError
 
     integer:: nVarLast = -1, MaxBlockLast = -1
@@ -227,11 +234,23 @@ contains
          ' starting with IsNewGrid, UseCoordTest,=', &
          IsNewGrid, present(UseCoordTest)
 
+    ! Find extension in filename
+    l = index(NameFile,".",BACK=.true.)
+
     ! Read grid info if necessary
-    if(IsNewGrid)then
-       l = index(NameFile,".",BACK=.true.)
-       call readamr_init(NameFile(1:l-1), IsVerboseIn)
+    if(IsNewGrid) call readamr_init(NameFile(1:l-1), IsVerboseIn)
+
+    if(NameFile(l:len_trim(NameFile)) == '.idl')then
+       if(.not.IsBinary)then
+          TypeDataFile = 'idl'
+       elseif(nByteReal == 4)then
+          TypeDataFile = 'idl4'
+       else
+          TypeDataFile = 'idl8'
+       end if
     end if
+
+    if(IsVerbose)write(*,*) NameSub,' TypeDataFile=', TypeDataFile
 
     nVar = nVarData
     if(present(iVarIn_I))then
@@ -260,9 +279,8 @@ contains
     ! The tests need at least nDim variables to be stored
     if(present(UseCoordTest)) nVar = max(nVar, MaxDim)
 
-    !!! IMPLEMENT READING ALTERNATIVE FILE FORMATS !!!
-
-    if(TypeDataFile == 'ascii')then
+    select case(TypeDataFile)
+    case('ascii')
        open(UnitTmp_, file=NameFile, status='old', iostat=iError)
        if(iError /= 0) call CON_stop(NameSub// &
             ' ERROR: could not open ascii file '//trim(NameFile))
@@ -271,24 +289,48 @@ contains
           read(UnitTmp_,*) StringTmp
        end do
        if(IsVerbose)write(*,*) NameSub,' read header lines from ascii file'
-    else
+    case('real4', 'real8')
        allocate(State_VI(nVarData,nCellData), Xyz_DI(nDim,nCellData))
        call read_plot_file(NameFile, TypeFileIn=TypeDataFile, &
             CoordOut_DI=Xyz_DI, VarOut_VI = State_VI)
-    end if
+    case('idl')
+       open(UnitTmp_, file=NameFile, status='old', iostat=iError)
+       if(iError /= 0) call CON_stop(NameSub// &
+            ' ERROR: could not open ascii IDL file '//trim(NameFile))
+    case('idl4', 'idl8')
+       open(UnitTmp_, file=NameFile, form='unformatted', status='old', &
+            iostat=iError)
+       if(iError /= 0) call CON_stop(NameSub// &
+            ' ERROR: could not open binary IDL file '//trim(NameFile))
+    case default
+       call CON_stop(NameSub//': unknown TypeDataFile='//trim(TypeDataFile))
+    end select
 
     ! State variables for one cell
-    allocate(State_V(nVarData))
+    allocate(State_V(nVarData), State4_V(nVarData), State8_V(nVarData))
 
     ! put each data point into the tree
     do iCell = 1, nCellData
-       ! find cell on the grid
-       if(TypeDataFile == 'ascii')then
+       ! get cell data
+       select case(TypeDataFile)
+       case('ascii')
           read(UnitTmp_,*) Xyz_D(1:nDim), State_V
-       else
+       case('real4', 'real8')
           Xyz_D(1:nDim) = Xyz_DI(:,iCell)
           State_V = State_VI(:,iCell)
-       end if
+       case('idl')
+          read(UnitTmp_,*) DxCell8, Xyz_D, State_V
+       case('idl4')
+          read(UnitTmp_) DxCell4, Xyz4_D, State4_V
+          Xyz_D =  Xyz4_D; State_V = State4_V
+       case('idl8')
+          read(UnitTmp_) DxCell8, Xyz8_D, State8_V
+          Xyz_D =  Xyz8_D; State_V = State8_V
+       case default
+          call CON_stop(NameSub//': unknown TypeDataFile='//trim(TypeDataFile))
+       end select
+
+       ! Find cell
        call find_grid_block(Xyz_D, iProcFound, iBlock, iCell_D)
 
        if(iBlock < 0)then
@@ -325,12 +367,12 @@ contains
 
     enddo
 
-    if(TypeDataFile == 'ascii') close(UnitTmp_)
+    if(TypeDataFile=='ascii' .or. TypeDataFile(1:3)=='idl') close(UnitTmp_)
 
     if(IsVerboseIn)write(*,*)NameSub,' read data'
 
     ! deallocate to save memory
-    deallocate(State_V)
+    deallocate(State_V, State4_V, State8_V)
     if(allocated(State_VI)) deallocate (State_VI, Xyz_DI) 
 
     ! Set ghost cells if any. Note that OUTER ghost cells are not set!
