@@ -1,0 +1,186 @@
+The Block Adaptive Tree Library (BATL) is developed by 
+Gabor Toth, Bart van der Holst and Lars Daldorff at the University of Michigan.
+The use of this code is only permitted as part of other University of Michigan
+developed codes, such as BATS-R-US and the READAMR library.
+
+The READAMR library allows reading and interpolating BATS-R-US 
+output data files. It can be run in serial and parallel mode too.
+To install the library you need to know the name of the available
+Fortran 90 compiler. Type
+
+Config.pl -compiler
+
+to list the supported Fortran 90 compilers. Note that f95 refers to the 
+NAG Fortran compiler (and not something else!). If you cannot find the 
+compiler, you will have to create a
+
+share/build/Makefile.YOUROS.YOURCOMPILER
+
+file based on one of the other files.
+
+If there is a working MPI library on the machine, install the code with
+
+Config.pl -install -compiler=F90COMPILER
+
+otherwise use
+
+Config.pl -install -nompi -compiler=F90COMPILER
+
+Note that in the latter case READAMR can only be used in serial mode.
+
+Some sample data files with extensions .out or .idl are provided 
+in the data/ directory. Each data file BASENAME.out or BASENAME.idl
+has a corresponding header file BASENAME.h or BASENAME.info, and 
+a corresponding tree descriptor file BASENAME.tree.
+These data, header and tree files were produced by BATSRUS using the 
+data/PARAM.in* input files.
+The data files prepared for READAMR have to be unstructured (PlotDx=-1) 
+3D IDL files for 3D grids. For 2D and 1D grids the "2d" and "1d" plot area
+names should be used, respectiveky. See the #SAVEPLOT commands in 
+the data/PARAM.in* files for good examples.
+
+Post-processing normally deletes the .h and .idl files, so post processing
+should either be avoided, or done with
+
+./pIDL -keep 
+
+If you want to store and use the .idl files for READAMR then type
+
+cat BASENAME_pe*.idl > BASENAME.idl
+rm -f BASENAME_pe*.idl
+
+to concatenate the per processor .idl files into a single .idl file.
+
+For very large data sets the single .idl file is the optimal format,
+as it can be read efficiently without declaring any large arrays. 
+Another option is to use ASCII .out file (file format is idl_ascii 
+in PARAM.in), which can also be read without extra storage, but
+it is slower to read and only 5 digits are stored. For small data sets
+the single or double precision binary .out files can also be used.
+Saving only the needed variables also reduces the data file size.
+
+The READAMR library has to be configured with the same grid block size
+as was used by BATRSUS that wrote the data files. 
+The header files (.h or .info) contain this information
+in the line that ends with the string "nIJK_D". The line starts with 3 
+integers (even if the data file is in 2D) giving the number of cells
+in a grid block. For example:
+
+grep nIJK data/3d__var_4_t00000000_n0000010.info
+    6       4       4 nIJK_D
+
+shows that the code needs to be configured as
+
+Config.pl -g=6,4,4
+
+To save memory, and to use only the physical cells for interpolation, one
+can set the number of ghost cells to zero with
+
+Config.pl -ng=0
+
+This will reduce the memory usage. If ghost cells are needed for some reason,
+then use the default (-ng=2). One may further reduce the storage requirements 
+by using single precision reals:
+
+Config.pl -single
+
+If high accuracy is required then use the default double precision reals 
+(-double). All the above settings can be done with a single Config.pl.
+
+After proper configuration the READAMR library can be compiled as
+
+make READAMRLIB
+
+The resulting libraries are in the lib/ directory:
+
+ls lib/
+libREADAMR.a    libSHARE.a      libTIMING.a
+
+All 3 libraries have to linked to the code that uses the READAMR library.
+
+The usage of the READAMR library is demonstrated by the 
+
+srcReadAmr/read_amr.f90
+
+program. This test program shows the usage and also executes a verification
+test. The essential steps are the following: the data file is read with
+
+call readamr_read(NameDataFile, iVarIn=(/..../), IsVerboseIn=iProc==0)
+
+Here NameDataFile can have either .out or .idl extension. 
+The optional iVarIn array contains the indexes of the variables that
+should be stored in memory. Using the optional iVarIn argument 
+can reduce the memory usage by storing only the variables that are
+needed. 
+
+The number of stored variables will be in ModReadAmr::nVar.
+
+The data itself is read into 
+
+ModReadAMR::State_VGB(nVar,MinI:MaxI,MinJ:MaxJ:MinK:MaxK,MaxBlock)
+
+where MinI...MaxK contain the cell index ranges. If there are no ghost
+cells then MinI=MinJ=MinK=1 and (MaxI, MaxJ, MaxK) are the same as nIJK_D in
+the header file. The MaxBlock variable is set to the maximum number of 
+blocks per processor. The MinI...MaxBlock integers are available from
+the BATL_size module.
+
+If there are ghost cells, then the internal ghost cells (between blocks)
+will be filled in by a call to message_pass_cell. The external ghost
+cells, however, has to be set by the user, as this information is not
+stored in the data file.
+
+The data can be interpolated to an arbitrary location with
+
+call readamr_get(Xyz_D, State_V, IsFound)
+
+where Xyz_D(3) contains the X,Y,Z coordinates 
+(always 3 coordinates, even in less than 3D), while 
+State_V(0:nVar+1) contains an interpolation weight in
+the 0 index, and the interpolated variables in indexes 1:nVar.
+The IsFound logical returns true if the Xyz_D location is inside
+the computational domain.
+
+The interpolation weight State_V(0) is needed for various reasons. 
+If READAMR is run on multiple processors, the State_V variables need to
+be added up with an MPI_reduce or MPI_all_reduce call. Then the zero
+element will contain the total weight. This weight is usually 1.0, but
+not always. It can be different from 1 next to grid resolution change edges
+or corners. It can also be different from 1 at points near the boundaries
+of the domain if there are no ghost cells used, so the Xyz_D location is
+not surrounded by cells from all sides. This means that the final value 
+should be set as
+
+State_V(1:nVar) = State_V(1:nVar)/State_V(0)
+
+As the test program demonstrates, one can extract multiple values before
+calling the MPI_reduce. This is much more efficient than calling MPI_reduce
+for every extracted point one-by-one.
+
+The test program can be compiled with
+
+make READAMR
+
+and the resulting executable will be in
+
+bin/READAMR.exe
+
+which will also be linked from the run/ directory. 
+The verification tests can be executed as
+
+make test_readamr
+
+By default the tests run on 2 cores. To run on four cores, for example, use
+
+make test_readamr MPIRUN='mpirun -np 4'
+
+For serial execution use
+
+make test_readamr MPIRUN=
+
+The tests pass if the resulting .diff files are empty:
+
+ls -l readamr_*.diff
+-rw-r--r--  1 gtoth  hpcc  0 Sep  7 18:44 readamr_2d.diff
+-rw-r--r--  1 gtoth  hpcc  0 Sep  7 18:44 readamr_3d.diff
+-rw-r--r--  1 gtoth  hpcc  0 Sep  7 18:45 readamr_sph.diff
