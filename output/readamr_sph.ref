@@ -1,7 +1,7 @@
  READAMRTEST is starting with nI, nJ, nK= 6 4 4
  READAMRTEST get variables 1,3 from data/3d__var_4_t00000000_n0000010.out
  readamr_read starting with IsNewGrid, UseCoordTest,= T F
- readamr_init reading data/3d__var_4_t00000000_n0000010.h
+ readamr_init reading data/3d__var_4_t00000000_n0000010.info
  readamr_init nStepData= 10  TimeData=   3.8684499999999997E-02
  readamr_init CoordMin_D=   0.0000000000000000   0.0000000000000000  -1.5707963268000000
  readamr_init CoordMax_D=   3.1780538303000001   6.2831853072000001   1.5707963268000000
@@ -18,7 +18,6 @@
  readamr_init IsPeriodic_D=  F T F
  readamr_read TypeDataFile=real4
  readamr_read nVarData, nVar, present(iVarIn_I)= 4 2 T
- readamr_read allocated State_VGB( 2 , 1 : 6 , 1 : 4 , 1 : 4 , 64 )
  readamr_read read data
  readamr_read done
  READAMRTEST at Xyz_D=   0.3429598635482003   1.0555219259688313  -1.5275656816182019
@@ -27,7 +26,6 @@
  readamr_read starting with IsNewGrid, UseCoordTest,= F T
  readamr_read TypeDataFile=real4
  readamr_read nVarData, nVar, present(iVarIn_I)= 4 4 F
- readamr_read allocated State_VGB( 4 , 1 : 6 , 1 : 4 , 1 : 4 , 64 )
  readamr_read read data
  readamr_read done
  READAMRTEST number of stored variables= 4

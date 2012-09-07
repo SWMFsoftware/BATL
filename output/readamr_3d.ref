@@ -18,7 +18,6 @@
  readamr_init IsPeriodic_D=  F T T
  readamr_read TypeDataFile=idl8 
  readamr_read nVarData, nVar, present(iVarIn_I)= 8 2 T
- readamr_read allocated State_VGB( 2 , 1 : 4 , 1 : 4 , 1 : 4 , 94 )
  readamr_read read data
  readamr_read done
  READAMRTEST at Xyz_D= -38.4000015 -12.0000000 -12.0000000
@@ -27,7 +26,6 @@
  readamr_read starting with IsNewGrid, UseCoordTest,= F T
  readamr_read TypeDataFile=idl8 
  readamr_read nVarData, nVar, present(iVarIn_I)= 8 8 F
- readamr_read allocated State_VGB( 8 , 1 : 4 , 1 : 4 , 1 : 4 , 94 )
  readamr_read read data
  readamr_read done
  READAMRTEST number of stored variables= 8
