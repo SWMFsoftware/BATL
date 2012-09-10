@@ -1,0 +1,33 @@
+ READAMRTEST is starting with nI, nJ, nK= 4 1 1
+ READAMRTEST get variables 1,3 from data/1d__mhd_1_t00000010_n0000018.out
+ readamr_read starting with IsNewGrid, UseCoordTest,= T F
+ readamr_init reading data/1d__mhd_1_t00000010_n0000018.h
+ readamr_init nStepData= 18  TimeData=  10.0000000000000000
+ readamr_init CoordMin_D= -64.0000000000000000  -9.9999999999999995E-07  -9.9999999999999995E-07
+ readamr_init CoordMax_D=  64.0000000000000000   9.9999999999999995E-07   9.9999999999999995E-07
+ readamr_init nCellData= 48
+ readamr_init nVarData= 11  nParamData= 2
+ readamr_init ParamData_I=   1.6666700000000001   3.0000000000000000
+ readamr_init NameVarData =rho ux uy uz bx by bz p jx jy jz g rbody
+ readamr_init NameUnitData=normalized variables
+ readamr_init IsBinary, nByteReal= T 8
+ readamr_init TypeGeometry=cartesian
+ readamr_init TypeDataFile=real4
+ readamr_init nRoot_D     =  10
+ readamr_init nIjkIn_D    =  4 1 1
+ readamr_init IsPeriodic_D=  F F F
+ readamr_read TypeDataFile=real4
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 2 T
+ readamr_read read data
+ readamr_read done
+ READAMRTEST at Xyz_D= -38.3999999999999986  -5.9999999999999997E-07  -5.9999999999999997E-07
+ READAMRTEST  State_V=   1.0000000000000000   1.0000000000000000   6.8735261623056876E-11
+ READAMRTEST reread data and do verification test
+ readamr_read starting with IsNewGrid, UseCoordTest,= F T
+ readamr_read TypeDataFile=real4
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 11 F
+ readamr_read read data
+ readamr_read done
+ READAMRTEST number of stored variables= 11
+ READAMRTEST check state on (n+1)^3 grid. n= 10
+ READAMRTEST finished
