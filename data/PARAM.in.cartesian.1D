@@ -1,0 +1,99 @@
+#ECHO
+T
+
+#PLANET
+NONE
+
+#IOUNITS
+NONE
+
+#NORMALIZATION
+NONE
+
+#CHECKGRIDSIZE
+4                       nI
+1                       nJ
+1                       nK
+200                     MinBlockALL
+
+#GRID
+10			nRootX
+1			nRootY
+1			nRootZ
+-64.			xMin
+ 64.			xMax
+-0.5			yMin
+ 0.5			yMax
+-0.5			zMin
+ 0.5			zMax
+
+#GRIDLEVEL
+1			nLevel
+initial			NameArea
+
+#GRIDLEVEL
+1			nLevel
+box			NameArea
+-20.0			xMinBox
+-1.0			yMinBox
+-1.0			zMinBox
+0.0			xMaxBox
+1.0			yMaxBox
+1.0			zMaxBox
+
+#SHOCKTUBE
+1.		rho (left state)
+0.		Ux
+0.		Uy
+0.		Uz
+0.75		Bx
+1.		By
+0.		Bz
+1.		P
+0.125		rho (right state)
+0.		Ux
+0.		Uy
+0.		Uz
+0.75		Bx
+-1.		By
+0.		Bz
+0.1		P
+
+Sheared boundary condition is used for non-zero shock slope
+#OUTERBOUNDARY
+float		xMinBc
+float		xMaxBc
+periodic	yMinBc
+periodic	yMaxBc
+periodic	zMinBc
+periodic	zMaxBc
+
+#TIMESTEPPING
+2		nStage
+0.8		CflExpl
+
+#SCHEME
+2		nOrder
+Roe		TypeFlux
+mc3		TypeLimiter
+1.5		LimiterBeta
+
+#SAVELOGFILE
+T		DoSaveLogfile
+raw		StringLogfile
+1		DnSaveLogfile
+-1.		DtSaveLogfile
+
+#SAVERESTART
+F		DoSaveRestart
+
+#SAVEPLOT
+1		nPlotfile
+1d mhd idl	PlotString
+-1		DnSavePlot
+10.0		DtSavePlot
+-1.0		DxSavePlot
+
+#STOP
+-1		MaxIteration
+10.0		tSimulationMax
