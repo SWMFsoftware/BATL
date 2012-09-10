@@ -88,11 +88,11 @@ raw		StringLogfile
 F		DoSaveRestart
 
 #SAVEPLOT
-1		nPlotfile
-z=0 mhd idl	PlotString
--1		DnSavePlot
-10.0		DtSavePlot
-0.0		DxSavePlot
+1			nPlotfile
+2d mhd idl_ascii	PlotString
+-1			DnSavePlot
+10.0			DtSavePlot
+-1.0			DxSavePlot
 
 #STOP
 -1		MaxIteration
