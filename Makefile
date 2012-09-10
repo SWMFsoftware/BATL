@@ -290,8 +290,16 @@ test_advect33_round_check:
 							> advect33_round.diff)
 	ls -l advect33_round.diff
 
-test_readamr: test_readamr_2d test_readamr_3d test_readamr_sph
+test_readamr: test_readamr_1d test_readamr_2d test_readamr_3d test_readamr_sph
 	ls -l readamr_*.diff
+
+test_readamr_1d:
+	Config.pl -double -g=4,1,1 -r=2,1,1 -ng=0
+	make READAMR
+	cd run; ${MPIRUN} READAMR.exe > readamr_1d.ref
+	-@(${SCRIPTDIR}/DiffNum.pl -t \
+		run/readamr_1d.ref output/readamr_1d.ref > readamr_1d.diff)
+	ls -l readamr_1d.diff
 
 test_readamr_2d:
 	Config.pl -double -g=4,4,1 -r=2,2,1 -ng=0
