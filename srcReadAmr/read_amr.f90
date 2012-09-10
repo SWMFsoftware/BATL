@@ -28,7 +28,10 @@ program read_amr_test
   if(iProc==0)write(*,*) NameCode,' is starting with nI, nJ, nK=',nI, nJ, nK
 
   ! The tests are distinguished based on the configuration
-  if(nI==4.and.nJ==4.and.nK==1)then
+  if(nI==4.and.nJ==1.and.nK==1)then
+     NameFIle = "data/1d__mhd_1_t00000010_n0000018.out"
+     Tolerance=0.05
+  elseif(nI==4.and.nJ==4.and.nK==1)then
      NameFIle = "data/2d__mhd_1_t00000010_n0000042.out"
      Tolerance=0.05
   elseif(nI==4.and.nJ==4.and.nK==4)then
