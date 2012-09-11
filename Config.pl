@@ -113,10 +113,6 @@ sub set_grid_size{
 
     $GhostCell = $NewGhostCell if length($NewGhostCell);
 
-    if($GhostCell !~ /^[0123]$/){
-	die "$ERROR -ng=$GhostCell should be 0,1,2 or 3\n";
-    }
-
     # Check the grid size (to be set)
     if(not $Force){
 	die "$ERROR nK=$nK must be 1 if nJ is 1\n" 
@@ -124,12 +120,22 @@ sub set_grid_size{
 	die "$ERROR nI=$nI must be an even integer >= 4 if iRatio=2\n" 
 	    if $iRatio==2 and ($nI<4 or $nI%2!=0);
 	die "$ERROR nJ=$nJ must be 1 or an even integer >= 4 if jRatio=2\n" 
-	    if $jRatio==2 and $nJ>1 and ($nJ==2 or $nJ%2!=0);
+	    if $jRatio==2 and ($nJ==2 or $nJ%2!=0) and $nJ>1;
 	die "$ERROR nK=$nK must be 1 or an even integer >= 4 if kRatio=2\n" 
-	    if $kRatio==2 and $nK>1 and ($nK==2 or $nK%2!=0);;
+	    if $kRatio==2 and ($nK==2 or $nK%2!=0) and $nK>1;
+
+	die "$ERROR -ng=$GhostCell should be 0,1,..,9\n" 
+	    if $GhostCell !~ /^\d$/;
+
+	die "$ERROR -ng=$GhostCell should not exceed nI/iRatio=$nI/$iRatio\n"
+	    if $GhostCell > $nI/$iRatio;
+	die "$ERROR -ng=$GhostCell should not exceed nJ/jRatio=$nJ/$jRatio\n"
+	    if $GhostCell > $nJ/$jRatio and $nJ>1;
+	die "$ERROR -ng=$GhostCell should not exceed nK/kRatio=$nK/$kRatio\n"
+	    if $GhostCell > $nK/$kRatio and $nK>1;
     }
 
-    print "Writing new grid size $GridSize, ghost cell number $GhostCell".
+    print "Writing new grid size $GridSize with $GhostCell ghost cell layers". 
 	" and AMR ratio $AmrRatio into $NameGridFile...\n";
 
     @ARGV = ($NameGridFile);
