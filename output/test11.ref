@@ -152,7 +152,7 @@
  Testing coord_to_xyz for Cartesian
  Starting test_grid
  Testing init_grid
- nDimAmr, nIJK_D= 1 8 1 1
+ nDimAmr, nIJK_D= 1 10 1 1
  After distribute_tree
  iNode  Status Level  Proc   Block  MinLev MaxLev Coord1 Coord2 Coord3 Parent Child1 Child2
       1      1      0      0      1      0     30      1      1      1   -100   -100   -100
@@ -164,25 +164,25 @@
  show_grid_block for iProc, iBlock= 0 1
  CoordMin  =   3.0000000000000000  -0.5000000000000000  -0.5000000000000000
  CoordMax  =   5.0000000000000000   0.5000000000000000   0.5000000000000000
- CellSize  =   0.2500000000000000   1.0000000000000000   1.0000000000000000
- CellFace  =   1.0000000000000000   0.2500000000000000   0.2500000000000000
- CellVolume=   0.2500000000000000
- Xyz( 1, 1, 1)=   3.1250000000000000   0.0000000000000000   0.0000000000000000
- Xyz(nI, 1, 1)=   4.8750000000000000   0.0000000000000000   0.0000000000000000
- Xyz( 1,nJ, 1)=   3.1250000000000000   0.0000000000000000   0.0000000000000000
- Xyz( 1, 1,nK)=   3.1250000000000000   0.0000000000000000   0.0000000000000000
- Xyz(nI,nJ,nK)=   4.8750000000000000   0.0000000000000000   0.0000000000000000
+ CellSize  =   0.2000000000000000   1.0000000000000000   1.0000000000000000
+ CellFace  =   1.0000000000000000   0.2000000000000000   0.2000000000000000
+ CellVolume=   0.2000000000000000
+ Xyz( 1, 1, 1)=   3.1000000000000001   0.0000000000000000   0.0000000000000000
+ Xyz(nI, 1, 1)=   4.9000000000000004   0.0000000000000000   0.0000000000000000
+ Xyz( 1,nJ, 1)=   3.1000000000000001   0.0000000000000000   0.0000000000000000
+ Xyz( 1, 1,nK)=   3.1000000000000001   0.0000000000000000   0.0000000000000000
+ Xyz(nI,nJ,nK)=   4.9000000000000004   0.0000000000000000   0.0000000000000000
  show_grid_block for iProc, iBlock= 0 2
  CoordMin  =   5.0000000000000000  -0.5000000000000000  -0.5000000000000000
  CoordMax  =   6.0000000000000000   0.5000000000000000   0.5000000000000000
- CellSize  =   0.1250000000000000   1.0000000000000000   1.0000000000000000
- CellFace  =   1.0000000000000000   0.1250000000000000   0.1250000000000000
- CellVolume=   0.1250000000000000
- Xyz( 1, 1, 1)=   5.0625000000000000   0.0000000000000000   0.0000000000000000
- Xyz(nI, 1, 1)=   5.9375000000000000   0.0000000000000000   0.0000000000000000
- Xyz( 1,nJ, 1)=   5.0625000000000000   0.0000000000000000   0.0000000000000000
- Xyz( 1, 1,nK)=   5.0625000000000000   0.0000000000000000   0.0000000000000000
- Xyz(nI,nJ,nK)=   5.9375000000000000   0.0000000000000000   0.0000000000000000
+ CellSize  =   0.1000000000000000   1.0000000000000000   1.0000000000000000
+ CellFace  =   1.0000000000000000   0.1000000000000000   0.1000000000000000
+ CellVolume=   0.1000000000000000
+ Xyz( 1, 1, 1)=   5.0499999999999998   0.0000000000000000   0.0000000000000000
+ Xyz(nI, 1, 1)=   5.9500000000000002   0.0000000000000000   0.0000000000000000
+ Xyz( 1,nJ, 1)=   5.0499999999999998   0.0000000000000000   0.0000000000000000
+ Xyz( 1, 1,nK)=   5.0499999999999998   0.0000000000000000   0.0000000000000000
+ Xyz(nI,nJ,nK)=   5.9500000000000002   0.0000000000000000   0.0000000000000000
  Testing find_grid_block
  Testing interpolate_grid
  Testing clean_grid
@@ -215,7 +215,37 @@
  testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
  testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
  testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 1  nWidth= 3
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 1  nWidth= 4
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 1  nWidth= 5
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
  testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 2  nWidth= 2
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 2  nWidth= 3
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 2  nWidth= 4
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= T
+ testing message_pass_cell with nProlongOrder= 1  nCoarseLayer= 2  nWidth= 5
  testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
  testing message_pass_cell with DoSendCorner= F  DoRestrictFace= T
  testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
@@ -224,6 +254,15 @@
  testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
  testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
  testing message_pass_cell with nProlongOrder= 2  nCoarseLayer= 1  nWidth= 2
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with nProlongOrder= 2  nCoarseLayer= 1  nWidth= 3
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with nProlongOrder= 2  nCoarseLayer= 1  nWidth= 4
+ testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
+ testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
+ testing message_pass_cell with nProlongOrder= 2  nCoarseLayer= 1  nWidth= 5
  testing message_pass_cell with DoSendCorner= F  DoRestrictFace= F
  testing message_pass_cell with DoSendCorner= T  DoRestrictFace= F
  testing message_pass_cell_scalar with operator= min 

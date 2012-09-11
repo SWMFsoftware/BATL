@@ -56,7 +56,7 @@ test_advect:	test_advect11 test_advect21 test_advect22 \
 MPIRUN = mpirun -np 2
 
 test11:
-	Config.pl -g=8,1,1 -r=2,2,2
+	Config.pl -g=10,1,1 -r=2,2,2 -ng=5
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test11.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -64,7 +64,7 @@ test11:
 	ls -l test11.diff
 
 test12:
-	Config.pl -g=8,4,1 -r=1,2,1
+	Config.pl -g=8,6,1 -r=1,2,1 -ng=3
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test12.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -72,7 +72,7 @@ test12:
 	ls -l test12.diff
 
 test21:
-	Config.pl -g=8,4,1 -r=2,1,1
+	Config.pl -g=8,4,1 -r=2,1,1 -ng=4
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test21.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -80,7 +80,7 @@ test21:
 	ls -l test21.diff
 
 test22:
-	Config.pl -g=8,4,1 -r=2,2,2
+	Config.pl -g=8,6,1 -r=2,2,2 -ng=3
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test22.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -89,7 +89,7 @@ test22:
 	sleep 1
 
 test31:
-	Config.pl -g=8,4,2 -r=2,1,1
+	Config.pl -g=8,4,2 -r=2,1,1 -ng=2
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test31.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -98,7 +98,7 @@ test31:
 	sleep 1
 
 test32:
-	Config.pl -g=8,4,2 -r=2,2,1
+	Config.pl -g=8,4,2 -r=2,2,1 -ng=2
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test32.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -107,7 +107,7 @@ test32:
 	sleep 1
 
 test33:
-	Config.pl -g=8,6,4 -r=2,2,2
+	Config.pl -g=10,8,6 -r=2,2,2 -ng=3
 	make BATL
 	cd run; ${MPIRUN} BATL.exe > test33.ref
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
@@ -116,7 +116,7 @@ test33:
 	sleep 1
 
 test_advect11: 
-	Config.pl -g=4,1,1 -r=2,2,2
+	Config.pl -g=4,1,1 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect11.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -124,7 +124,7 @@ test_advect11:
 	make test_advect11_check
 
 test_advect12:
-	Config.pl -g=4,4,1 -r=1,2,1
+	Config.pl -g=4,4,1 -r=1,2,1 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect12.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -132,7 +132,7 @@ test_advect12:
 	make test_advect12_check
 
 test_advect21:
-	Config.pl -g=4,4,1 -r=2,1,1
+	Config.pl -g=4,4,1 -r=2,1,1 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect21.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -140,7 +140,7 @@ test_advect21:
 	make test_advect21_check
 
 test_advect22: 
-	Config.pl -g=4,4,1 -r=2,2,2
+	Config.pl -g=4,4,1 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect22.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -148,7 +148,7 @@ test_advect22:
 	make test_advect22_check
 
 test_advect22_rz: 
-	Config.pl -g=4,4,1 -r=2,2,2
+	Config.pl -g=4,4,1 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect22_rz.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rz run/PARAM.in
@@ -156,7 +156,7 @@ test_advect22_rz:
 	make test_advect22_rz_check
 
 test_advect22_cyl: 
-	Config.pl -g=4,4,1 -r=2,2,2
+	Config.pl -g=4,4,1 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect22_cyl.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cyl run/PARAM.in
@@ -164,7 +164,7 @@ test_advect22_cyl:
 	make test_advect22_cyl_check
 
 test_advect22_round: 
-	Config.pl -g=4,4,1 -r=2,2,2
+	Config.pl -g=4,4,1 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect22_round.log
 	rm -f input/PARAM.in; cp input/PARAM.in.round run/PARAM.in
@@ -172,7 +172,7 @@ test_advect22_round:
 	make test_advect22_round_check
 
 test_advect33_sph: 
-	Config.pl -g=4,4,4 -r=2,2,2
+	Config.pl -g=4,4,4 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect33_sph.log
 	rm -f input/PARAM.in; cp input/PARAM.in.sph run/PARAM.in
@@ -180,7 +180,7 @@ test_advect33_sph:
 	make test_advect33_sph_check
 
 test_advect33_rlonlat:
-	Config.pl -g=4,4,4 -r=2,2,2
+	Config.pl -g=4,4,4 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect33_rlonlat.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rlonlat run/PARAM.in
@@ -189,7 +189,7 @@ test_advect33_rlonlat:
 	make test_advect33_rlonlat_check
 
 test_advect33_round: 
-	Config.pl -g=4,4,4 -r=2,2,2
+	Config.pl -g=4,4,4 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect33_round.log
 	rm -f input/PARAM.in; cp input/PARAM.in.round3d run/PARAM.in
@@ -197,7 +197,7 @@ test_advect33_round:
 	make test_advect33_round_check
 
 test_advect31: 
-	Config.pl -g=4,4,4 -r=2,1,1
+	Config.pl -g=4,4,4 -r=2,1,1 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect31.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -205,7 +205,7 @@ test_advect31:
 	make test_advect31_check
 
 test_advect32:
-	Config.pl -g=4,4,4 -r=2,2,1
+	Config.pl -g=4,4,4 -r=2,2,1 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect32.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -213,7 +213,7 @@ test_advect32:
 	make test_advect32_check
 
 test_advect33: 
-	Config.pl -g=4,4,4 -r=2,2,2
+	Config.pl -g=4,4,4 -r=2,2,2 -ng=2
 	make ADVECT
 	rm -rf run/plots/* run/runlog run/advect33.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
