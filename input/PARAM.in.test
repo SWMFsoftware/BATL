@@ -1,0 +1,42 @@
+#VELOCITY
+2.0		Ux
+2.0		Uy
+2.0		Uz
+
+#BLOB
+3.0		Radius
+0.0		xCenter
+3.0		yCenter
+0.0		zCenter
+
+#STOP
+0.02		TimeMax
+
+#SAVEPLOT
+0.001		DtPlot
+
+AMR
+1		MaxLevel
+
+SCHEME
+1		nOrder
+
+TESTXYZ
+2.12		xTest
+4.97		yTest
+0.0		zTest
+
+#TESTIJK
+2		iTest
+5		jTest
+1		kTest
+251		iBlockTest
+0		iProcTest
+
+#TEST
+advect_main
+
+advance_explicit calc_face_flux  limit_slope
+
+#GRIDGEOMETRY
+rotatedcartesian
