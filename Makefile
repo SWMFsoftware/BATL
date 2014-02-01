@@ -147,6 +147,14 @@ test_advect22:
 	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect22.log
 	make test_advect22_check
 
+test_advect22_rot:
+	Config.pl -g=4,4,1 -r=2,2,2 -ng=2
+	make ADVECT
+	rm -rf run/plots/* run/runlog run/advect22.log
+	rm -f input/PARAM.in; cp input/PARAM.in.rotcart run/PARAM.in
+	cd run; ${MPIRUN} ADVECT.exe > runlog; mv advect.log advect22.log
+	make test_advect22_rot_check
+
 test_advect22_rz: 
 	Config.pl -g=4,4,1 -r=2,2,2 -ng=2
 	make ADVECT
@@ -239,6 +247,11 @@ test_advect22_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
 		run/advect22.log output/advect22.log > advect22.diff)
 	ls -l advect22.diff
+
+test_advect22_rot_check:
+	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+		run/advect22.log output/advect22.log > advect22_rot.diff)
+	ls -l advect22_rot.diff
 
 test_advect22_rz_check:
 	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
