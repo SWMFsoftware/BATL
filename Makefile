@@ -11,6 +11,7 @@ run:
 		cp ../input/PARAM.in.cart PARAM.in; \
 		ln -s ${BINDIR}/ADVECT.exe .; \
 		ln -s ${BINDIR}/BATL.exe .; \
+		ln -s ${BINDIR}/GAME.exe .; \
 		ln -s ${BINDIR}/READAMR.exe .; \
 		ln -s ${BINDIR}/PostIDL.exe .; \
 		ln -s ${BINDIR}/pIDL .; \
@@ -25,6 +26,11 @@ ADVECT: run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
 	cd src; make ADVECT
+
+GAME: run
+	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
+	cd src; make GAME
 
 READAMRLIB:
 	cd ${SHAREDIR}; make LIB
