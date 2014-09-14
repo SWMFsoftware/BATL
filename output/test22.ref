@@ -507,6 +507,10 @@
  testing message_pass_cell_scalar with operator= max 
  testing message_pass_cell across cylindrical pole
  testing message_pass_cell across cylindrical pole with resolution change
+ testing message_pass_cell across cartesian with high resolution change with refinement level = 1
+ testing message_pass_cell across cartesian with high resolution change with refinement level = 2
+ testing message_pass_cell across cylindrical with high resolution change
+ testing message_pass_cell across rotatedcartesian with high resolution change
  Starting test_pass_face
  test_pass_face middle node= 5
  test_pass_face
