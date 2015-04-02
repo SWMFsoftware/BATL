@@ -11,6 +11,7 @@ module ModReadAmr
   private !except
 
   ! Public methods 
+  public:: readamr_init   ! read header information
   public:: readamr_read   ! read AMR data
   public:: readamr_get    ! get data at some point
   public:: readamr_clean  ! clean all variables
