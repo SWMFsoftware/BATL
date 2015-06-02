@@ -384,17 +384,20 @@ contains
   end subroutine readamr_read
 
   !============================================================================
-  subroutine readamr_get(Xyz_D, State_V, IsFound)
+  subroutine readamr_get(Xyz_D, State_V, IsFound, CellSize_D)
 
-    use BATL_lib, ONLY: nDim, nG, nIJK_D, iProc, Xyz_DGB, &
+    use BATL_lib, ONLY: nDim, nG, nIJK_D, iProc, Xyz_DGB, CellSize_DB, &
+         iTree_IA, Level_, MaxCoord_I, &
          interpolate_grid, find_grid_block
 
     real,    intent(in)  :: Xyz_D(MaxDim)   ! location on grid
     real,    intent(out) :: State_V(0:nVar) ! weight and variables
     logical, intent(out) :: IsFound         ! true if found on grid
 
+    real, optional, intent(out):: CellSize_D(3) ! cell size
+
     ! Block and processor index for the point
-    integer:: iBlock, iProcOut
+    integer:: iBlock, iProcOut, iNode, iLevel
 
     ! Variables for linear interpolation using ghost cells
     integer:: i1, j1=1, k1=1, i2, j2, k2
@@ -412,12 +415,22 @@ contains
 
     State_V = 0.0
 
-    call find_grid_block(Xyz_D, iProcOut, iBlock, iCell_D, Dist_D)
+    call find_grid_block(Xyz_D, iProcOut, iBlock, iCell_D, Dist_D, iNode)
     if(DoDebug)write(*,*)NameSub,&
-         ' found iProcOut, iBlock, iCell_D, Dist_D=', &
-         iProcOut, iBlock, iCell_D, Dist_D
+         ' found iProcOut, iBlock, iNode, iCell_D, Dist_D=', &
+         iProcOut, iBlock, iNode, iCell_D, Dist_D
 
     IsFound = iBlock > 0
+
+    if(present(CellSize_D))then
+       if(IsFound)then
+          iLevel = iTree_IA(Level_,iNode)
+          CellSize_D = (CoordMax_D - CoordMin_D)/nIjk_D/MaxCoord_I(iLevel)
+       else
+          CellSize_D = 0.0
+       end if
+    end if
+
     if(.not.IsFound) RETURN
 
     ! Check if all surrounding cells are inside a single block
