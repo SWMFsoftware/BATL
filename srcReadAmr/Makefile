@@ -8,7 +8,7 @@ include ../Makefile.conf
 
 LIBBATL = ../src/libBATL.a
 
-OBJECTS = ModReadAmr.o
+OBJECTS = ModReadAmr.o wrap_read_amr.o
 
 ${OBJECTS}: ${LIBBATL}
 
