@@ -387,15 +387,15 @@ test_advect33_round_check:
 
 test_readamr: 
 	rm -f readamr_*.diff
-	-@(${MAKE} test_readamr_1d)
-	-@(${MAKE} test_readamr_2d)
-	-@(${MAKE} test_readamr_3d)
-	-@(${MAKE} test_readamr_sph)
+	-@(make -j1 test_readamr_1d)
+	-@(make -j1 test_readamr_2d)
+	-@(make -j1 test_readamr_3d)
+	-@(make -j1 test_readamr_sph)
 	ls -l readamr_*.diff
 
 test_readamr_1d:
 	Config.pl -double -g=4,1,1 -r=2,1,1 -ng=0
-	-@(${MAKE} READAMR)
+	-@(make READAMR)
 	-(cd run; ${MPIRUN} READAMR.exe > readamr_1d.ref)
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/readamr_1d.ref output/readamr_1d.ref > readamr_1d.diff)
@@ -403,7 +403,7 @@ test_readamr_1d:
 
 test_readamr_2d:
 	Config.pl -double -g=4,4,1 -r=2,2,1 -ng=0
-	-@(${MAKE} READAMR)
+	-@(make READAMR)
 	-(cd run; ${MPIRUN} READAMR.exe > readamr_2d.ref)
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/readamr_2d.ref output/readamr_2d.ref > readamr_2d.diff)
@@ -411,7 +411,7 @@ test_readamr_2d:
 
 test_readamr_3d:
 	Config.pl -single -g=4,4,4 -r=2,2,2 -ng=0
-	-@(${MAKE} READAMR)
+	-@(make READAMR)
 	-(cd run; ${MPIRUN} READAMR.exe > readamr_3d.ref)
 	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
 		run/readamr_3d.ref output/readamr_3d.ref > readamr_3d.diff)
@@ -419,7 +419,7 @@ test_readamr_3d:
 
 test_readamr_sph:
 	Config.pl -double -g=6,4,4 -r=2,2,2 -ng=0
-	-@(${MAKE} READAMR)
+	-@(make READAMR)
 	-(cd run; ${MPIRUN} READAMR.exe > readamr_sph.ref)
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/readamr_sph.ref output/readamr_sph.ref > readamr_sph.diff)
