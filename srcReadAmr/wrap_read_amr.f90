@@ -1,7 +1,7 @@
 
 ! Extrernal subroutines to call from other languages
 !==============================================================================
-subroutine wrapreadamr_set_mpi_param(iProcIn, nProcIn, iCommIn)
+subroutine wrapreadamr_set_mpi_param(iProcIn, nProcIn, iCommIn) bind(C)
   use BATL_lib,  ONLY: iProc, nProc, iComm
 
   ! Set the MPI parameters
@@ -16,7 +16,7 @@ subroutine wrapreadamr_set_mpi_param(iProcIn, nProcIn, iCommIn)
 end subroutine wrapreadamr_set_mpi_param
 
 !==============================================================================
-subroutine wrapreadamr_get_nvar(nVarOut)
+subroutine wrapreadamr_get_nvar(nVarOut) bind(C)
   use ModReadAmr, ONLY: nVar
 
   implicit none
@@ -25,36 +25,41 @@ subroutine wrapreadamr_get_nvar(nVarOut)
   nVarOut = nVar 
 end subroutine wrapreadamr_get_nvar    
 !==============================================================================
-subroutine wrapreadamr_get_namevardata(l, NameVarOut)
+subroutine wrapreadamr_get_namevardata(l, NameVarOut) bind(C)
 
   ! Names of variables that are returned by the interpolation routine 
 
   use ModReadAmr, ONLY:NameVarData
+
+  use iso_c_binding, ONLY: c_char
   
   implicit none
   integer,          intent(in) :: l
-  character(len=l), intent(out):: NameVarOut
+  character(kind=c_char), intent(out):: NameVarOut
  
   NameVarOut = NameVarData(1:l)
 
 end subroutine wrapreadamr_get_namevardata  
 
 !==============================================================================
-subroutine wrapreadamr_get_nameunitdata(l, NameUnitOut)
+subroutine wrapreadamr_get_nameunitdata(l, NameUnitOut) bind(C)
 
-  ! units of the coordinates followed by the units of the interpolated variables
+  ! units of the coordinates followed by the units of the interpolated
+  ! variables
   use ModReadAmr, ONLY: NameUnitData
+
+  use iso_c_binding, ONLY: c_char
   
   implicit none
   integer, intent(in):: l
-  character(len=l), intent(out):: NameUnitOut
+  character(kind=c_char), intent(out):: NameUnitOut
  
   NameUnitOut = NameUnitData(1:l)
 
 end subroutine wrapreadamr_get_nameunitdata  
   
-!===============================================================================
-subroutine wrapreadamr_domain_limits(CoordMinOut_D, CoordMaxOut_D) 
+!==============================================================================
+subroutine wrapreadamr_domain_limits(CoordMinOut_D, CoordMaxOut_D) bind(C)
 
   ! Boundary of the computational domain in the normalized units
 
@@ -70,18 +75,20 @@ subroutine wrapreadamr_domain_limits(CoordMinOut_D, CoordMaxOut_D)
 end subroutine wrapreadamr_domain_limits  
 
 !==============================================================================
-subroutine wrapreadamr_read_file(l, FileName, lNewGrid, lVerbose)
+subroutine wrapreadamr_read_file(l, FileName, lNewGrid, lVerbose) bind(C)
 
   ! Read data from file Filename.
   ! If lNewGrid == 1 then read all information, otherwise data only
   ! If lVerbose == 1 then write out verbose information
 
-  use ModReadAmr, ONLY:readamr_read 
+  use ModReadAmr, ONLY:readamr_read
+
+  use iso_c_binding, ONLY: c_char
 
   implicit none
 
   integer,intent(in):: l
-  character(len=l), intent(in):: FileName
+  character(kind=c_char), intent(in):: FileName
   integer,          intent(in):: lNewGrid
   integer,          intent(in):: lVerbose
 
@@ -91,15 +98,17 @@ subroutine wrapreadamr_read_file(l, FileName, lNewGrid, lVerbose)
 end subroutine wrapreadamr_read_file
 
 !=============================================================================
-subroutine wrapreadamr_read_header(l, FileName)
+subroutine wrapreadamr_read_header(l, FileName) bind(C)
 
   ! Read header information from .h or .info
   ! This sets number and names of variables, domain size, etc.
   use ModReadAmr, ONLY:readamr_init
+
+  use iso_c_binding, ONLY: c_char
   
   implicit none
   integer,intent(in):: l
-  character(len=l), intent(in):: FileName
+  character(kind=c_char), intent(in):: FileName
   integer:: i
   !---------------------------------------------------------------------------
   ! Cut off extension from the file name (if any)
@@ -109,7 +118,7 @@ subroutine wrapreadamr_read_header(l, FileName)
 end subroutine wrapreadamr_read_header
   
 !==============================================================================
-subroutine wrapreadamr_deallocate
+subroutine wrapreadamr_deallocate() bind(C)
 
   ! Deallocate all memory used by READAMR
 
@@ -120,7 +129,7 @@ subroutine wrapreadamr_deallocate
 end subroutine wrapreadamr_deallocate
 
 !=============================================================================
-subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) 
+subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) bind(C)
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V
   ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
@@ -154,7 +163,7 @@ end subroutine wrapreadamr_get_data
 
 !=============================================================================
 subroutine wrapreadamr_get_data_cell(XyzIn_D, StateOut_V, &
-     CellSizeOut_D, iFound)
+     CellSizeOut_D, iFound) bind(C)
 
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V
