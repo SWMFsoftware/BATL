@@ -30,4 +30,6 @@ ${MY_EXE}: LIB read_amr.o
 	${LINK.f90} -o ${MY_EXE} read_amr.o \
 		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${Lflag1}
 
+clean: cleanfiles
+
 distclean: clean
