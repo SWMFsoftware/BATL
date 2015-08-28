@@ -8,6 +8,7 @@ help:
 	@echo "ADVECT                - create bin/ADVECT.exe for advection tests"
 	@echo "GAME                  - create bin/GAME.exe for game-of-life"
 	@echo "READAMRLIB            - create lib/libREADAMR.a"
+	@echo "READAMRLIBSO          - create lib/libREADAMR.so"
 	@echo "READAMR               - create bin/READAMR.exe for READAMR tests"
 	@echo "NOMPI                 - create lib/NOMPI.a for serial execution"
 	@echo "clean                 - remove object files"
@@ -78,6 +79,12 @@ READAMRLIB:
 	cd ${TIMINGDIR}; make LIB
 	cd src; make LIB
 	cd srcReadAmr; make LIB
+
+READAMRLIBSO:
+	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
+	cd src; make LIB
+	cd srcReadAmr; make LIBSO
 
 READAMR: run
 	cd ${SHAREDIR}; make LIB
@@ -427,6 +434,8 @@ test_readamr_sph:
 
 clean:
 	cd share; make clean
+	cd util/TIMING; make clean
+	cd util/NOMPI/src; make clean 
 	cd src; make clean
 	cd srcReadAmr; make clean
 
