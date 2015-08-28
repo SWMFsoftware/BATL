@@ -22,6 +22,10 @@ ${MY_LIB}: ${LIBBATL} ${OBJECTS}
 	cp -f ${LIBBATL} ${MY_LIB}
 	${AR} ${MY_LIB} ${OBJECTS}
 
+LIBSO: ${LIBBATL} ${OBJECTS}
+	${LINK.f90} -o ${LIBDIR}/libREADAMR.so ${OBJECTS} \
+		-L ../src -l BATL -L ${LIBDIR} -l SHARE -l TIMING \
+		-shared -fPIC
 MY_EXE = ${BINDIR}/READAMR.exe
 
 EXE:    ${MY_EXE}
