@@ -81,7 +81,7 @@ READAMRLIB:
 	cd srcReadAmr; make LIB
 
 WRAPAMRLIB:
-	cd ${SHAREDIR}; make LIB
+	cd ${SHAREDIR}; make LIB_NO_C
 	cd ${TIMINGDIR}; make LIB
 	cd src; make LIB
 	cd srcReadAmr; make LIBSO
