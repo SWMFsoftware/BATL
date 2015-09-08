@@ -58,7 +58,7 @@ program read_amr_test
   ! Get data at this point
   call readamr_get(Xyz_D, State_V, IsFound)
 
-  if(nProc > 0)then
+  if(nProc > 1)then
      ! When running in parallel the contributions need to be collected
      allocate(StateLocal_V(0:nVar))
      StateLocal_V = State_V
