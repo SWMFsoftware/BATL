@@ -10,7 +10,7 @@ subroutine wrapreadamr_set_mpi_param(iProcIn, nProcIn, iCommIn) bind(C)
   integer,intent(in):: iProcIn, nProcIn, iCommIn
   
   iProc = iProcIn
-  nProc = nProcIn 
+  nProc = nProcIn
   iComm = iCommIn
 
 end subroutine wrapreadamr_set_mpi_param
@@ -69,11 +69,10 @@ subroutine wrapreadamr_domain_limits(CoordMinOut_D, CoordMaxOut_D) bind(C)
   implicit none
   real(Real8_), intent(out):: CoordMinOut_D(3), CoordMaxOut_D(3)
 
-  CoordMaxOut_D = CoordMin_D
-  CoordMinOut_D = CoordMax_D
+  CoordMinOut_D = CoordMin_D
+  CoordMaxOut_D = CoordMax_D
 
 end subroutine wrapreadamr_domain_limits  
-
 !==============================================================================
 subroutine wrapreadamr_read_file(l, FileName, lNewGrid, lVerbose) bind(C)
 
@@ -87,15 +86,33 @@ subroutine wrapreadamr_read_file(l, FileName, lNewGrid, lVerbose) bind(C)
 
   implicit none
 
-  integer,intent(in):: l
+  integer,                intent(in):: l
   character(kind=c_char), intent(in):: FileName
-  integer,          intent(in):: lNewGrid
-  integer,          intent(in):: lVerbose
+  integer,                intent(in):: lNewGrid
+  integer,                intent(in):: lVerbose
 
   call readamr_read(FileName, &
        IsNewGridIn = lNewGrid==1, IsVerboseIn=lVerbose==1)
 
 end subroutine wrapreadamr_read_file
+!==============================================================================
+
+subroutine wrapreadamr_read_file_py(IsNewGrid, IsVerbose, NameFile)
+
+  ! Read data from file Filename. Python interface.
+  ! Call has to pass the length of the file name as an extra c_long argument.
+
+  use ModReadAmr, ONLY:readamr_read
+
+  implicit none
+
+  logical,          intent(in):: IsNewGrid
+  logical,          intent(in):: IsVerbose
+  character(len=*), intent(in):: NameFile  ! base name
+
+  call readamr_read(NameFile, IsVerboseIn=IsVerbose, IsNewGridIn=IsNewGrid)
+
+end subroutine wrapreadamr_read_file_py
 
 !=============================================================================
 subroutine wrapreadamr_read_header(l, FileName) bind(C)
@@ -132,6 +149,9 @@ end subroutine wrapreadamr_deallocate
 subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) bind(C)
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V
+  ! The first index of State_V is the interpolation weight, 
+  ! so StateOut_V has nVar+1 elements.
+  ! For parallel execution, an MPI_SUM is needed and a division by total weight.
   ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
 
   use ModReadAmr, ONLY: nVar, readamr_get
@@ -160,6 +180,42 @@ subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) bind(C)
   if(IsFound) iFound = 1
 
 end subroutine wrapreadamr_get_data
+
+!=============================================================================
+subroutine wrapreadamr_get_data_serial(XyzIn_D, StateOut_V, iFound) bind(C)
+
+  ! Get the interpolated values StateOut_V at the point XyzOut_V.
+  ! Division by sum of weights is done internally, 
+  ! so StateOut_V has nVar elements.
+  ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
+
+  use ModReadAmr, ONLY: nVar, readamr_get
+  use BATL_lib,   ONLY: MaxDim
+  use ModKind,    ONLY: Real8_
+  
+  implicit none
+  real(Real8_), intent(in) :: XyzIn_D(MaxDim)
+  real(Real8_), intent(out):: StateOut_V(nVar)
+  integer,intent(out):: iFound
+
+  real   :: State_V(0:nVar)
+  real   :: Xyz_D(MaxDim)
+  logical:: IsFound
+  !----------------------------------------------------------------------------
+
+  ! This copy converts real precision if needed
+  Xyz_D = XyzIn_D   
+  call readamr_get(Xyz_D, State_V, IsFound)
+
+  ! Divide by weight.
+  ! Also this converts real precision if needed.
+  StateOut_V = State_V(1:nVar)/State_V(0)
+
+  ! Set integer found flag
+  iFound = 0
+  if(IsFound) iFound = 1
+
+end subroutine wrapreadamr_get_data_serial
 
 !=============================================================================
 subroutine wrapreadamr_get_data_cell(XyzIn_D, StateOut_V, &
@@ -200,5 +256,20 @@ subroutine wrapreadamr_get_data_cell(XyzIn_D, StateOut_V, &
 
 end subroutine wrapreadamr_get_data_cell
 
-  
-  
+!=============================================================================
+subroutine CON_stop(StringError)
+  ! This subroutine has to be provided to stop cleanly
+
+  use ModMPI
+  use BATL_lib, ONLY: iProc, iComm
+
+  implicit none
+  integer:: nError, iError
+  character (len=*), intent(in) :: StringError
+  !--------------------------------------------------------------------------
+  write(*,*)'ERROR in READAMR on processor ', iProc
+  write(*,*) StringError
+  call MPI_abort(iComm, nError, iError)
+  stop
+
+end subroutine CON_stop
