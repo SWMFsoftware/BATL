@@ -23,8 +23,8 @@ ${MY_LIB}: ${LIBBATL} ${OBJECTS}
 	${AR} ${MY_LIB} ${OBJECTS}
 
 LIBSO: ${LIBBATL} ${OBJECTS}
-	${LINK.f90} -o ${LIBDIR}/libREADAMR.so ${OBJECTS} \
-		-L ../src -l BATL -L ${LIBDIR} -l SHARE -l TIMING \
+	${LINK.f90} -o ${LIBDIR}/libWRAPAMR.so ${OBJECTS} \
+		-L ../src -l BATL -L ${LIBDIR} -l SHARE -l TIMING ${MPILIB} \
 		-shared -fPIC
 MY_EXE = ${BINDIR}/READAMR.exe
 
