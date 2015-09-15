@@ -38,9 +38,21 @@ subroutine wrapreadamr_get_namevardata(l, NameVarOut) bind(C)
   character(kind=c_char), intent(out):: NameVarOut
  
   NameVarOut = NameVarData(1:l)
+  write(*,*) "Fort: ", NameVarData(1:l)
 
 end subroutine wrapreadamr_get_namevardata  
+!==============================================================================
+subroutine wrapreadamr_varnames(NameVarOut)
 
+  ! Names of variables that are returned by the interpolation routine 
+
+  use ModReadAmr, ONLY:NameVarData
+
+  implicit none
+  character(len=*), intent(out):: NameVarOut
+  NameVarOut = NameVarData
+
+end subroutine wrapreadamr_varnames
 !==============================================================================
 subroutine wrapreadamr_get_nameunitdata(l, NameUnitOut) bind(C)
 
@@ -57,7 +69,18 @@ subroutine wrapreadamr_get_nameunitdata(l, NameUnitOut) bind(C)
   NameUnitOut = NameUnitData(1:l)
 
 end subroutine wrapreadamr_get_nameunitdata  
+!==============================================================================
+subroutine wrapreadamr_units(NameUnitOut)
+
+  use ModReadAmr, ONLY: NameUnitData
+
   
+  implicit none
+  character(len=*), intent(out):: NameUnitOut
+ 
+  NameUnitOut = NameUnitData
+
+end subroutine wrapreadamr_units 
 !==============================================================================
 subroutine wrapreadamr_domain_limits(CoordMinOut_D, CoordMaxOut_D) bind(C)
 
@@ -182,6 +205,37 @@ subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) bind(C)
 end subroutine wrapreadamr_get_data
 
 !=============================================================================
+subroutine wrapreadamr_get_more_data(X, S, iFound, nPoints) bind(C)
+  
+  ! interpolation loop over nPoints pairs of coordinates.
+  ! X = array containing coordinates to interpolate at. 
+  ! S = array containing the variables from interpolation.
+  ! nPoints = number of coordinate pairs.
+
+
+  use ModReadAmr, ONLY: nVar, readamr_get
+  use BATL_lib,   ONLY: MaxDim
+  use ModKind,    ONLY: Real8_
+  
+  implicit none
+  real(Real8_), intent(in) :: X(MaxDim,nPoints)
+  real(Real8_), intent(out):: S(1:nVar,nPoints)
+  integer,intent(out)      :: iFound
+  integer,intent(in)       :: nPoints
+
+  integer:: i 
+  real   :: State_V(0:nVar)
+  real   :: Xyz_D(MaxDim)
+  logical:: IsFound
+  !----------------------------------------------------------------------------
+  DO i=1,nPoints
+      Xyz_D(1:MaxDim) = X(1:MaxDim,i)   
+      call readamr_get(Xyz_D, State_V, IsFound)
+      S(1:nVar,i) = State_V(1:nVar) / State_V(0)
+  END DO
+
+end subroutine wrapreadamr_get_more_data
+!=============================================================================
 subroutine wrapreadamr_get_data_serial(XyzIn_D, StateOut_V, iFound) bind(C)
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V.
@@ -214,6 +268,7 @@ subroutine wrapreadamr_get_data_serial(XyzIn_D, StateOut_V, iFound) bind(C)
   ! Set integer found flag
   iFound = 0
   if(IsFound) iFound = 1
+  write(*,*) "get_data_serial called"
 
 end subroutine wrapreadamr_get_data_serial
 
