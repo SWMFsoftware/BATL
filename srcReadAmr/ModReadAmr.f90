@@ -1,3 +1,6 @@
+!  Copyright (C) 2002 Regents of the University of Michigan, 
+!  portions used with permission 
+!  For more information, see http://csem.engin.umich.edu/tools/swmf
 module ModReadAmr
 
   ! reconstruct AMR grid and read data on this grid
@@ -110,10 +113,11 @@ contains
 
     read(UnitTmp_,*) nVarData
     read(UnitTmp_,*) nParamData
+
     allocate(ParamData_I(nParamData))
     read(UnitTmp_,*) ParamData_I
     if(IsVerbose)then
-       write(*,*) NameSub,' nVarData=',nVarData,' nParamData=', nParamData
+       write(*,*) NameSub,' nVarData=', nVarData,' nParamData=', nParamData
        write(*,*) NameSub,' ParamData_I=', ParamData_I
     end if
 
