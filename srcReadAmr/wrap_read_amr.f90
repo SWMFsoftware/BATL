@@ -1,175 +1,161 @@
+!  Copyright (C) 2002 Regents of the University of Michigan, 
+!  portions used with permission 
+!  For more information, see http://csem.engin.umich.edu/tools/swmf
 
 ! Extrernal subroutines to call from other languages
 !==============================================================================
-subroutine wrapreadamr_set_mpi_param(iProcIn, nProcIn, iCommIn) bind(C)
-  use BATL_lib,  ONLY: iProc, nProc, iComm
+subroutine wrapamr_init_mpi() bind(C)
+  use BATL_lib,  ONLY: init_mpi
 
-  ! Set the MPI parameters
-  
-  implicit none
-  integer,intent(in):: iProcIn, nProcIn, iCommIn
-  
-  iProc = iProcIn
-  nProc = nProcIn
-  iComm = iCommIn
-
-end subroutine wrapreadamr_set_mpi_param
-
-!==============================================================================
-subroutine wrapreadamr_get_nvar(nVarOut) bind(C)
-  use ModReadAmr, ONLY: nVar
-
-  implicit none
-  integer,intent(out):: nVarOut
-  
-  nVarOut = nVar 
-end subroutine wrapreadamr_get_nvar    
-!==============================================================================
-subroutine wrapreadamr_get_namevardata(l, NameVarOut) bind(C)
-
-  ! Names of variables that are returned by the interpolation routine 
-
-  use ModReadAmr, ONLY:NameVarData
-
-  use iso_c_binding, ONLY: c_char
-  
-  implicit none
-  integer,          intent(in) :: l
-  character(kind=c_char), intent(out):: NameVarOut
- 
-  NameVarOut = NameVarData(1:l)
-  write(*,*) "Fort: ", NameVarData(1:l)
-
-end subroutine wrapreadamr_get_namevardata  
-!==============================================================================
-subroutine wrapreadamr_varnames(NameVarOut)
-
-  ! Names of variables that are returned by the interpolation routine 
-
-  use ModReadAmr, ONLY:NameVarData
-
-  implicit none
-  character(len=*), intent(out):: NameVarOut
-  NameVarOut = NameVarData
-
-end subroutine wrapreadamr_varnames
-!==============================================================================
-subroutine wrapreadamr_get_nameunitdata(l, NameUnitOut) bind(C)
-
-  ! units of the coordinates followed by the units of the interpolated
-  ! variables
-  use ModReadAmr, ONLY: NameUnitData
-
-  use iso_c_binding, ONLY: c_char
-  
-  implicit none
-  integer, intent(in):: l
-  character(kind=c_char), intent(out):: NameUnitOut
- 
-  NameUnitOut = NameUnitData(1:l)
-
-end subroutine wrapreadamr_get_nameunitdata  
-!==============================================================================
-subroutine wrapreadamr_units(NameUnitOut)
-
-  use ModReadAmr, ONLY: NameUnitData
-
-  
-  implicit none
-  character(len=*), intent(out):: NameUnitOut
- 
-  NameUnitOut = NameUnitData
-
-end subroutine wrapreadamr_units 
-!==============================================================================
-subroutine wrapreadamr_domain_limits(CoordMinOut_D, CoordMaxOut_D) bind(C)
-
-  ! Boundary of the computational domain in the normalized units
-
-  use ModKind,    ONLY: Real8_
-  use ModReadAmr, ONLY: CoordMin_D, CoordMax_D
-  
-  implicit none
-  real(Real8_), intent(out):: CoordMinOut_D(3), CoordMaxOut_D(3)
-
-  CoordMinOut_D = CoordMin_D
-  CoordMaxOut_D = CoordMax_D
-
-end subroutine wrapreadamr_domain_limits  
-!==============================================================================
-subroutine wrapreadamr_read_file(l, FileName, lNewGrid, lVerbose) bind(C)
-
-  ! Read data from file Filename.
-  ! If lNewGrid == 1 then read all information, otherwise data only
-  ! If lVerbose == 1 then write out verbose information
-
-  use ModReadAmr, ONLY:readamr_read
-
-  use iso_c_binding, ONLY: c_char
-
+  ! Set the MPI parameters inside BATL
   implicit none
 
-  integer,                intent(in):: l
-  character(kind=c_char), intent(in):: FileName
-  integer,                intent(in):: lNewGrid
-  integer,                intent(in):: lVerbose
+  call init_mpi
 
-  call readamr_read(FileName, &
-       IsNewGridIn = lNewGrid==1, IsVerboseIn=lVerbose==1)
-
-end subroutine wrapreadamr_read_file
-!==============================================================================
-
-subroutine wrapreadamr_read_file_py(IsNewGrid, IsVerbose, NameFile)
-
-  ! Read data from file Filename. Python interface.
-  ! Call has to pass the length of the file name as an extra c_long argument.
-
-  use ModReadAmr, ONLY:readamr_read
-
-  implicit none
-
-  logical,          intent(in):: IsNewGrid
-  logical,          intent(in):: IsVerbose
-  character(len=*), intent(in):: NameFile  ! base name
-
-  call readamr_read(NameFile, IsVerboseIn=IsVerbose, IsNewGridIn=IsNewGrid)
-
-end subroutine wrapreadamr_read_file_py
-
+end subroutine wrapamr_init_mpi
 !=============================================================================
-subroutine wrapreadamr_read_header(l, FileName) bind(C)
+subroutine wrapamr_read_header(NameFile_I, l, lVerbose) bind(C)
 
   ! Read header information from .h or .info
   ! This sets number and names of variables, domain size, etc.
+  ! l is the maximum length of the filename
+  ! If lVerbose is 1, write out verbose information.
+
+  use ModUtilities, ONLY: char_array_to_string
   use ModReadAmr, ONLY:readamr_init
 
-  use iso_c_binding, ONLY: c_char
-  
-  implicit none
-  integer,intent(in):: l
-  character(kind=c_char), intent(in):: FileName
-  integer:: i
-  !---------------------------------------------------------------------------
-  ! Cut off extension from the file name (if any)
-  i = index(FileName,".",BACK=.true.)
-  call readamr_init(FileName(1:i-1), .true.)
+  use iso_c_binding, ONLY: c_char, c_int
 
-end subroutine wrapreadamr_read_header
+  implicit none
+
+  character(c_char), intent(in):: NameFile_I(*)
+  integer(c_int), value, intent(in):: l
+  integer(c_int), value, intent(in):: lVerbose
+
+  character(len=l):: NameFile
+  integer:: i
+  !----------------------------------------------------------------------------
+  call char_array_to_string(NameFile_I, NameFile)
+
+  ! Cut off extension from the file name (if any)
+  i = index(NameFile, ".", BACK=.true.)
+
+  call readamr_init(NameFile(1:i-1), IsVerbose=lVerbose==1_c_int)
+
+end subroutine wrapamr_read_header
   
 !==============================================================================
-subroutine wrapreadamr_deallocate() bind(C)
+subroutine wrapamr_read_file(NameFile_I, l, lNewGrid, lVerbose) bind(C)
 
-  ! Deallocate all memory used by READAMR
+  ! Read data from the file given by the C character array NameFile_I.
+  ! The maximum length of the file name is given by.
+  ! If lNewGrid == 1 then read all information, otherwise data only
+  ! If lVerbose == 1 then write out verbose information
 
-  use ModReadAmr, ONLY: readamr_clean
+  use ModUtilities, ONLY: char_array_to_string
+  use ModReadAmr, ONLY:readamr_read
+
+  use iso_c_binding, ONLY: c_char, c_int
+
+  implicit none
+
+  character(c_char), intent(in):: NameFile_I(*)
+  integer(c_int), value, intent(in):: l
+  integer(c_int), value, intent(in):: lNewGrid
+  integer(c_int), value, intent(in):: lVerbose
+
+  character(len=l):: NameFile
+  !----------------------------------------------------------------------------
+  call char_array_to_string(NameFile_I, NameFile)
+
+  call readamr_read(NameFile, &
+       IsNewGridIn = lNewGrid==1_c_int, IsVerboseIn=lVerbose==1_c_int)
+
+end subroutine wrapamr_read_file
+!==============================================================================
+subroutine wrapamr_get_ndim(nDimOut) bind(C)
+
+  ! Get number of dimensions of the grid
+
+  use BATL_lib, ONLY: nDim
+  use iso_c_binding, ONLY: c_int
+  implicit none
+  integer(c_int), intent(out):: nDimOut
   
-  call readamr_clean
+  nDimOut = nDim
+end subroutine wrapamr_get_ndim    
+!==============================================================================
+subroutine wrapamr_get_nvar(nVarOut) bind(C)
+
+  ! Get number of variables per grid cell in the data file
+
+  use ModReadAmr, ONLY: nVarData
+  use iso_c_binding, ONLY: c_int
+  implicit none
+  integer(c_int), intent(out):: nVarOut
   
-end subroutine wrapreadamr_deallocate
+  nVarOut = nVarData
+end subroutine wrapamr_get_nvar    
+!==============================================================================
+subroutine wrapamr_get_namevar(NameVarOut_I, l) bind(C)
+
+  ! Names of variables that are returned by the interpolation routine 
+  ! l is the length of the string (without trailing spaces)
+
+  use ModUtilities, ONLY: string_to_char_array
+  use ModReadAmr, ONLY: NameVarData
+
+  use iso_c_binding, ONLY: c_char, c_int
+  
+  implicit none
+  character(c_char), intent(out):: NameVarOut_I(*)
+  integer(c_int),    intent(out):: l
+  !--------------------------------------------------------------------------
+  call string_to_char_array(NameVarData, NameVarOut_I)
+  l = len_trim(NameVarData)
+
+end subroutine wrapamr_get_namevar
+!==============================================================================
+subroutine wrapamr_get_nameunit(NameUnitOut_I, l) bind(C)
+
+  ! units of the coordinates followed by the units of the interpolated
+  ! variables
+  ! l is the length of the string (without trailing spaces)
+
+  use ModUtilities, ONLY: string_to_char_array
+  use ModReadAmr, ONLY: NameUnitData
+
+  use iso_c_binding, ONLY: c_char, c_int
+  
+  implicit none
+  character(c_char), intent(out):: NameUnitOut_I(*)
+  integer(c_int),    intent(out):: l
+
+  !--------------------------------------------------------------------------
+  call string_to_char_array(NameUnitData, NameUnitOut_I)
+  l = len_trim(NameUnitData)
+ 
+end subroutine wrapamr_get_nameunit
+!==============================================================================
+subroutine wrapamr_get_domain(CoordMinOut_D, CoordMaxOut_D) bind(C)
+
+  ! Boundary of the computational domain in the 
+  ! normalized/generalized coordinates
+
+  use BATL_lib, ONLY: nDim
+  use ModReadAmr, ONLY: CoordMin_D, CoordMax_D
+  use iso_c_binding, ONLY: c_double
+  
+  implicit none
+  real(c_double), intent(out):: CoordMinOut_D(nDim), CoordMaxOut_D(nDim)
+
+  CoordMinOut_D = CoordMin_D(1:nDim)
+  CoordMaxOut_D = CoordMax_D(1:nDim)
+
+end subroutine wrapamr_get_domain
 
 !=============================================================================
-subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) bind(C)
+subroutine wrapamr_get_data(x_D, StateOut_V, iFound) bind(C)
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V
   ! The first index of State_V is the interpolation weight, 
@@ -178,21 +164,22 @@ subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) bind(C)
   ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
 
   use ModReadAmr, ONLY: nVar, readamr_get
-  use BATL_lib,   ONLY: MaxDim
-  use ModKind,    ONLY: Real8_
+  use BATL_lib,   ONLY: nDim, MaxDim
+  use iso_c_binding, ONLY: c_double, c_int
   
   implicit none
-  real(Real8_), intent(in) :: XyzIn_D(MaxDim)
-  real(Real8_), intent(out):: StateOut_V(0:nVar)
-  integer,intent(out):: iFound
+  real(c_double), intent(in) :: x_D(nDim)
+  real(c_double), intent(out):: StateOut_V(0:nVar)
+  integer(c_int), intent(out):: iFound
 
   real   :: State_V(0:nVar)
   real   :: Xyz_D(MaxDim)
   logical:: IsFound
   !----------------------------------------------------------------------------
 
-  ! This copy converts real precision if needed
-  Xyz_D = XyzIn_D   
+  ! This copy converts real precision if needed and pads extra dimensions
+  Xyz_D = 0.0
+  Xyz_D(1:nDim) = x_D
   call readamr_get(Xyz_D, State_V, IsFound)
   
   ! This copy converts real precision if needed
@@ -202,41 +189,9 @@ subroutine wrapreadamr_get_data(XyzIn_D, StateOut_V, iFound) bind(C)
   iFound = 0
   if(IsFound) iFound = 1
 
-end subroutine wrapreadamr_get_data
-
+end subroutine wrapamr_get_data
 !=============================================================================
-subroutine wrapreadamr_get_more_data(X, S, iFound, nPoints) bind(C)
-  
-  ! interpolation loop over nPoints pairs of coordinates.
-  ! X = array containing coordinates to interpolate at. 
-  ! S = array containing the variables from interpolation.
-  ! nPoints = number of coordinate pairs.
-
-
-  use ModReadAmr, ONLY: nVar, readamr_get
-  use BATL_lib,   ONLY: MaxDim
-  use ModKind,    ONLY: Real8_
-  
-  implicit none
-  real(Real8_), intent(in) :: X(MaxDim,nPoints)
-  real(Real8_), intent(out):: S(1:nVar,nPoints)
-  integer,intent(out)      :: iFound
-  integer,intent(in)       :: nPoints
-
-  integer:: i 
-  real   :: State_V(0:nVar)
-  real   :: Xyz_D(MaxDim)
-  logical:: IsFound
-  !----------------------------------------------------------------------------
-  DO i=1,nPoints
-      Xyz_D(1:MaxDim) = X(1:MaxDim,i)   
-      call readamr_get(Xyz_D, State_V, IsFound)
-      S(1:nVar,i) = State_V(1:nVar) / State_V(0)
-  END DO
-
-end subroutine wrapreadamr_get_more_data
-!=============================================================================
-subroutine wrapreadamr_get_data_serial(XyzIn_D, StateOut_V, iFound) bind(C)
+subroutine wrapamr_get_data_serial(x_D, StateOut_V, iFound) bind(C)
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V.
   ! Division by sum of weights is done internally, 
@@ -244,13 +199,13 @@ subroutine wrapreadamr_get_data_serial(XyzIn_D, StateOut_V, iFound) bind(C)
   ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
 
   use ModReadAmr, ONLY: nVar, readamr_get
-  use BATL_lib,   ONLY: MaxDim
-  use ModKind,    ONLY: Real8_
+  use BATL_lib,   ONLY: nDim, MaxDim
+  use iso_c_binding, ONLY: c_double, c_int
   
   implicit none
-  real(Real8_), intent(in) :: XyzIn_D(MaxDim)
-  real(Real8_), intent(out):: StateOut_V(nVar)
-  integer,intent(out):: iFound
+  real(c_double), intent(in) :: x_D(nDim)         ! point position
+  real(c_double), intent(out):: StateOut_V(nVar)  ! interpolated values
+  integer(c_int), intent(out):: iFound            ! 1 if point is found, 0 if not
 
   real   :: State_V(0:nVar)
   real   :: Xyz_D(MaxDim)
@@ -258,38 +213,77 @@ subroutine wrapreadamr_get_data_serial(XyzIn_D, StateOut_V, iFound) bind(C)
   !----------------------------------------------------------------------------
 
   ! This copy converts real precision if needed
-  Xyz_D = XyzIn_D   
+  Xyz_D = 0.0
+  Xyz_D(1:nDim) = x_D
   call readamr_get(Xyz_D, State_V, IsFound)
 
-  ! Divide by weight.
-  ! Also this converts real precision if needed.
-  StateOut_V = State_V(1:nVar)/State_V(0)
+  if(IsFound)then
+     ! Divide by weight.
+     ! Also this converts real precision if needed.
+     StateOut_V = State_V(1:nVar)/State_V(0)
+     iFound = 1
+  else
+     ! Set integer found flag
+     StateOut_V = 0.0
+     iFound = 0
+  end if
 
-  ! Set integer found flag
-  iFound = 0
-  if(IsFound) iFound = 1
-  write(*,*) "get_data_serial called"
-
-end subroutine wrapreadamr_get_data_serial
+end subroutine wrapamr_get_data_serial
 
 !=============================================================================
-subroutine wrapreadamr_get_data_cell(XyzIn_D, StateOut_V, &
-     CellSizeOut_D, iFound) bind(C)
+subroutine wrapamr_get_array_serial(nPoint, x_DI, State_VI) bind(C)
 
+  ! Get the interpolated values StateOut_V at the point XyzOut_V.
+  ! Division by sum of weights is done internally, 
+  ! so StateOut_V has nVar elements. 
+  ! Points that are not found in the domain are filled with all zero values.
+
+  use ModReadAmr, ONLY: nVar, readamr_get
+  use BATL_lib,   ONLY: nDim, MaxDim
+  use iso_c_binding, ONLY: c_double, c_int
+  
+  implicit none
+
+  integer(c_int), intent(in), value :: nPoint         ! number of points
+  real(c_double), intent(in) :: x_DI(nDim,nPoint)     ! locations of points
+  real(c_double), intent(out):: State_VI(nVar,nPoint) ! interpolated values
+
+  integer:: i 
+  real   :: State_V(0:nVar)
+  real   :: Xyz_D(MaxDim)
+  logical:: IsFound
+  !-------------------------------------------------------------------------
+
+  ! Initialize all coordinates
+  Xyz_D = 0.0
+  do i = 1, nPoint
+      Xyz_D(1:nDim) = x_DI(:,i)   
+      call readamr_get(Xyz_D, State_V, IsFound)
+      if(IsFound)then
+         State_VI(:,i) = State_V(1:nVar) / State_V(0)
+      else
+         State_VI(:,i) = 0.0
+      end if
+  end do
+
+end subroutine wrapamr_get_array_serial
+!=============================================================================
+subroutine wrapamr_get_data_cell(x_D, StateOut_V, &
+     CellSizeOut_D, iFound) bind(C)
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V
   ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
   ! Set CellSizeOut_D to size of the cell containing the point.
 
   use ModReadAmr, ONLY: nVar, readamr_get
-  use BATL_lib, ONLY: MaxDim
-  use ModKind,    ONLY: Real8_
-  
+  use BATL_lib, ONLY: nDim, MaxDim
+  use iso_c_binding, ONLY: c_double, c_int
+
   implicit none
-  real(Real8_), intent(in) :: XyzIn_D(MaxDim)
-  real(Real8_), intent(out):: StateOut_V(0:nVar)
-  real(Real8_), intent(out):: CellSizeOut_D(3)
-  integer,intent(out):: iFound
+  real(c_double), intent(in) :: x_D(nDim)
+  real(c_double), intent(out):: StateOut_V(0:nVar)
+  real(c_double), intent(out):: CellSizeOut_D(nDim)
+  integer(c_int), intent(out):: iFound
 
   real   :: State_V(0:nVar)
   real   :: Xyz_D(MaxDim)
@@ -298,19 +292,30 @@ subroutine wrapreadamr_get_data_cell(XyzIn_D, StateOut_V, &
   !----------------------------------------------------------------------------
 
   ! This copy converts real precision if needed
-  Xyz_D = XyzIn_D   
+  Xyz_D = 0.0
+  Xyz_D(1:nDim) = x_D
   call readamr_get(Xyz_D, State_V, IsFound, CellSize_D)
  
   ! These copies convert real precision if needed
   StateOut_V = State_V
-  CellSizeOut_D = CellSize_D
+  CellSizeOut_D = CellSize_D(1:nDim)
 
   ! Set integer found flag
   iFound = 0
   if(IsFound) iFound = 1
 
-end subroutine wrapreadamr_get_data_cell
+end subroutine wrapamr_get_data_cell
 
+!==============================================================================
+subroutine wrapamr_clean() bind(C)
+
+  ! Deallocate all memory used by READAMR
+
+  use ModReadAmr, ONLY: readamr_clean
+  
+  call readamr_clean
+  
+end subroutine wrapamr_clean
 !=============================================================================
 subroutine CON_stop(StringError)
   ! This subroutine has to be provided to stop cleanly
