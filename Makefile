@@ -408,6 +408,7 @@ test_readamr:
 	-@(make -j1 test_readamr_3d)
 	-@(make -j1 test_readamr_sph)
 	-@(make -j1 test_readamr_c)
+	./Config.pl -mpi
 	ls -l readamr_*.diff
 
 test_readamr_1d:
