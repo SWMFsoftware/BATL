@@ -10,6 +10,7 @@ help:
 	@echo "READAMRLIB            - create lib/libREADAMR.a"
 	@echo "WRAPAMRLIB            - create lib/libWRAPAMR.so"
 	@echo "READAMR               - create bin/READAMR.exe for READAMR tests"
+	@echo "READAMR_C             - create bin/READAMR_C.exe to test C wrapper"
 	@echo "NOMPI                 - create lib/NOMPI.a for serial execution"
 	@echo "clean                 - remove object files"
 	@echo "test                  - run full test suite (optional MPIRUN=...)"
@@ -40,7 +41,8 @@ help:
 	@echo "test_readamr_1d       - run 1D READAMR test"
 	@echo "test_readamr_2d       - run 2D READAMR test"
 	@echo "test_readamr_3d       - run 3D READAMR test"
-	@echo "test_readamr_3d_sph   - run 3D READAMR test with spherical grid"
+	@echo "test_readamr_sph      - run 3D READAMR test with spherical grid"
+	@echo "test_readamr_c        - run READAMR test with C wrapper"
 
 install:
 	touch src/Makefile.DEPEND
@@ -55,6 +57,7 @@ run:
 		ln -s ${BINDIR}/BATL.exe .; \
 		ln -s ${BINDIR}/GAME.exe .; \
 		ln -s ${BINDIR}/READAMR.exe .; \
+		ln -s ${BINDIR}/READAMR_C.exe .; \
 		ln -s ${BINDIR}/PostIDL.exe .; \
 		ln -s ${BINDIR}/pIDL .; \
 		ln -s ${DIR}/data .
@@ -91,6 +94,12 @@ READAMR: run
 	cd ${TIMINGDIR}; make LIB
 	cd src; make LIB
 	cd srcReadAmr; make EXE
+
+READAMR_C: run
+	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
+	cd src; make LIB
+	cd srcReadAmr; make EXE_C
 
 NOMPI:
 	cd util/NOMPI/src; make LIB
@@ -398,6 +407,7 @@ test_readamr:
 	-@(make -j1 test_readamr_2d)
 	-@(make -j1 test_readamr_3d)
 	-@(make -j1 test_readamr_sph)
+	-@(make -j1 test_readamr_c)
 	ls -l readamr_*.diff
 
 test_readamr_1d:
@@ -431,6 +441,14 @@ test_readamr_sph:
 	-@(${SCRIPTDIR}/DiffNum.pl -t \
 		run/readamr_sph.ref output/readamr_sph.ref > readamr_sph.diff)
 	ls -l readamr_sph.diff
+
+test_readamr_c:
+	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
+	-@(make READAMR_C)
+	-(cd run; ./READAMR_C.exe > readamr_c.ref)
+	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
+		run/readamr_c.ref output/readamr_c.ref > readamr_c.diff)
+	ls -l readamr_c.diff
 
 clean:
 	cd share; make clean
