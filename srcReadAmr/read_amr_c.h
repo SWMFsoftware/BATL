@@ -1,0 +1,12 @@
+void wrapamr_init_mpi();
+void wrapamr_clean();
+void wrapamr_read_header(char*, int, int);
+void wrapamr_read_file(char*, int, int, int);
+void wrapamr_get_ndim(int*);
+void wrapamr_get_nvar(int*);
+void wrapamr_get_namevar(char*, int*);
+void wrapamr_get_nameunit(char*, int*);
+void wrapamr_get_domain(double*, double*);
+void wrapamr_get_data_serial(double*, double*, int*);
+void wrapamr_get_data(double*, double*, int*);
+void wrapamr_get_data_cell(double*, double*, double*, int*);
