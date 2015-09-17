@@ -1,0 +1,38 @@
+read_amr_c starting
+ readamr_init reading data/3d__all_3_t00000010_n0000059.h
+ readamr_init nStepData= 59  TimeData=  10.0000000
+ readamr_init CoordMin_D= -64.0000000 -20.0000000 -20.0000000
+ readamr_init CoordMax_D=  64.0000000  20.0000000  20.0000000
+ readamr_init nCellData= 12032
+ readamr_init nVarData= 8  nParamData= 10
+ readamr_init ParamData_I=   1.6666700   2.9979002E+08  -0.0000000  10.0000000   4.0000000   4.0000000   4.0000000   4.0000000   4.0000000   3.0000000
+ readamr_init NameVarData =Rho Mx My Mz Bx By Bz p g c th p1 p2 p3 NX NY NZ R
+ readamr_init NameUnitData=normalized variables
+ readamr_init IsBinary, nByteReal= T 8
+ readamr_init TypeGeometry=cartesian
+ readamr_init TypeDataFile=real4
+ readamr_init nRoot_D     =  10 4 4
+ readamr_init nIjkIn_D    =  4 4 4
+ readamr_init IsPeriodic_D=  F T T
+read_amr_c read header
+nDim= 3
+nVar= 8
+ readamr_read starting with IsNewGrid, UseCoordTest,= F F
+ readamr_read TypeDataFile=idl8 
+ readamr_read nVarData, nVar, present(iVarIn_I)= 8 8 F
+ readamr_read read data
+ readamr_read done
+read_amr_c read data file
+length = 50 NameVar= Rho Mx My Mz Bx By Bz p g c th p1 p2 p3 NX NY NZ R
+length = 20 NameUnit= normalized variables
+i, CoordMin[i], CoordMax[i]= 0 -64.000000, 64.000000
+i, CoordMin[i], CoordMax[i]= 1 -20.000000, 20.000000
+i, CoordMin[i], CoordMax[i]= 2 -20.000000, 20.000000
+x_D=51.200000 16.000000 16.000000 
+State_V=0.124999 -0.000002 -0.000002 0.000000 0.750000 -0.999993 -0.000000 0.099999 
+iFound= 1
+WeightState_V=1.000000 0.124999 -0.000002 -0.000002 0.000000 0.750000 -0.999993 -0.000000 0.099999 
+iFound= 1
+WeightState_V=1.000000 0.124999 -0.000002 -0.000002 0.000000 0.750000 -0.999993 -0.000000 0.099999 
+CellSize_D=32.000000 10.000000 10.000000 
+iFound= 1
