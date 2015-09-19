@@ -47,7 +47,8 @@ int main()
   double CoordMin_D[nDim];
   double CoordMax_D[nDim];
   wrapamr_get_domain(CoordMin_D, CoordMax_D);
-  for (int i=0; i<nDim; i++){
+  int i;
+  for (i=0; i<nDim; i++){
     printf("i, CoordMin[i], CoordMax[i]= %i %f, %f\n", i, CoordMin_D[i], CoordMax_D[i]);
   }
 
@@ -65,7 +66,7 @@ int main()
   wrapamr_get_data_serial(x_D, State_V, &iFound);
 
   printf("State_V=");
-  for (int i=0; i<nVar; i++){
+  for (i=0; i<nVar; i++){
     printf("%f ",State_V[i]);
   }
   printf("\n");
@@ -79,7 +80,7 @@ int main()
   wrapamr_get_data(x_D, WeightState_V, &iFound);
 
   printf("WeightState_V=");
-  for (int i=0; i<nVar+1; i++){
+  for (i=0; i<nVar+1; i++){
     printf("%f ",WeightState_V[i]);
   }
   printf("\n");
@@ -91,12 +92,12 @@ int main()
   wrapamr_get_data_cell(x_D, WeightState_V, CellSize_D, &iFound);
 
   printf("WeightState_V=");
-  for (int i=0; i<nVar+1; i++){
+  for (i=0; i<nVar+1; i++){
     printf("%f ",WeightState_V[i]);
   }
   printf("\n");
   printf("CellSize_D=");
-  for (int i=0; i<nDim; i++){
+  for (i=0; i<nDim; i++){
     printf("%f ",CellSize_D[i]);
   }
   printf("\n");
