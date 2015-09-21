@@ -57,7 +57,7 @@ int main()
   double State_V[nVar];
   int iFound;
   printf("x_D=");
-  for (int i=0; i<nDim; i++){
+  for (i=0; i<nDim; i++){
     x_D[i] = 0.1* CoordMin_D[i] + 0.9*CoordMax_D[i];
     printf("%f ",x_D[i]);
   }
