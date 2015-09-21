@@ -84,10 +84,14 @@ READAMRLIB:
 	cd srcReadAmr; make LIB
 
 WRAPAMRLIB:
+	perl -pi -e 's/^(CFLAG =.*)/$$1 -fPIC/' Makefile.conf
+	make clean
+	cd util/NOMPI/src; make LIB
 	cd ${SHAREDIR}; make LIB_NO_C
 	cd ${TIMINGDIR}; make LIB
 	cd src; make LIB
 	cd srcReadAmr; make LIBSO
+	perl -pi -e 's/^(CFLAG =.*)( \-fPIC)+/$$1/' Makefile.conf
 
 READAMR: run
 	cd ${SHAREDIR}; make LIB
@@ -457,6 +461,7 @@ clean:
 	cd util/NOMPI/src; make clean 
 	cd src; make clean
 	cd srcReadAmr; make clean
+	rm -f lib/*
 
 allclean:
 	touch src/Makefile.DEPEND
