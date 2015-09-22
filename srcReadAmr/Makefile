@@ -39,7 +39,7 @@ MY_EXE_C = ${BINDIR}/READAMR_C.exe
 EXE_C:  ${MY_EXE_C}
 
 ${MY_EXE_C}: LIB read_amr_c.o
-	${LINK.f90} -o ${MY_EXE_C} read_amr_c.o \
+	${LINK.f90} ${NOMAINFLAG} -o ${MY_EXE_C} read_amr_c.o \
 		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${Lflag1}
 
 clean: cleanfiles
