@@ -25,6 +25,7 @@ int main()
   int nVar;
   wrapamr_get_nvar(&nVar);
   printf("nVar= %i\n", nVar);
+  fflush(stdout);
 
   // read data from file. 
   // the first integer should be larger than the length of the filename
