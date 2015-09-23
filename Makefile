@@ -450,7 +450,7 @@ test_readamr_sph:
 test_readamr_c:
 	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
 	-@(make READAMR_C)
-	-(cd run; ./READAMR_C.exe |tee readamr_c.ref)
+	-(cd run; ./READAMR_C.exe > readamr_c.ref)
 	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
 		run/readamr_c.ref output/readamr_c.ref > readamr_c.diff)
 	ls -l readamr_c.diff
