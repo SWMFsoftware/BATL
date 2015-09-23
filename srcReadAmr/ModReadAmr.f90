@@ -159,6 +159,7 @@ contains
        write(*,*) NameSub, ' nRoot_D     = ', nRoot_D
        write(*,*) NameSub, ' nIjkIn_D    = ', nIjkIn_D
        write(*,*) NameSub, ' IsPeriodic_D= ', IsPeriodic_D
+       flush(6);
     end if
 
     close(UnitTmp_)
@@ -383,7 +384,10 @@ contains
     ! Set ghost cells if any. Note that OUTER ghost cells are not set!
     if(nG > 0) call message_pass_cell(nVar, State_VGB)
 
-    if(IsVerboseIn)write(*,*)NameSub,' done'
+    if(IsVerboseIn)then
+       write(*,*)NameSub,' done'
+       flush(6)
+    endif
 
   end subroutine readamr_read
 
