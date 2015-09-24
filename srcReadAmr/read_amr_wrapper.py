@@ -4,7 +4,7 @@ from numpy import array, float64, zeros
 
 class ReadBATL:
 
-    def __init__(self, libName="/home/abieler/ices/BATL/lib/libWRAPAMR.so"):
+    def __init__(self, libName="../lib/libWRAPAMR.so"):
         self.lib = cdll.LoadLibrary(libName)
 
         ################################################################
