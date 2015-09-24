@@ -1,10 +1,9 @@
+#!/usr/bin python
 import numpy as np
 import read_amr_wrapper
 
-import matplotlib.pyplot as plt
-
 batl = read_amr_wrapper.ReadBATL()
-batl.load_file("data/3d__all_3_t00000010_n0000059.idl")
+batl.load_file("../data/3d__all_3_t00000010_n0000059.idl")
 nDim = 3
 nPoints = 1000
 minDomain, maxDomain = batl.domain_limits()
@@ -37,7 +36,3 @@ X[:,0] = xScan
 S, lFound = batl.get_data_array(X)
 
 batl.clean()
-for i in range(nVars):
-    plt.figure()
-    plt.plot(xScan, S[:,i])
-plt.show()
