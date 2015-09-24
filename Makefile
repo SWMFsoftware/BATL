@@ -43,6 +43,7 @@ help:
 	@echo "test_readamr_3d       - run 3D READAMR test"
 	@echo "test_readamr_sph      - run 3D READAMR test with spherical grid"
 	@echo "test_readamr_c        - run READAMR test with C wrapper"
+	@echo "test_readamr_py       - run READAMR test with Python wrapper"
 
 install:
 	touch src/Makefile.DEPEND
@@ -454,6 +455,14 @@ test_readamr_c:
 	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
 		run/readamr_c.ref output/readamr_c.ref > readamr_c.diff)
 	ls -l readamr_c.diff
+
+test_readamr_py:
+	./Config.pl -single -g=4,4,4 -r=2,2,2 -ng=0
+	-@(make WRAPAMRLIB)
+	-(cd srcReadAmr; python read_amr_py.py > readamr_py.ref;)
+	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
+		srcReadAmr/readamr_py.ref output/readamr_py.ref > readamr_py.diff)
+	ls -l readamr_py.diff
 
 clean:
 	cd share; make clean
