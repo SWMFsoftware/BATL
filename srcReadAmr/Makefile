@@ -45,3 +45,4 @@ ${MY_EXE_C}: LIB read_amr_c.o
 clean: cleanfiles
 
 distclean: clean
+	readamr_py.ref
