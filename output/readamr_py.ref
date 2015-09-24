@@ -1,0 +1,43 @@
+ readamr_read starting with IsNewGrid, UseCoordTest,= T F
+ readamr_init reading ../data/3d__all_3_t00000010_n0000059.h
+ readamr_init nStepData=          59  TimeData=   10.0000000    
+ readamr_init CoordMin_D=  -64.0000000      -20.0000000      -20.0000000    
+ readamr_init CoordMax_D=   64.0000000       20.0000000       20.0000000    
+ readamr_init nCellData=       12032
+ readamr_init nVarData=           8  nParamData=          10
+ readamr_init ParamData_I=   1.66666996       299790016.      -0.00000000       10.0000000       4.00000000       4.00000000       4.00000000       4.00000000       4.00000000       3.00000000    
+ readamr_init NameVarData =Rho Mx My Mz Bx By Bz p g c th p1 p2 p3 NX NY NZ R
+ readamr_init NameUnitData=normalized variables
+ readamr_init IsBinary, nByteReal= T           8
+ readamr_init TypeGeometry=cartesian
+ readamr_init TypeDataFile=real4
+ readamr_init nRoot_D     =           10           4           4
+ readamr_init nIjkIn_D    =            4           4           4
+ readamr_init IsPeriodic_D=  F T T
+ readamr_read TypeDataFile=idl8 
+ readamr_read nVarData, nVar, present(iVarIn_I)=           8           8 F
+ readamr_read read data
+ readamr_read done
+minDomain:  [-64. -20. -20.]
+maxDomain:  [ 64.  20.  20.]
+nVars:  8
+Rho
+Mx
+My
+Mz
+Bx
+By
+Bz
+p
+g
+c
+th
+p1
+p2
+p3
+NX
+NY
+NZ
+R
+[  2.90425301e-01   1.85560182e-01  -4.64999080e-01  -1.13686838e-13
+   7.49631047e-01  -5.43318927e-01   0.00000000e+00   5.00386894e-01]
