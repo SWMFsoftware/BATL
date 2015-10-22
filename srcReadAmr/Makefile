@@ -24,8 +24,9 @@ ${MY_LIB}: ${LIBBATL} ${OBJECTS}
 
 LIBSO: ${LIBBATL} ${OBJECTS}
 	${LINK.f90} -o ${LIBDIR}/libWRAPAMR.so ${OBJECTS} \
-		-L ../src -l BATL -L ${LIBDIR} -l SHARE -l TIMING ${MPILIB} \
+		-L ../src -lBATL -L${LIBDIR} -lSHARE -lTIMING ${MPILIB} \
 		-shared -fPIC
+
 MY_EXE = ${BINDIR}/READAMR.exe
 
 EXE:    ${MY_EXE}
@@ -45,4 +46,4 @@ ${MY_EXE_C}: LIB read_amr_c.o
 clean: cleanfiles
 
 distclean: clean
-	readamr_py.ref
+	rm -f readamr_py.ref
