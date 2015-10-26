@@ -317,19 +317,4 @@ subroutine wrapamr_clean() bind(C)
   
 end subroutine wrapamr_clean
 !=============================================================================
-subroutine CON_stop(StringError)
-  ! This subroutine has to be provided to stop cleanly
-
-  use ModMPI
-  use BATL_lib, ONLY: iProc, iComm
-
-  implicit none
-  integer:: nError, iError
-  character (len=*), intent(in) :: StringError
-  !--------------------------------------------------------------------------
-  write(*,*)'ERROR in READAMR on processor ', iProc
-  write(*,*) StringError
-  call MPI_abort(iComm, nError, iError)
-  stop
-
-end subroutine CON_stop
+include '../src/external_routines.f90'
