@@ -206,8 +206,22 @@
  Testing init_geometry for cylindrical_lnr
  Testing xyz_to_coord for cylindrical_lnr
  Testing init_geometry for roundcube
- Testing xyz_to_coord for cubsedsphere
- Testing coord_to_xyz for cubsedsphere
+ Testing roundcube with rRound0=200 rRound1=320
+ Testing xyz_to_coord for roundcube along X axis
+ Testing coord_to_xyz for roundcube along X axis
+ Testing xyz_to_coord for roundcube along diagonal
+ Testing coord_to_xyz for roundcube along diagonal
+ Testing xyz_to_coord for arbitrary point
+ Testing coord_to_xyz for arbitrary point
+ Testing xyz_to_coord for roundcube inside rRound0
+ Testing coord_to_xyz for roundcube inside rRound0
+ Testing roundcube with rRound=0, rRound1=0.6
+ Testing xyz_to_coord for roundcube
+ Testing coord_to_xyz for roundcube
+ Testing xyz_to_coord for roundcube
+ Testing coord_to_xyz for roundcube
+ Testing xyz_to_coord for roundcube along X axis
+ Testing coord_to_xyz for roundcube along X axis
  Starting test_grid
  Testing init_grid
  nDimAmr, nIJK_D= 2 8 6 1
@@ -295,6 +309,8 @@
  Xyz(nI,nJ,nK)=   6.9375000000000000   3.9444444444444446   0.0000000000000000
  Testing find_grid_block
  Testing interpolate_grid
+ Testing interpolate_grid_amr
+ Testing interpolate_grid_amr_gc
  Testing create_grid in RZ geometry
  show_grid_block for iProc, iBlock= 0 1
  CoordMin  =   3.0000000000000000   2.0000000000000000  -0.5000000000000000

@@ -185,6 +185,8 @@
  Xyz(nI,nJ,nK)=   5.9500000000000002   0.0000000000000000   0.0000000000000000
  Testing find_grid_block
  Testing interpolate_grid
+ Testing interpolate_grid_amr
+ Testing interpolate_grid_amr_gc
  Testing clean_grid
  Starting test_pass_cell
  test_pass_cell middle node= 2

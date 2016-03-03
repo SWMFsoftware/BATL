@@ -186,8 +186,22 @@
  Testing init_geometry for cylindrical_lnr
  Testing xyz_to_coord for cylindrical_lnr
  Testing init_geometry for roundcube
- Testing xyz_to_coord for cubsedsphere
- Testing coord_to_xyz for cubsedsphere
+ Testing roundcube with rRound0=200 rRound1=320
+ Testing xyz_to_coord for roundcube along X axis
+ Testing coord_to_xyz for roundcube along X axis
+ Testing xyz_to_coord for roundcube along diagonal
+ Testing coord_to_xyz for roundcube along diagonal
+ Testing xyz_to_coord for arbitrary point
+ Testing coord_to_xyz for arbitrary point
+ Testing xyz_to_coord for roundcube inside rRound0
+ Testing coord_to_xyz for roundcube inside rRound0
+ Testing roundcube with rRound0=1, rRound1=0.6
+ Testing xyz_to_coord for roundcube
+ Testing coord_to_xyz for roundcube
+ Testing xyz_to_coord for roundcube
+ Testing coord_to_xyz for roundcube
+ Testing xyz_to_coord for roundcube along X axis
+ Testing coord_to_xyz for roundcube along X axis
  Starting test_grid
  Testing init_grid
  nDimAmr, nIJK_D= 1 8 4 1
@@ -262,6 +276,7 @@
  Xyz(nI,nJ,nK)=   5.9375000000000000   4.5000000000000000   0.0000000000000000
  Testing find_grid_block
  Testing interpolate_grid
+ Testing interpolate_grid_amr
  Testing create_grid in RZ geometry
  show_grid_block for iProc, iBlock= 0 1
  CoordMin  =   3.0000000000000000   2.0000000000000000  -0.5000000000000000
@@ -368,7 +383,7 @@
  iDim, FaceNormal_DDFB(:,iDim)= 2  -4.1666666666666623E-02   7.2168783648703161E-02
  Xyz( 1, 1, 1)=   0.8661141794818180   0.5787189927287523   0.0000000000000000
  Xyz(nI, 1, 1)=   1.3511381199916359   0.9028016286568535   0.0000000000000000
- Xyz( 1,nJ, 1)=   0.5787189927287524   0.8661141794818179   0.0000000000000000
+ Xyz( 1,nJ, 1)=   0.5787189927287524   0.8661141794818180   0.0000000000000000
  Xyz( 1, 1,nK)=   0.8661141794818180   0.5787189927287523   0.0000000000000000
  Xyz(nI,nJ,nK)=   0.9028016286568538   1.3511381199916359   0.0000000000000000
  show_grid_block for iProc, iBlock= 0 5
@@ -381,9 +396,9 @@
  iDim, FaceNormal_DDFB(:,iDim)= 2  -2.0833333333333367E-02   3.6084391824351678E-02
  Xyz( 1, 1, 1)=   1.4031049707605450   0.9375247682205785   0.0000000000000000
  Xyz(nI, 1, 1)=   1.6456169410154540   1.0995660861846293   0.0000000000000000
- Xyz( 1,nJ, 1)=   0.9375247682205787   1.4031049707605447   0.0000000000000000
+ Xyz( 1,nJ, 1)=   0.9375247682205787   1.4031049707605450   0.0000000000000000
  Xyz( 1, 1,nK)=   1.4031049707605450   0.9375247682205785   0.0000000000000000
- Xyz(nI,nJ,nK)=   1.0995660861846295   1.6456169410154537   0.0000000000000000
+ Xyz(nI,nJ,nK)=   1.0995660861846295   1.6456169410154540   0.0000000000000000
  Testing clean_grid
  Starting test_pass_cell
  test_pass_cell middle node= 5
