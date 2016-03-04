@@ -1,5 +1,7 @@
 #GRIDGEOMETRY
 roundcube		TypeGeometry
+3.0			rRound0
+6.0			rRound1
 
 #GRIDTYPE
 T			IsNodeBasedGrid
