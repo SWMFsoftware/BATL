@@ -215,7 +215,7 @@
  Testing coord_to_xyz for arbitrary point
  Testing xyz_to_coord for roundcube inside rRound0
  Testing coord_to_xyz for roundcube inside rRound0
- Testing roundcube with rRound=0, rRound1=0.6
+ Testing roundcube with rRound0=1, rRound1=0.6
  Testing xyz_to_coord for roundcube
  Testing coord_to_xyz for roundcube
  Testing xyz_to_coord for roundcube
