@@ -103,6 +103,6 @@ z=0 raw idl	PlotString
 -1.0            DxSavePlot
 
 #STOP
-10		MaxIteration
--1.0		tSimulationMax
+-1		MaxIteration
+10		tSimulationMax
 

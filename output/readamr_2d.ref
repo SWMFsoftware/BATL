@@ -1,35 +1,85 @@
- READAMRTEST is starting with nI, nJ, nK= 4 4 1
+ READAMRTEST is starting with nI, nJ, nK=           4           4           1
  READAMRTEST get variables 1,3 from data/2d__mhd_1_t00000010_n0000042.out
  readamr_read starting with IsNewGrid, UseCoordTest,= T F
- readamr_init reading data/2d__mhd_1_t00000010_n0000042.h
- readamr_init nStepData= 42  TimeData=  10.0000000000000000
- readamr_init CoordMin_D= -64.0000000000000000 -20.0000000000000000  -9.9999999999999995E-07
- readamr_init CoordMax_D=  64.0000000000000000  20.0000000000000000   9.9999999999999995E-07
- readamr_init nCellData= 736
- readamr_init nVarData= 11  nParamData= 2
- readamr_init ParamData_I=   1.6666700000000001   3.0000000000000000
- readamr_init NameVarData =rho ux uy uz bx by bz p jx jy jz g rbody
- readamr_init NameUnitData=normalized variables
- readamr_init IsBinary, nByteReal= T 8
- readamr_init TypeGeometry=cartesian
- readamr_init TypeDataFile=ascii
- readamr_init nRoot_D     =  10 4
- readamr_init nIjkIn_D    =  4 4 1
- readamr_init IsPeriodic_D=  F T F
+ doReadStdin=  F
+ModReadParam::read_file: read and broadcast nLine=  63 lines of text
+
+#HEADFILE
+GM/IO2/2d__mhd_1_t00000010_n00000042.h		HeadFileName
+       4             nProc
+       T       save_binary		SaveBinary
+       8         nByteReal
+
+#NDIM
+       2              nDim		nDimSim
+
+#GRIDBLOCKSIZE
+       4        BlockSize1
+       4        BlockSize2
+
+#ROOTBLOCK
+      10       nRootBlock1		ROOTBLOCK
+       4       nRootBlock2		ROOTBLOCK
+
+#GRIDGEOMETRYLIMIT
+cartesian                 TypeGeometry
+
+#PERIODIC
+       F       IsPeriodic1
+       T       IsPeriodic2
+
+#NSTEP
+      42             nStep
+
+#TIMESIMULATION
+  1.0000000000E+01    TimeSimulation
+
+#NCELL
+       736         nCellPlot
+
+#CELLSIZE
+  1.6000000000E+00      CellSizeMin1
+  1.2500000000E+00      CellSizeMin2
+
+#PLOTRANGE
+ -6.4000000000E+01         Coord1Min		CoordMin
+  6.4000000000E+01         Coord1Max		CoordMax
+ -2.0000000000E+01         Coord2Min		CoordMin
+  2.0000000000E+01         Coord2Max		CoordMax
+
+#PLOTRESOLUTION
+ -1.0000000000E+00       DxSavePlot1
+ -1.0000000000E+00       DxSavePlot2
+
+#SCALARPARAM
+       2            nParam
+  1.66667E+00            Param1
+  3.00000E+00            Param2
+  2.99790E+08            cLight
+ -0.00000E+00         ThetaTild
+  3.00000E+00             rBody
+
+#PLOTVARIABLE
+      11          nPlotVar
+rho ux uy uz bx by bz p jx jy jz g rbody		VarNames
+normalized variables		Unit
+
+#OUTPUTFORMAT
+ascii		OutPutFormat
  readamr_read TypeDataFile=ascii
- readamr_read nVarData, nVar, present(iVarIn_I)= 11 2 T
+ readamr_read nVarData, nVar, present(iVarIn_I)=          11           2 T
  readamr_read read header lines from ascii file
  readamr_read read data
  readamr_read done
- READAMRTEST at Xyz_D= -38.3999999999999986 -12.0000000000000000  -5.9999999999999997E-07
- READAMRTEST  State_V=   0.9999999999999991   0.9999998269244990  -1.1357007811049988E-07
+ READAMRTEST at Xyz_D=  -38.399999999999999       -12.000000000000000        0.0000000000000000     
+ READAMRTEST  State_V=  0.99999999999999911       0.99999982692449896       -1.1357004430969987E-007
  READAMRTEST reread data and do verification test
  readamr_read starting with IsNewGrid, UseCoordTest,= F T
  readamr_read TypeDataFile=ascii
- readamr_read nVarData, nVar, present(iVarIn_I)= 11 11 F
+ readamr_read nVarData, nVar, present(iVarIn_I)=          11          11 F
  readamr_read read header lines from ascii file
  readamr_read read data
  readamr_read done
- READAMRTEST number of stored variables= 11
- READAMRTEST check state on (n+1)^3 grid. n= 10
+ READAMRTEST number of stored variables=          11
+ READAMRTEST check state on (n+1)^3 grid. n=          10
  READAMRTEST finished

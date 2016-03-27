@@ -56,11 +56,12 @@ contains
     use BATL_lib,  ONLY: MaxDim, nDim, nIjk, nIjk_D, iProc, nProc, init_batl
     use BATL_grid, ONLY: create_grid
     use BATL_tree, ONLY: read_tree_file, distribute_tree
-
+    use ModReadParam
+    
     character(len=*), intent(in):: NameFile  ! base name
     logical,          intent(in):: IsVerbose ! provide verbose output
 
-    integer:: i, iDim, iError
+    integer:: i, iDim, iError, nDimSim
 
     character(len=500):: NameFileOrig, NameHeaderFile
 
@@ -71,98 +72,136 @@ contains
     real:: CellSizePlot_D(MaxDim), CellSizeMin_D(MaxDim)
 
     integer:: nIjkIn_D(MaxDim),  nRoot_D(nDim)
-    logical:: IsPeriodic_D(MaxDim)
+    logical:: IsPeriodic_D(MaxDim), IsExist
 
+    ! Parameters read but not used here.
+    real:: cLight, ThetaTilt, rBody
+
+    character (len=lStringLine) :: NameCommand, StringLine
+    
     character(len=*), parameter:: NameSub = 'readamr_init'
     !-------------------------------------------------------------------------
     NameHeaderFile = trim(NameFile)//'.info'
-    open(UnitTmp_, file=NameHeaderFile, status='old', iostat=iError)
-    if(iError /= 0) then
+    inquire(file=NameHeaderFile, exist=IsExist)
+    if(.not. IsExist) then
        NameHeaderFile = trim(NameFile)//'.h'
-       open(UnitTmp_, file=NameHeaderFile, status='old', iostat=iError)
+       inquire(file=NameHeaderFile, exist=IsExist)
     end if
-    if(iError /= 0) call CON_stop(NameSub// &
+    if(.not. IsExist) call CON_stop(NameSub// &
          ' ERROR: could not open '//trim(NameFile)//'.h or .info')
 
+    call read_file(NameHeaderFile)
+    call read_init()
+    
+  
+    call read_echo_set(.true.)
+    
+    READPARAM: do
+     if(.not.read_line(StringLine) )then
+        EXIT READPARAM
+     end if
 
-    if(IsVerbose) write(*,*) NameSub,' reading ',trim(NameHeaderFile)
+     if(.not.read_command(NameCommand)) CYCLE READPARAM
 
-    ! Read information from the header file
-    read(UnitTmp_,'(a)') NameFileOrig
-    read(UnitTmp_,*) nProcData
-    read(UnitTmp_,*) nStepData
-    read(UnitTmp_,*) TimeData
+     select case(NameCommand)
+     case('#HEADFILE')
+        call read_var('HeadFileName', NameFileOrig)
+        call read_var('nProc',nProcData)
+        call read_var('SaveBinary', IsBinary)
+        if(IsBinary) then
+           call read_var('nByteReal', nByteReal)
+        endif        
+     case('#NDIM')
+        call read_var('nDimSim',nDimSim)
 
-    if(IsVerbose) write(*,*) NameSub, &
-         ' nStepData=', nStepData, ' TimeData=', TimeData
+     case('#GRIDBLOCKSIZE')
+        nIjkIn_D = 1
+        do i = 1, nDimSim
+           call read_var('BlockSize',nIjkIn_D(i))
+        enddo
 
-    read(UnitTmp_,*) (CoordMin_D(iDim), CoordMax_D(iDim), iDim=1,MaxDim)
-    if(IsVerbose) write(*,*) NameSub, ' CoordMin_D=', CoordMin_D
-    if(IsVerbose) write(*,*) NameSub, ' CoordMax_D=', CoordMax_D
+     case('#ROOTBLOCK')
+        nRoot_D = 1
+        do i = 1, nDimSim
+           call read_var('ROOTBLOCK',nRoot_D(i))
+        enddo
+        
+     case('#NSTEP')
+        call read_var('nStep',nStepData)
 
-    read(UnitTmp_,*) CellSizePlot_D, CellSizeMin_D, nCellData
-    if(CellSizePlot_D(1) >= 0.0) call CON_stop(NameSub// &
-         ': the resolution should be set to -1 for file'//trim(NameFile))
-    if(IsVerbose) write(*,*) NameSub, ' nCellData=', nCellData
+     case('#TIMESIMULATION')
+        call read_var('TimeSimulation',TimeData)
+
+     case('#PLOTRANGE')
+        CoordMin_D = 0; CoordMax_D = 0;        
+        do i = 1, nDimSim
+           call read_var('CoordMin',CoordMin_D(i))
+           call read_var('CoordMax',CoordMax_D(i))
+        enddo
+
+     case('#PLOTRESOLUTION')
+        CellSizePlot_D = 0;
+        do i = 1, nDimSim
+           call read_var('DxSavePlot',CellSizePlot_D(i))
+        enddo
+        if(CellSizePlot_D(1) >= 0.0) call CON_stop(NameSub// &
+             ': the resolution should be set to -1 for file'//trim(NameFile))
+        
+     case('#CELLSIZE')
+        CellSizeMin_D = 0;
+        do i = 1, nDimSim
+           call read_var('CellSizeMin',CellSizeMin_D(i))
+        enddo
+
+     case('#NCELL')
+        call read_var('nCellPlot',nCellData)
+
+     case('#PLOTVARIABLE')
+        call read_var('nPlotVar', nVarData)
+        call read_var('VarNames',NameVarData)
+        call read_var('Unit',NameUnitData)
+
+     case('#SCALARPARAM')
+        call read_var('nParam', nParamData)
+        allocate(ParamData_I(nParamData))
+        do i = 1, nParamData
+           call read_var('Param',ParamData_I(i))
+        enddo
+        call read_var('cLight',cLight)
+        call read_var('ThetaTild',ThetaTilt)
+        call read_var('rBody',rBody)
+
+     case('#GRIDGEOMETRYLIMIT')
+        call read_var('TypeGeometry', TypeGeometry)
+        if(index(TypeGeometry,'genr') > 0)then
+           read(*,*) nRgen
+           allocate(Rgen_I(nRgen))
+           do i = 1, nRgen
+              read(*,*) Rgen_I(i)
+           end do
+        else
+           allocate(Rgen_I(1))
+        end if
+        
+     case('#PERIODIC')
+        do i = 1, nDimSim
+           call read_var('IsPeriodic',IsPeriodic_D(i))
+        enddo
+        
+     case('#OUTPUTFORMAT')
+        call read_var('OutPutFormat',TypeDataFile)
+
+     case default
+        ! write(*,*) 'WARNING: unknow command ', NameCommand
+     end select
+
+  enddo READPARAM
 
     ! Total number of blocks in the data file
     nBlockData = nCellData / nIjk
 
     ! Number of blocks per processor !!! this is wrong for box cut from sphere
     MaxBlock  = (nBlockData + nProc - 1) / nProc
-
-    read(UnitTmp_,*) nVarData
-    read(UnitTmp_,*) nParamData
-
-    allocate(ParamData_I(nParamData))
-    read(UnitTmp_,*) ParamData_I
-    if(IsVerbose)then
-       write(*,*) NameSub,' nVarData=', nVarData,' nParamData=', nParamData
-       write(*,*) NameSub,' ParamData_I=', ParamData_I
-    end if
-
-    read(UnitTmp_,'(a)') NameVarData
-    if(IsVerbose) write(*,*) NameSub,' NameVarData =',trim(NameVarData)
-
-    read(UnitTmp_,'(a)') NameUnitData
-    if(IsVerbose) write(*,*) NameSub,' NameUnitData=', trim(NameUnitData)
-
-    read(UnitTmp_,*) IsBinary
-    if(IsBinary) read(UnitTmp_,*) nByteReal
-
-    if(IsVerbose) write(*,*) NameSub,' IsBinary, nByteReal=', &
-         IsBinary, nByteReal
-
-    read(UnitTmp_,'(a)') TypeGeometry
-    if(IsVerbose) write(*,*) NameSub,' TypeGeometry=',trim(TypeGeometry)
-    if(index(TypeGeometry,'genr') > 0)then
-       read(UnitTmp_,*) nRgen
-       if(allocated(Rgen_I)) deallocate(Rgen_I)
-       allocate(Rgen_I(nRgen))
-       do i = 1, nRgen
-          read(UnitTmp_,*) Rgen_I(i)
-       end do
-       ! For some reason we store the logarithm of the radius, so take exp
-       Rgen_I = exp(Rgen_I)
-    else
-       allocate(Rgen_I(1))
-    end if
-
-    read(UnitTmp_,'(a)') TypeDataFile  ! TypeFile for IDL data
-    if(IsVerbose) write(*,*) NameSub,' TypeDataFile=', TypeDataFile
-
-    read(UnitTmp_,*) nRoot_D
-    read(UnitTmp_,*) nIjkIn_D
-    read(UnitTmp_,*) IsPeriodic_D
-
-    if(IsVerbose)then
-       write(*,*) NameSub, ' nRoot_D     = ', nRoot_D
-       write(*,*) NameSub, ' nIjkIn_D    = ', nIjkIn_D
-       write(*,*) NameSub, ' IsPeriodic_D= ', IsPeriodic_D
-       flush(6);
-    end if
-
-    close(UnitTmp_)
 
     if(iProc == 0 .and. any(nIjkIn_D /= nIjk_D))then
        write(*,*) 'ERROR in ',NameSub,' while reading ',trim(NameHeaderFile)
@@ -533,3 +572,4 @@ contains
   end subroutine readamr_clean
 
 end module ModReadAmr
+

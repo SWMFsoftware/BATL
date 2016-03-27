@@ -1,19 +1,56 @@
-GM/IO2/1d__mhd_1_t00000010_n0000018.h                                           
-       4 nProc
-      18 n_step
-  1.00000E+01 t
- -6.4000000000E+01  6.4000000000E+01 -1.0000000000E-06  1.0000000000E-06 -1.0000000000E-06  1.0000000000E-06 plot_range
- -1.0000000000E+00 -1.0000000000E+00 -1.0000000000E+00  1.6000000000E+00  1.0000000000E+00  1.0000000000E+00        48 plot_dx, dxmin, ncell
-      11 nplotvar
-       2 neqpar
-  1.66667E+00  3.00000E+00
+#HEADFILE
+GM/IO2/1d__mhd_1_t00000010_n00000018.h                                          
+       4             nProc
+       T       save_binary
+       8         nByteReal
+
+#NDIM
+       1              nDim
+
+#GRIDBLOCKSIZE
+       4        BlockSize1
+
+#ROOTBLOCK
+      10       nRootBlock1
+
+#GRIDGEOMETRYLIMIT
+cartesian                 TypeGeometry
+
+#PERIODIC
+       F       IsPeriodic1
+
+#NSTEP
+      18             nStep
+
+#TIMESIMULATION
+  1.0000000000E+01    TimeSimulation
+
+#NCELL
+        48         nCellPlot
+
+#CELLSIZE
+  1.6000000000E+00      CellSizeMin1
+
+#PLOTRANGE
+ -6.4000000000E+01         Coord1Min
+  6.4000000000E+01         Coord1Max
+
+#PLOTRESOLUTION
+ -1.0000000000E+00       DxSavePlot1
+
+#SCALARPARAM
+       2            nParam
+  1.66667E+00            Param1
+  3.00000E+00            Param2
+  2.99790E+08            cLight
+ -0.00000E+00         ThetaTild
+  3.00000E+00             rBody
+
+#PLOTVARIABLE
+      11          nPlotVar
 rho ux uy uz bx by bz p jx jy jz g rbody
 normalized variables
-       T save_binary
-       8 nByteReal
-cartesian           
+
+#OUTPUTFORMAT
 real4     
-      10       1       1 nRoot_D
-       4       1       1 nIJK_D
-       F       F       F IsPeriodic_D
-  2.99790E+08 -0.00000E+00  3.00000E+00 cLight, ThetaTilt, rBody
+
