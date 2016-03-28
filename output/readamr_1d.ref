@@ -1,98 +1,75 @@
- READAMRTEST is starting with nI, nJ, nK=           6           4           4
- READAMRTEST get variables 1,3 from data/3d__var_4_t00000000_n0000010.out
+ READAMRTEST is starting with nI, nJ, nK= 4 1 1
+ READAMRTEST get variables 1,3 from data/1d__mhd_1_t00000010_n0000018.out
  readamr_read starting with IsNewGrid, UseCoordTest,= T F
- doReadStdin=  F
-ModReadParam::read_file: read and broadcast nLine=  78 lines of text
+ModReadParam::read_file: read and broadcast nLine=  56 lines of text
 
 #HEADFILE
-GM/IO2/3d__var_4_t00000000_n00000010.h		HeadFileName
+GM/IO2/1d__mhd_1_t00000010_n00000018.h		HeadFileName
        4             nProc
        T       save_binary		SaveBinary
        8         nByteReal
 
 #NDIM
-       3              nDim		nDimSim
+       1              nDim		nDimSim
 
 #GRIDBLOCKSIZE
-       6        BlockSize1
-       4        BlockSize2
-       4        BlockSize3
+       4        BlockSize1
 
 #ROOTBLOCK
-       3       nRootBlock1		ROOTBLOCK
-       6       nRootBlock2		ROOTBLOCK
-       4       nRootBlock3		ROOTBLOCK
+      10       nRootBlock1		ROOTBLOCK
 
 #GRIDGEOMETRYLIMIT
-spherical_lnr             TypeGeometry
+cartesian                 TypeGeometry
 
 #PERIODIC
        F       IsPeriodic1
-       T       IsPeriodic2
-       F       IsPeriodic3
 
 #NSTEP
-      10             nStep
+      18             nStep
 
 #TIMESIMULATION
-  3.8684541392E-02    TimeSimulation
+  1.0000000000E+01    TimeSimulation
 
 #NCELL
-     12288         nCellPlot
+        48         nCellPlot
 
 #CELLSIZE
-  8.8279273065E-02      CellSizeMin1
-  1.3089969390E-01      CellSizeMin2
-  9.8174770425E-02      CellSizeMin3
+  1.6000000000E+00      CellSizeMin1
 
 #PLOTRANGE
-  0.0000000000E+00         Coord1Min		CoordMin
-  3.1780538303E+00         Coord1Max		CoordMax
-  0.0000000000E+00         Coord2Min		CoordMin
-  6.2831853072E+00         Coord2Max		CoordMax
- -1.5707963268E+00         Coord3Min		CoordMin
-  1.5707963268E+00         Coord3Max		CoordMax
+ -6.4000000000E+01         Coord1Min		CoordMin
+  6.4000000000E+01         Coord1Max		CoordMax
 
 #PLOTRESOLUTION
  -1.0000000000E+00       DxSavePlot1
- -1.0000000000E+00       DxSavePlot2
- -1.0000000000E+00       DxSavePlot3
 
 #SCALARPARAM
-      10            nParam
+       2            nParam
   1.66667E+00            Param1
-  2.99790E+08            Param2
- -0.00000E+00            Param3
-  3.00000E+00            Param4
-  6.00000E+00            Param5
-  4.00000E+00            Param6
-  6.00000E+00            Param7
-  4.00000E+00            Param8
-  4.00000E+00            Param9
-  3.00000E+00            Param*
+  3.00000E+00            Param2
   2.99790E+08            cLight
  -0.00000E+00         ThetaTild
   3.00000E+00             rBody
 
 #PLOTVARIABLE
-       4          nPlotVar
-rho ux uy uz g c th p1 p2 p3 NX NY NZ R		VarNames
-unknown unit		Unit
+      11          nPlotVar
+rho ux uy uz bx by bz p jx jy jz g rbody		VarNames
+normalized variables		Unit
 
 #OUTPUTFORMAT
 real4		OutPutFormat
  readamr_read TypeDataFile=real4
- readamr_read nVarData, nVar, present(iVarIn_I)=           4           2 T
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 2 T
  readamr_read read data
  readamr_read done
- READAMRTEST at Xyz_D=  0.34295986354820029        1.0555219259688313       -1.5275656816182019     
- READAMRTEST  State_V=   1.0000000000000004       0.15031420671939860      -0.19610350622236761     
+ READAMRTEST at Xyz_D= -38.3999999999999986  -0.3000000000000000  -0.3000000000000000
+ READAMRTEST  State_V=   1.0000000000000000   1.0000000000000000   6.8735230181193874E-11
  READAMRTEST reread data and do verification test
  readamr_read starting with IsNewGrid, UseCoordTest,= F T
  readamr_read TypeDataFile=real4
- readamr_read nVarData, nVar, present(iVarIn_I)=           4           4 F
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 11 F
  readamr_read read data
  readamr_read done
- READAMRTEST number of stored variables=           4
- READAMRTEST check state on (n+1)^3 grid. n=          10
+ READAMRTEST number of stored variables= 11
+ READAMRTEST check state on (n+1)^3 grid. n= 10
  READAMRTEST finished

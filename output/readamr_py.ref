@@ -1,5 +1,4 @@
  readamr_read starting with IsNewGrid, UseCoordTest,= T F
- doReadStdin=  F
 ModReadParam::read_file: read and broadcast nLine=  78 lines of text
 
 #HEADFILE
