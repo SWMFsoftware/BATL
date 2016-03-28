@@ -133,7 +133,6 @@ contains
         call read_var('TimeSimulation',TimeData)
 
      case('#PLOTRANGE')
-        CoordMin_D = 0; CoordMax_D = 0;        
         do i = 1, nDimSim
            call read_var('CoordMin',CoordMin_D(i))
            call read_var('CoordMax',CoordMax_D(i))
@@ -401,7 +400,7 @@ contains
        else
           State_VGB(:,i,j,k,iBlock) = State_V
        end if
-
+       
        ! For verification tests
        if(present(UseCoordTest))then
           ! Store cos^2 of generalized coordinates into first MaxDim elements
@@ -414,7 +413,7 @@ contains
 
     if(TypeDataFile=='ascii' .or. TypeDataFile(1:3)=='idl') close(UnitTmp_)
 
-    if(IsVerboseIn)write(*,*)NameSub,' read data'
+    if(IsVerbose)write(*,*)NameSub,' read data'
 
     ! deallocate to save memory
     deallocate(State_V, State4_V, State8_V)
@@ -423,7 +422,7 @@ contains
     ! Set ghost cells if any. Note that OUTER ghost cells are not set!
     if(nG > 0) call message_pass_cell(nVar, State_VGB)
 
-    if(IsVerboseIn)then
+    if(IsVerbose)then
        write(*,*)NameSub,' done'
        flush(6)
     endif
