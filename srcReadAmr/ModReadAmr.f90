@@ -93,8 +93,7 @@ contains
     call read_file(NameHeaderFile)
     call read_init()
     
-  
-    call read_echo_set(.true.)
+    call read_echo_set(IsVerbose)
     
     READPARAM: do
      if(.not.read_line(StringLine) )then
@@ -275,7 +274,7 @@ contains
     if(present(IsVerboseIn)) IsVerbose = IsVerboseIn
 
     if(IsVerbose)write(*,*) NameSub,&
-         ' starting with IsNewGrid, UseCoordTest,=', &
+         ' starting with IsNewGrid, UseCoordTest=', &
          IsNewGrid, present(UseCoordTest)
 
     ! Find extension in filename
