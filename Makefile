@@ -47,7 +47,7 @@ help:
 
 install:
 	touch src/Makefile.DEPEND
-	mkdir -p lib
+	mkdir -p lib bin
 	cp -f src/BATL_size_orig.f90 src/BATL_size.f90
 
 run:
@@ -476,4 +476,4 @@ allclean:
 	touch src/Makefile.DEPEND
 	cd src; make distclean
 	cd srcReadAmr; make distclean
-	rm -rf run lib bin/*.exe *.diff
+	rm -rf run lib bin *.diff
