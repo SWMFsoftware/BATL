@@ -11,7 +11,7 @@ help:
 	@echo "WRAPAMRLIB            - create lib/libWRAPAMR.so"
 	@echo "READAMR               - create bin/READAMR.exe for READAMR tests"
 	@echo "READAMR_C             - create bin/READAMR_C.exe to test C wrapper"
-	@echo "PIDL"                 - create bin/PostIDL.exe for post processing"
+	@echo "PIDL                  - create bin/PostIDL.exe for post processing"
 	@echo "NOMPI                 - create lib/NOMPI.a for serial execution"
 	@echo "clean                 - remove object files"
 	@echo "test                  - run full test suite (optional MPIRUN=...)"
