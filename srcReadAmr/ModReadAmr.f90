@@ -74,9 +74,6 @@ contains
     integer:: nIjkIn_D(MaxDim),  nRoot_D(nDim)
     logical:: IsPeriodic_D(MaxDim), IsExist
 
-    ! Parameters read but not used here.
-    real:: cLight, ThetaTilt, rBody
-
     character (len=lStringLine) :: NameCommand, StringLine
     
     character(len=*), parameter:: NameSub = 'readamr_init'
@@ -165,9 +162,6 @@ contains
         do i = 1, nParamData
            call read_var('Param',ParamData_I(i))
         enddo
-        call read_var('cLight',cLight)
-        call read_var('ThetaTild',ThetaTilt)
-        call read_var('rBody',rBody)
 
      case('#GRIDGEOMETRYLIMIT')
         call read_var('TypeGeometry', TypeGeometry)
