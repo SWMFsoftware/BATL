@@ -458,6 +458,23 @@
  Xyz( 1, 1,nK)=   1.7276344053182464   1.0483542925327203   0.0000000000000000
  Xyz(nI,nJ,nK)=   1.6704666622631845   1.5991239414964977   0.0000000000000000
  Testing clean_grid
+ Testing check_interpolate_amr_gc
+  Testing case   1
+  Testing case   2
+  Testing case   3
+  Testing case   4
+  Testing case   5
+  Testing case   6
+  Testing case   7
+  Testing case   8
+  Testing case   9
+  Testing case  10
+  Testing case  11
+  Testing case  12
+  Testing case  13
+  Testing case  14
+  Testing case  15
+  Testing case  16
  Starting test_pass_cell
  test_pass_cell middle node= 5
  test_pass_cell
