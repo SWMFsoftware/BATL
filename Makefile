@@ -1,5 +1,15 @@
 include Makefile.def
 
+
+# Defaults for serial and parallel runs (BATL tests are designed for 2 cores)
+SERIAL   =
+PARALLEL = mpirun
+NPFLAG   = -np
+NP       = 2
+
+MPIRUN = ${PARALLEL} ${NPFLAG} ${NP}
+BATLRUN = ${PARALLEL} ${NPFAG} 2
+
 help:
 	@echo "Available targets:"
 	@echo "help                  - this help message"
@@ -129,8 +139,6 @@ test_unit:
 	-@(${MAKE} test32)
 	-@(${MAKE} test33)
 	ls -l test??.diff
-
-BATLRUN = mpirun -np 2
 
 test11:
 	./Config.pl -double -g=10,1,1 -r=2,2,2 -ng=5
