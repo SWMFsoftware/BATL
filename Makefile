@@ -1,13 +1,6 @@
 include Makefile.def
 
-
-# Defaults for serial and parallel runs (BATL tests are designed for 2 cores)
-SERIAL   =
-PARALLEL = mpiexec
-NPFLAG   = -n
-NP       = 2
-
-MPIRUN = ${PARALLEL} ${NPFLAG} ${NP}
+# BATL tests are designed for 2 cores
 BATLRUN = ${PARALLEL} ${NPFLAG} 2
 
 help:
