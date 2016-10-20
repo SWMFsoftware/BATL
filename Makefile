@@ -3,12 +3,12 @@ include Makefile.def
 
 # Defaults for serial and parallel runs (BATL tests are designed for 2 cores)
 SERIAL   =
-PARALLEL = mpirun
-NPFLAG   = -np
+PARALLEL = mpiexec
+NPFLAG   = -n
 NP       = 2
 
 MPIRUN = ${PARALLEL} ${NPFLAG} ${NP}
-BATLRUN = ${PARALLEL} ${NPFAG} 2
+BATLRUN = ${PARALLEL} ${NPFLAG} 2
 
 help:
 	@echo "Available targets:"
