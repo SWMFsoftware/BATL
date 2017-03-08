@@ -67,9 +67,6 @@ cartesian                 TypeGeometry
   4.00000E+00            Param8
   4.00000E+00            Param9
   3.00000E+00            Param*
-  2.99790E+08            cLight
- -0.00000E+00         ThetaTild
-  3.00000E+00             rBody
 
 #PLOTVARIABLE
        8          nPlotVar
