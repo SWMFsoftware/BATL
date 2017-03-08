@@ -89,7 +89,7 @@ READAMRLIB:
 	cd srcReadAmr; make LIB
 
 WRAPAMRLIB:
-	perl -pi -e 's/^(CFLAG =.*)/$$1 -fPIC/' Makefile.conf
+	perl -pi -e 's/^(CFLAG =.*)/$$1 -fPIC/ unless /fPIC/' Makefile.conf
 	make clean
 	cd util/NOMPI/src; make LIB
 	cd ${SHAREDIR}; make LIB_NO_C
@@ -418,6 +418,7 @@ test_readamr:
 	-@(make -j1 test_readamr_3d)
 	-@(make -j1 test_readamr_sph)
 	-@(make -j1 test_readamr_c)
+	-@(make -j1 test_readamr_py)
 	./Config.pl -mpi
 	ls -l readamr_*.diff
 
