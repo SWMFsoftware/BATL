@@ -57,7 +57,7 @@ contains
     use BATL_grid, ONLY: create_grid
     use BATL_tree, ONLY: read_tree_file, distribute_tree
     use ModReadParam
-    
+
     character(len=*), intent(in):: NameFile  ! base name
     logical,          intent(in):: IsVerbose ! provide verbose output
 
@@ -75,7 +75,7 @@ contains
     logical:: IsPeriodic_D(MaxDim), IsExist
 
     character (len=lStringLine) :: NameCommand, StringLine
-    
+
     character(len=*), parameter:: NameSub = 'readamr_init'
     !-------------------------------------------------------------------------
     NameHeaderFile = trim(NameFile)//'.info'
@@ -89,105 +89,105 @@ contains
 
     call read_file(NameHeaderFile)
     call read_init()
-    
+
     call read_echo_set(IsVerbose)
-    
+
     READPARAM: do
-     if(.not.read_line(StringLine) )then
-        EXIT READPARAM
-     end if
+       if(.not.read_line(StringLine) )then
+          EXIT READPARAM
+       end if
 
-     if(.not.read_command(NameCommand)) CYCLE READPARAM
+       if(.not.read_command(NameCommand)) CYCLE READPARAM
 
-     select case(NameCommand)
-     case('#HEADFILE')
-        call read_var('HeadFileName', NameFileOrig)
-        call read_var('nProc',nProcData)
-        call read_var('SaveBinary', IsBinary)
-        if(IsBinary) then
-           call read_var('nByteReal', nByteReal)
-        endif        
-     case('#NDIM')
-        call read_var('nDimSim',nDimSim)
+       select case(NameCommand)
+       case('#HEADFILE')
+          call read_var('HeadFileName', NameFileOrig)
+          call read_var('nProc',nProcData)
+          call read_var('SaveBinary', IsBinary)
+          if(IsBinary) then
+             call read_var('nByteReal', nByteReal)
+          endif
+       case('#NDIM')
+          call read_var('nDimSim',nDimSim)
 
-     case('#GRIDBLOCKSIZE')
-        nIjkIn_D = 1
-        do i = 1, nDimSim
-           call read_var('BlockSize',nIjkIn_D(i))
-        enddo
+       case('#GRIDBLOCKSIZE')
+          nIjkIn_D = 1
+          do i = 1, nDimSim
+             call read_var('BlockSize',nIjkIn_D(i))
+          enddo
 
-     case('#ROOTBLOCK')
-        nRoot_D = 1
-        do i = 1, nDimSim
-           call read_var('ROOTBLOCK',nRoot_D(i))
-        enddo
-        
-     case('#NSTEP')
-        call read_var('nStep',nStepData)
+       case('#ROOTBLOCK')
+          nRoot_D = 1
+          do i = 1, nDimSim
+             call read_var('ROOTBLOCK',nRoot_D(i))
+          enddo
 
-     case('#TIMESIMULATION')
-        call read_var('TimeSimulation',TimeData)
+       case('#NSTEP')
+          call read_var('nStep',nStepData)
 
-     case('#PLOTRANGE')
-        do i = 1, nDimSim
-           call read_var('CoordMin',CoordMin_D(i))
-           call read_var('CoordMax',CoordMax_D(i))
-        enddo
+       case('#TIMESIMULATION')
+          call read_var('TimeSimulation',TimeData)
 
-     case('#PLOTRESOLUTION')
-        CellSizePlot_D = 0;
-        do i = 1, nDimSim
-           call read_var('DxSavePlot',CellSizePlot_D(i))
-        enddo
-        if(CellSizePlot_D(1) >= 0.0) call CON_stop(NameSub// &
-             ': the resolution should be set to -1 for file'//trim(NameFile))
-        
-     case('#CELLSIZE')
-        CellSizeMin_D = 0;
-        do i = 1, nDimSim
-           call read_var('CellSizeMin',CellSizeMin_D(i))
-        enddo
+       case('#PLOTRANGE')
+          do i = 1, nDimSim
+             call read_var('CoordMin',CoordMin_D(i))
+             call read_var('CoordMax',CoordMax_D(i))
+          enddo
 
-     case('#NCELL')
-        call read_var('nCellPlot',nCellData)
+       case('#PLOTRESOLUTION')
+          CellSizePlot_D = 0;
+          do i = 1, nDimSim
+             call read_var('DxSavePlot',CellSizePlot_D(i))
+          enddo
+          if(CellSizePlot_D(1) >= 0.0) call CON_stop(NameSub// &
+               ': the resolution should be set to -1 for file'//trim(NameFile))
 
-     case('#PLOTVARIABLE')
-        call read_var('nPlotVar', nVarData)
-        call read_var('VarNames',NameVarData)
-        call read_var('Unit',NameUnitData)
+       case('#CELLSIZE')
+          CellSizeMin_D = 0;
+          do i = 1, nDimSim
+             call read_var('CellSizeMin',CellSizeMin_D(i))
+          enddo
 
-     case('#SCALARPARAM')
-        call read_var('nParam', nParamData)
-        allocate(ParamData_I(nParamData))
-        do i = 1, nParamData
-           call read_var('Param',ParamData_I(i))
-        enddo
+       case('#NCELL')
+          call read_var('nCellPlot',nCellData)
 
-     case('#GRIDGEOMETRYLIMIT')
-        call read_var('TypeGeometry', TypeGeometry)
-        if(index(TypeGeometry,'genr') > 0)then
-           read(*,*) nRgen
-           allocate(Rgen_I(nRgen))
-           do i = 1, nRgen
-              read(*,*) Rgen_I(i)
-           end do
-        else
-           allocate(Rgen_I(1))
-        end if
-        
-     case('#PERIODIC')
-        do i = 1, nDimSim
-           call read_var('IsPeriodic',IsPeriodic_D(i))
-        enddo
-        
-     case('#OUTPUTFORMAT')
-        call read_var('OutPutFormat',TypeDataFile)
+       case('#PLOTVARIABLE')
+          call read_var('nPlotVar', nVarData)
+          call read_var('VarNames',NameVarData)
+          call read_var('Unit',NameUnitData)
 
-     case default
-        ! write(*,*) 'WARNING: unknow command ', NameCommand
-     end select
+       case('#SCALARPARAM')
+          call read_var('nParam', nParamData)
+          allocate(ParamData_I(nParamData))
+          do i = 1, nParamData
+             call read_var('Param',ParamData_I(i))
+          enddo
 
-  enddo READPARAM
+       case('#GRIDGEOMETRYLIMIT')
+          call read_var('TypeGeometry', TypeGeometry)
+          if(index(TypeGeometry,'genr') > 0)then
+             read(*,*) nRgen
+             allocate(Rgen_I(nRgen))
+             do i = 1, nRgen
+                read(*,*) Rgen_I(i)
+             end do
+          else
+             allocate(Rgen_I(1))
+          end if
+
+       case('#PERIODIC')
+          do i = 1, nDimSim
+             call read_var('IsPeriodic',IsPeriodic_D(i))
+          enddo
+
+       case('#OUTPUTFORMAT')
+          call read_var('OutPutFormat',TypeDataFile)
+
+       case default
+          ! write(*,*) 'WARNING: unknow command ', NameCommand
+       end select
+
+    enddo READPARAM
 
     ! Total number of blocks in the data file
     nBlockData = nCellData / nIjk
@@ -263,7 +263,7 @@ contains
     !--------------------------------------------------------------------------
     IsNewGrid = .true.
     if(present(IsNewGridIn)) IsNewGrid = IsNewGridIn
- 
+
     IsVerbose = .false.
     if(present(IsVerboseIn)) IsVerbose = IsVerboseIn
 
@@ -393,7 +393,7 @@ contains
        else
           State_VGB(:,i,j,k,iBlock) = State_V
        end if
-       
+
        ! For verification tests
        if(present(UseCoordTest))then
           ! Store cos^2 of generalized coordinates into first MaxDim elements
@@ -474,7 +474,7 @@ contains
 
     ! Check if all surrounding cells are inside a single block
     if(all(iCell_D(1:nDim) > 0 .and. iCell_D(1:nDim) < nIJK_D(1:nDim)))then
-       
+
        if(iProcOut /= iProc) RETURN
 
        ! Set weight to 1.0
