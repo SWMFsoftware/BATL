@@ -7,6 +7,7 @@ module ModReadAmr
   ! interpolate data
 
   use BATL_lib, ONLY: MaxDim
+  use ModUtilities, ONLY: CON_stop
 
   implicit none
   save

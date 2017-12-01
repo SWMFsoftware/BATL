@@ -6,6 +6,7 @@ program read_amr_test
   use ModReadAmr, ONLY: nVar, CoordMin_D, CoordMax_D, &
        readamr_read, readamr_get, readamr_clean
   use ModConst, ONLY: cPi
+  use ModUtilities, ONLY: CON_stop
   use ModMpi, ONLY: MPI_REAL, MPI_SUM, MPI_allreduce
 
   implicit none
