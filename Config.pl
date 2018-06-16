@@ -3,6 +3,23 @@ use strict;
 our @Arguments       = @ARGV;
 our $Code            = "BATL";
 our $MakefileDefOrig = 'src/Makefile.def';
+
+my $config     = "share/Scripts/Config.pl";
+
+my $GITCLONE = "git clone"; my $GITDIR = "herot:/GIT/FRAMEWORK/";
+
+if (-f $config or -f "../../$config"){
+}else{
+    `$GITCLONE $GITDIR/share.git; $GITCLONE $GITDIR/util.git`;
+}
+
+if (-d "src"){
+}else{
+    `$GITCLONE $GITDIR/srcBATL.git src`;
+}
+
+
+
 require "share/Scripts/Config.pl";
 
 # Variables inherited from share/Scripts/Config.pl

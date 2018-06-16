@@ -1,0 +1,14 @@
+*~
+*.o
+*.a
+*.diff
+srcReadAmr/readamr_py.ref
+
+share/
+util/
+src/
+Makefile.conf
+Makefile.def
+lib
+bin
+run
