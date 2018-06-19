@@ -4,21 +4,11 @@ our @Arguments       = @ARGV;
 our $Code            = "BATL";
 our $MakefileDefOrig = 'src/Makefile.def';
 
-my $config     = "share/Scripts/Config.pl";
-
-my $GITCLONE = "git clone"; my $GITDIR = "herot:/GIT/FRAMEWORK/";
-
-if (-f $config or -f "../../$config"){
-}else{
-    `$GITCLONE $GITDIR/share.git; $GITCLONE $GITDIR/util.git`;
-}
-
-if (-d "src"){
-}else{
-    `$GITCLONE $GITDIR/srcBATL.git src`;
-}
-
-
+# Get missing directories from git
+my $GITDIR = "herot:/GIT/FRAMEWORK";
+`git clone $GITDIR/share`       unless -d "share"; 
+`git clone $GITDIR/util`        unless -d "util";
+`git clone $GITDIR/srcBATL src` unless -d "src";
 
 require "share/Scripts/Config.pl";
 
@@ -34,7 +24,6 @@ our $NewAmrRatio;
 our $NewGhostCell;
 
 our %Remaining; # Unprocessed arguments
-
 
 # Source code directory
 my $Src         = 'src';
