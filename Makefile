@@ -91,11 +91,11 @@ READAMRLIB:
 WRAPAMRLIB:
 	perl -pi -e 's/^(CFLAG =.*)/$$1 -fPIC/ unless /fPIC/' Makefile.conf
 	make clean
-	cd util/NOMPI/src; make LIB
-	cd ${SHAREDIR}; make LIB_NO_C
-	cd ${TIMINGDIR}; make LIB
-	cd src; make LIB
-	cd srcReadAmr; make LIBSO
+	-(cd util/NOMPI/src; make LIB)
+	-(cd ${SHAREDIR}; make LIB_NO_C)
+	-(cd ${TIMINGDIR}; make LIB)
+	-(cd src; make LIB)
+	-(cd srcReadAmr; make LIBSO)
 	perl -pi -e 's/^(CFLAG =.*)( \-fPIC)+/$$1/' Makefile.conf
 
 READAMR: run
