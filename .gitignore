@@ -1,5 +1,6 @@
 *~
 *.o
+*.pyc
 *.a
 *.diff
 srcReadAmr/readamr_py.ref
