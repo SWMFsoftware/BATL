@@ -88,9 +88,8 @@ contains
     if(.not. IsExist) call CON_stop(NameSub// &
          ' ERROR: could not open '//trim(NameFile)//'.h or .info')
 
-    ! Switch off Fortran output to avoid mixup with C
-    call read_file(NameHeaderFile, IsQuiet=.true.)
-    call read_echo_set(.false.)
+    call read_file(NameHeaderFile, IsVerbose=IsVerbose)
+    call read_echo_set(IsVerbose)
     call read_init()
 
     READPARAM: do
