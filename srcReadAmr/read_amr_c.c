@@ -14,7 +14,7 @@ int main()
   // Usually one can call wrapamr_read_file directly.
   // the first integer should be larger than the length of the filename
   // the last integer is 1 for verbose, 0 otherwise
-  wrapamr_read_header("data/3d__all_3_t00000010_n0000059.idl",200,1);
+  wrapamr_read_header("data/3d__all_3_t00000010_n0000059.idl",200,0);
 
   printf("read_amr_c read header\n");
 
