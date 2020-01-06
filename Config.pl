@@ -1,5 +1,11 @@
 #!/usr/bin/perl -i
 use strict;
+use warnings;
+use POSIX qw(strftime);
+use List::Util qw(first);
+use Cwd qw(cwd);
+use lib cwd;
+
 our @Arguments       = @ARGV;
 our $Code            = "BATL";
 our $MakefileDefOrig = 'src/Makefile.def';
