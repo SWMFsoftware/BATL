@@ -1,10 +1,9 @@
-#!/usr/bin/perl -i
+#!/usr/bin/perl
+
+# Allow in-place editing                                                        
+$^I = "";
+
 use strict;
-use warnings;
-use POSIX qw(strftime);
-use List::Util qw(first);
-use Cwd qw(cwd);
-use lib cwd;
 
 our @Arguments       = @ARGV;
 our $Code            = "BATL";
@@ -16,6 +15,7 @@ my $GITDIR = "herot:/GIT/FRAMEWORK";
 `git clone $GITDIR/util`        unless -d "util";
 `git clone $GITDIR/srcBATL src` unless -d "src";
 
+push @INC, ".";
 require "share/Scripts/Config.pl";
 
 # Variables inherited from share/Scripts/Config.pl
