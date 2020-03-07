@@ -50,7 +50,6 @@ help:
 	@echo "test_readamr_py       - run READAMR test with Python wrapper"
 
 install:
-	touch src/Makefile.DEPEND
 	mkdir -p lib bin
 	cp -f src/BATL_size_orig.f90 src/BATL_size.f90
 
@@ -479,7 +478,6 @@ clean:
 	rm -f lib/*
 
 allclean:
-	touch src/Makefile.DEPEND
 	cd src; make distclean
 	cd srcReadAmr; make distclean
 	rm -rf run lib bin *.diff
