@@ -9,15 +9,6 @@ our @Arguments       = @ARGV;
 our $Code            = "BATL";
 our $MakefileDefOrig = 'src/Makefile.def';
 
-# Get missing directories from git
-my $GITDIR = "herot:/GIT/FRAMEWORK";
-`git clone $GITDIR/share`       unless -d "share"; 
-`git clone $GITDIR/util`        unless -d "util";
-`git clone $GITDIR/srcBATL src` unless -d "src";
-
-push @INC, ".";
-require "share/Scripts/Config.pl";
-
 # Variables inherited from share/Scripts/Config.pl
 our $ERROR;
 our $WARNING;
@@ -43,15 +34,29 @@ my $Force;
 
 &print_help if $Help;
 
-# Read previous grid size
-&get_settings;
-
+my $Sleep;
 foreach (@Arguments){
     if(/^-r=(.*)$/)     {$NewAmrRatio=$1;  next};
     if(/^-ng=(.*)$/)    {$NewGhostCell=$1; next};
     if(/^-f$/)          {$Force=1;         next};
+    if( /^-sleep=(\d+)/){$Sleep = $1;      next;}
     warn "WARNING: Unknown flag $_\n" if $Remaining{$_};
 }
+
+# Get missing directories from git
+my $gitclone;
+$gitclone  = "sleep $Sleep; " if $Sleep;
+$gitclone .= "git clone herot:/GIT/FRAMEWORK";
+
+`$gitclone/share`       unless -d "share"; 
+`$gitclone/util`        unless -d "util";
+`$gitclone/srcBATL src` unless -d "src";
+
+push @INC, ".";
+require "share/Scripts/Config.pl";
+
+# Read previous grid size
+&get_settings;
 
 # Set new grid size and AMR dimensions
 &set_grid_size if ($NewGridSize and $NewGridSize ne $GridSize)
