@@ -46,7 +46,7 @@ foreach (@Arguments){
 # Get missing directories from git
 my $gitclone;
 $gitclone  = "sleep $Sleep; " if $Sleep;
-$gitclone .= "git clone herot:/GIT/FRAMEWORK";
+$gitclone .= "git clone git\@gitlab.umich.edu:swmf_software";
 
 `$gitclone/share`       unless -d "share"; 
 `$gitclone/util`        unless -d "util";
