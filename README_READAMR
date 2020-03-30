@@ -10,8 +10,7 @@ Fortran 90 compiler. Type
 
 Config.pl -compiler
 
-to list the supported Fortran 90 compilers. Note that f95 refers to the 
-NAG Fortran compiler (and not something else!). If you cannot find the 
+to list the supported Fortran 90 compilers. If you cannot find the 
 compiler, you will have to create a
 
 share/build/Makefile.YOUROS.YOURCOMPILER
