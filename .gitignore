@@ -4,6 +4,7 @@
 *.a
 *.so
 *.diff
+gitinfo.txt
 srcReadAmr/readamr_py.ref
 
 share/
