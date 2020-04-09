@@ -1,7 +1,7 @@
 #HEADFILE
-GM/IO2/2d__mhd_1_t00000010_n00000042.h                                          
+GM/IO2/2d__mhd_1_t00000010_n00000042.h
        4             nProc
-       T       save_binary
+       T          IsBinary
        8         nByteReal
 
 #NDIM
@@ -36,22 +36,17 @@ cartesian                 TypeGeometry
   1.2500000000E+00      CellSizeMin2
 
 #PLOTRANGE
- -6.4000000000E+01         Coord1Min
-  6.4000000000E+01         Coord1Max
- -2.0000000000E+01         Coord2Min
-  2.0000000000E+01         Coord2Max
+ -6.4000000000E+01         CoordMin1
+  6.4000000000E+01         CoordMax1
+ -2.0000000000E+01         CoordMin2
+  2.0000000000E+01         CoordMax2
 
 #PLOTRESOLUTION
  -1.0000000000E+00       DxSavePlot1
  -1.0000000000E+00       DxSavePlot2
 
 #SCALARPARAM
-       2            nParam
-  1.66667E+00            Param1
-  3.00000E+00            Param2
-  2.99790E+08            cLight
- -0.00000E+00         ThetaTild
-  3.00000E+00             rBody
+       0            nParam
 
 #PLOTVARIABLE
       11          nPlotVar
@@ -60,4 +55,3 @@ normalized variables
 
 #OUTPUTFORMAT
 ascii     
-

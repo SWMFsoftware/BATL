@@ -1,7 +1,7 @@
 #HEADFILE
 GM/IO2/1d__mhd_1_t00000010_n00000018.h                                          
        4             nProc
-       T       save_binary
+       T          IsBinary
        8         nByteReal
 
 #NDIM
@@ -32,8 +32,8 @@ cartesian                 TypeGeometry
   1.6000000000E+00      CellSizeMin1
 
 #PLOTRANGE
- -6.4000000000E+01         Coord1Min
-  6.4000000000E+01         Coord1Max
+ -6.4000000000E+01         CoordMin1
+  6.4000000000E+01         CoordMax1
 
 #PLOTRESOLUTION
  -1.0000000000E+00       DxSavePlot1

@@ -1,7 +1,7 @@
 #HEADFILE
-GM/IO2/3d__all_3_t00000010_n00000059.h                                          
+GM/IO2/3d__all_3_t00000010_n00000059.h
        4             nProc
-       T       save_binary
+       T          IsBinary
        8         nByteReal
 
 #NDIM
@@ -40,12 +40,12 @@ cartesian                 TypeGeometry
   1.2500000000E+00      CellSizeMin3
 
 #PLOTRANGE
- -6.4000000000E+01         Coord1Min
-  6.4000000000E+01         Coord1Max
- -2.0000000000E+01         Coord2Min
-  2.0000000000E+01         Coord2Max
- -2.0000000000E+01         Coord3Min
-  2.0000000000E+01         Coord3Max
+ -6.4000000000E+01         CoordMin1
+  6.4000000000E+01         CoordMax1
+ -2.0000000000E+01         CoordMin2
+  2.0000000000E+01         CoordMax2
+ -2.0000000000E+01         CoordMin3
+  2.0000000000E+01         CoordMax3
 
 #PLOTRESOLUTION
  -1.0000000000E+00       DxSavePlot1
