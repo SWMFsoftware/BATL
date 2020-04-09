@@ -92,6 +92,11 @@ int main()
 
   wrapamr_get_data_cell(x_D, WeightState_V, CellSize_D, &iFound);
 
+  // Divide by the weight
+  for (i=1; i<nVar+1; i++){
+    WeightState_V[i] /= WeightState_V[0];
+  }
+  
   printf("WeightState_V=");
   for (i=0; i<nVar+1; i++){
     printf("%f ",WeightState_V[i]);
