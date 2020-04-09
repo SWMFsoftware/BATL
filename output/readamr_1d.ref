@@ -1,4 +1,4 @@
- READAMRTEST is starting with nI, nJ, nK=           4           1           1
+ READAMRTEST is starting with nI, nJ, nK= 4 1 1
  READAMRTEST get variables 1,3 from data/1d__mhd_1_t00000010_n0000018.out
  readamr_read starting with IsNewGrid, UseCoordTest= T F
 ModReadParam::read_file: read and broadcast nLine=  56 lines of text
@@ -6,7 +6,7 @@ ModReadParam::read_file: read and broadcast nLine=  56 lines of text
 #HEADFILE
 GM/IO2/1d__mhd_1_t00000010_n00000018.h		HeadFileName
        4             nProc
-       T       save_binary		SaveBinary
+       T          IsBinary
        8         nByteReal
 
 #NDIM
@@ -16,7 +16,7 @@ GM/IO2/1d__mhd_1_t00000010_n00000018.h		HeadFileName
        4        BlockSize1
 
 #ROOTBLOCK
-      10       nRootBlock1		ROOTBLOCK
+      10       nRootBlock1
 
 #GRIDGEOMETRYLIMIT
 cartesian                 TypeGeometry
@@ -37,8 +37,8 @@ cartesian                 TypeGeometry
   1.6000000000E+00      CellSizeMin1
 
 #PLOTRANGE
- -6.4000000000E+01         Coord1Min		CoordMin
-  6.4000000000E+01         Coord1Max		CoordMax
+ -6.4000000000E+01         CoordMin1
+  6.4000000000E+01         CoordMax1
 
 #PLOTRESOLUTION
  -1.0000000000E+00       DxSavePlot1
@@ -50,23 +50,23 @@ cartesian                 TypeGeometry
 
 #PLOTVARIABLE
       11          nPlotVar
-rho ux uy uz bx by bz p jx jy jz g rbody		VarNames
-normalized variables		Unit
+rho ux uy uz bx by bz p jx jy jz g rbody		NameVar
+normalized variables		NameUnit
 
 #OUTPUTFORMAT
-real4		OutPutFormat
+real4		TypeFormat
  readamr_read TypeDataFile=real4
- readamr_read nVarData, nVar, present(iVarIn_I)=          11           2 T
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 2 T
  readamr_read read data
  readamr_read done
- READAMRTEST at Xyz_D=  -38.399999999999999      -0.29999999999999999      -0.29999999999999999     
- READAMRTEST  State_V=   1.0000000000000000        1.0000000000000000        6.8735230181193874E-011
+ READAMRTEST at Xyz_D= -38.3999999999999986  -0.3000000000000000  -0.3000000000000000
+ READAMRTEST  State_V=   1.0000000000000000   1.0000000000000000   6.8735230181193874E-11
  READAMRTEST reread data and do verification test
  readamr_read starting with IsNewGrid, UseCoordTest= F T
  readamr_read TypeDataFile=real4
- readamr_read nVarData, nVar, present(iVarIn_I)=          11          11 F
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 11 F
  readamr_read read data
  readamr_read done
- READAMRTEST number of stored variables=          11
- READAMRTEST check state on (n+1)^3 grid. n=          10
+ READAMRTEST number of stored variables= 11
+ READAMRTEST check state on (n+1)^3 grid. n= 10
  READAMRTEST finished

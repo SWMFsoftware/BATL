@@ -1,12 +1,12 @@
- READAMRTEST is starting with nI, nJ, nK=           4           4           1
+ READAMRTEST is starting with nI, nJ, nK= 4 4 1
  READAMRTEST get variables 1,3 from data/2d__mhd_1_t00000010_n0000042.out
  readamr_read starting with IsNewGrid, UseCoordTest= T F
-ModReadParam::read_file: read and broadcast nLine=  63 lines of text
+ModReadParam::read_file: read and broadcast nLine=  57 lines of text
 
 #HEADFILE
 GM/IO2/2d__mhd_1_t00000010_n00000042.h		HeadFileName
        4             nProc
-       T       save_binary		SaveBinary
+       T          IsBinary
        8         nByteReal
 
 #NDIM
@@ -17,8 +17,8 @@ GM/IO2/2d__mhd_1_t00000010_n00000042.h		HeadFileName
        4        BlockSize2
 
 #ROOTBLOCK
-      10       nRootBlock1		ROOTBLOCK
-       4       nRootBlock2		ROOTBLOCK
+      10       nRootBlock1
+       4       nRootBlock2
 
 #GRIDGEOMETRYLIMIT
 cartesian                 TypeGeometry
@@ -41,41 +41,39 @@ cartesian                 TypeGeometry
   1.2500000000E+00      CellSizeMin2
 
 #PLOTRANGE
- -6.4000000000E+01         Coord1Min		CoordMin
-  6.4000000000E+01         Coord1Max		CoordMax
- -2.0000000000E+01         Coord2Min		CoordMin
-  2.0000000000E+01         Coord2Max		CoordMax
+ -6.4000000000E+01         CoordMin1
+  6.4000000000E+01         CoordMax1
+ -2.0000000000E+01         CoordMin2
+  2.0000000000E+01         CoordMax2
 
 #PLOTRESOLUTION
  -1.0000000000E+00       DxSavePlot1
  -1.0000000000E+00       DxSavePlot2
 
 #SCALARPARAM
-       2            nParam
-  1.66667E+00            Param1
-  3.00000E+00            Param2
+       0            nParam
 
 #PLOTVARIABLE
       11          nPlotVar
-rho ux uy uz bx by bz p jx jy jz g rbody		VarNames
-normalized variables		Unit
+rho ux uy uz bx by bz p jx jy jz g rbody		NameVar
+normalized variables		NameUnit
 
 #OUTPUTFORMAT
-ascii		OutPutFormat
+ascii		TypeFormat
  readamr_read TypeDataFile=ascii
- readamr_read nVarData, nVar, present(iVarIn_I)=          11           2 T
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 2 T
  readamr_read read header lines from ascii file
  readamr_read read data
  readamr_read done
- READAMRTEST at Xyz_D=  -38.399999999999999       -12.000000000000000      -0.29999999999999999     
- READAMRTEST  State_V=  0.99999999999999911       0.99999982692449896       -1.1357004430969987E-007
+ READAMRTEST at Xyz_D= -38.3999999999999986 -12.0000000000000000  -0.3000000000000000
+ READAMRTEST  State_V=   0.9999999999999991   0.9999998269244990  -1.1357004430969987E-07
  READAMRTEST reread data and do verification test
  readamr_read starting with IsNewGrid, UseCoordTest= F T
  readamr_read TypeDataFile=ascii
- readamr_read nVarData, nVar, present(iVarIn_I)=          11          11 F
+ readamr_read nVarData, nVar, present(iVarIn_I)= 11 11 F
  readamr_read read header lines from ascii file
  readamr_read read data
  readamr_read done
- READAMRTEST number of stored variables=          11
- READAMRTEST check state on (n+1)^3 grid. n=          10
+ READAMRTEST number of stored variables= 11
+ READAMRTEST check state on (n+1)^3 grid. n= 10
  READAMRTEST finished
