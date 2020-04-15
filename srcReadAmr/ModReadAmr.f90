@@ -18,6 +18,7 @@ module ModReadAmr
   public:: readamr_init   ! read header information
   public:: readamr_read   ! read AMR data
   public:: readamr_get    ! get data at some point
+  public:: readamr_block     ! get block data around some point
   public:: readamr_clean  ! clean all variables
 
   ! Public data (optional)
@@ -420,6 +421,45 @@ contains
 
   end subroutine readamr_read
 
+  !============================================================================
+  subroutine readamr_block(Xyz_D, State_VG, iProcFound, iBlock, &
+       Xyz_DG, CoordMin_D, CoordMax_D)
+
+    ! Get the full block covering point Xyz_D
+
+    use BATL_lib, ONLY: find_grid_block, MinI, MaxI, MinJ, MaxJ, MinK, MaxK,&
+         iProc, Xyz_DGB, CoordMin_DB, CoordMax_DB
+
+    real,    intent(in)  :: Xyz_D(MaxDim)   ! location on grid
+    ! variables of the block including ghost cells
+    real,    intent(out) :: State_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK) 
+    ! index of processor, -1 if point is not in the domain
+    integer, intent(out) :: iProcFound      
+
+    ! index of the grid block
+    integer, intent(out), optional :: iBlock
+
+    ! coordinates of the grid cells
+    real, intent(out), optional:: Xyz_DG(MaxDim,MinI:MaxI,MinJ:MaxJ,MinK:MaxK)
+
+    ! generalized coordinate limits of the block
+    real, intent(out), optional:: CoordMin_D(MaxDim), CoordMax_D(MaxDim)
+    !-------------------------------------------------------------------------
+    call find_grid_block(Xyz_D, iProcFound, iBlock)
+
+    if(iProc == iProcFound)then
+       State_VG = State_VGB(:,:,:,:,iBlock)
+       if(present(Xyz_DG))     Xyz_DG     = Xyz_DGB(:,:,:,:,iBlock)
+       if(present(CoordMin_D)) CoordMin_D = CoordMin_DB(:,iBlock)
+       if(present(CoordMax_D)) CoordMax_D = CoordMax_DB(:,iBlock)
+    else
+       State_VG = 0.0
+       if(present(Xyz_DG))     Xyz_DG     = 0.0
+       if(present(CoordMin_D)) CoordMin_D = 0.0
+       if(present(CoordMax_D)) CoordMax_D = 0.0
+    end if
+
+  end subroutine readamr_block
   !============================================================================
   subroutine readamr_get(Xyz_D, State_V, IsFound, CellSize_D)
 
