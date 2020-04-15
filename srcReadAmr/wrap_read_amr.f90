@@ -85,6 +85,19 @@ subroutine wrapamr_get_ndim(nDimOut) bind(C)
   nDimOut = nDim
 end subroutine wrapamr_get_ndim    
 !==============================================================================
+subroutine wrapamr_get_block_size(nIOut, nJOut, nKOut, nGOut) bind(C)
+
+  ! Get number of cells in the block: there are nI*nJ*nK physical cells 
+  ! surrounded by nG ghost cells in the first nDim dimensions.
+
+  use BATL_lib, ONLY: nI, nJ, nK, nG
+  use iso_c_binding, ONLY: c_int
+  implicit none
+  integer(c_int), intent(out):: nIOut, nJOut, nKOut, nGOut
+  
+  nIOut = nI; nJOut = nJ; nKOut = nK; nGOut = nG
+end subroutine wrapamr_get_block_size
+!==============================================================================
 subroutine wrapamr_get_nvar(nVarOut) bind(C)
 
   ! Get number of variables per grid cell in the data file
