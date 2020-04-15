@@ -22,6 +22,10 @@ int main()
   wrapamr_get_ndim(&nDim);
   printf("nDim= %i\n", nDim);
 
+  int nI, nJ, nK, nG;
+  wrapamr_get_block_size(&nI, &nJ, &nK, &nG);
+  printf("nI, nJ, nK, nG= %i, %i, %i, %i\n", nI, nJ, nK, nG);
+
   int nVar;
   wrapamr_get_nvar(&nVar);
   printf("nVar= %i\n", nVar);
