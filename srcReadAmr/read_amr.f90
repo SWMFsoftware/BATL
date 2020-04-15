@@ -167,3 +167,4 @@ program read_amr_test
 end program read_amr_test
 !=============================================================================
 
+include 'external_routines.f90'
