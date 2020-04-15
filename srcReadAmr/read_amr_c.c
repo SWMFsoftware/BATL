@@ -44,7 +44,7 @@ int main()
   wrapamr_get_nameunit(NameUnit, &l);
   printf("length = %i NameUnit= %s\n", l, NameUnit);
 
-  // Get coordinate limits. Note that these have 3 elements
+  // Get coordinate limits. Note that these have nDim elements
   double CoordMin_D[nDim];
   double CoordMax_D[nDim];
   wrapamr_get_domain(CoordMin_D, CoordMax_D);
