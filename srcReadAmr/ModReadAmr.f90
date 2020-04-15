@@ -422,7 +422,7 @@ contains
   end subroutine readamr_read
 
   !============================================================================
-  subroutine readamr_block(Xyz_D, State_VG, iProcFound, iBlock, &
+  subroutine readamr_block(Xyz_D, iProcFound, iBlock, State_VG) &
        Xyz_DG, CoordMin_D, CoordMax_D)
 
     ! Get the full block covering point Xyz_D
@@ -430,14 +430,16 @@ contains
     use BATL_lib, ONLY: find_grid_block, MinI, MaxI, MinJ, MaxJ, MinK, MaxK,&
          iProc, Xyz_DGB, CoordMin_DB, CoordMax_DB
 
-    real,    intent(in)  :: Xyz_D(MaxDim)   ! location on grid
-    ! variables of the block including ghost cells
-    real,    intent(out) :: State_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK) 
+    real,    intent(in) :: Xyz_D(MaxDim)   ! location on grid
+
     ! index of processor, -1 if point is not in the domain
-    integer, intent(out) :: iProcFound      
+    integer, intent(out):: iProcFound      
 
     ! index of the grid block
-    integer, intent(out), optional :: iBlock
+    integer, intent(out):: iBlock
+
+    ! variables of the block including ghost cells
+    real, intent(out), optional:: State_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK) 
 
     ! coordinates of the grid cells
     real, intent(out), optional:: Xyz_DG(MaxDim,MinI:MaxI,MinJ:MaxJ,MinK:MaxK)
@@ -448,12 +450,12 @@ contains
     call find_grid_block(Xyz_D, iProcFound, iBlock)
 
     if(iProc == iProcFound)then
-       State_VG = State_VGB(:,:,:,:,iBlock)
+       if(present(State_VG))   State_VG   = State_VGB(:,:,:,:,iBlock)
        if(present(Xyz_DG))     Xyz_DG     = Xyz_DGB(:,:,:,:,iBlock)
        if(present(CoordMin_D)) CoordMin_D = CoordMin_DB(:,iBlock)
        if(present(CoordMax_D)) CoordMax_D = CoordMax_DB(:,iBlock)
     else
-       State_VG = 0.0
+       if(present(State_VG))   State_VG   = 0.0
        if(present(Xyz_DG))     Xyz_DG     = 0.0
        if(present(CoordMin_D)) CoordMin_D = 0.0
        if(present(CoordMax_D)) CoordMax_D = 0.0
