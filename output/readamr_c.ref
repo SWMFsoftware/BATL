@@ -1,10 +1,11 @@
 read_amr_c starting
 read_amr_c read header
 nDim= 3
+nI, nJ, nK, nG= 4, 4, 4, 0
 nVar= 8
  readamr_read starting with IsNewGrid, UseCoordTest= F F
  readamr_read TypeDataFile=idl8 
- readamr_read nVarData, nVar, present(iVarIn_I)=           8           8 F
+ readamr_read nVarData, nVar, present(iVarIn_I)= 8 8 F
  readamr_read read data
  readamr_read done
 read_amr_c read data file
