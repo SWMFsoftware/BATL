@@ -155,6 +155,53 @@ subroutine wrapamr_get_domain(CoordMinOut_D, CoordMaxOut_D) bind(C)
 end subroutine wrapamr_get_domain
 
 !=============================================================================
+subroutine wrapamr_get_block(x_D, iProcFound, iBlock, State_VG, &
+     Xyz_DG, CoordMinBlock_D, CoordMaxBlock_D) bind(C)
+
+  ! Get data for a full grid block. iProcFound is the index of the
+  ! processor that contains the point Xyz_D. It is -1 if the point 
+  ! is not in the domain. All other variables are only set On the 
+  ! processor iProcFound. iBlock is the block index on the processor.
+  ! State_VG and Xyz_DG contain the data and the Cartesian coordinates 
+  ! for all grid cell centers (including ghost cells) of the block.
+  ! CoordMinBlock_D and CoordMaxBlock_D are the (generalized) coordinates
+  ! of the block edges. 
+
+  use BATL_lib, ONLY: nDim, MaxDim, Xyz_DGB, CoordMin_DB, CoordMax_DB, iProc, &
+       MinI, MaxI, MinJ, MaxJ, MinK, MaxK, find_grid_block
+  use ModReadAmr, ONLY: State_VGB, nVar
+  use iso_c_binding, ONLY: c_double, c_int
+
+  implicit none
+
+  real(c_double), intent(in) :: x_D(nDim)
+  integer(c_int), intent(out):: iProcFound, iBlock
+  real(c_double), intent(out):: State_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK)
+  real(c_double), intent(out):: Xyz_DG(nDim,MinI:MaxI,MinJ:MaxJ,MinK:MaxK)
+  real(c_double), intent(out):: CoordMinBlock_D(nDim), CoordMaxBlock_D(nDim)
+
+  real:: Xyz_D(MaxDim)
+  !----------------------------------------------------------------------------
+  ! This copy converts real precision and pads extra dimensions with 0
+  Xyz_D = 0.0
+  Xyz_D(1:nDim) = x_D
+
+  call find_grid_block(Xyz_D, iProcFound, iBlock)
+
+  if(iProc == iProcFound)then
+     State_VG        = State_VGB(:,:,:,:,iBlock)
+     Xyz_DG          = Xyz_DGB(1:nDim,:,:,:,iBlock)
+     CoordMinBlock_D = CoordMin_DB(1:nDim,iBlock)
+     CoordMaxBlock_D = CoordMax_DB(1:nDim,iBlock)
+  else
+     State_VG        = 0.0
+     Xyz_DG          = 0.0
+     CoordMinBlock_D = 0.0
+     CoordMaxBlock_D = 0.0
+  end if
+
+end subroutine wrapamr_get_block
+!=============================================================================
 subroutine wrapamr_get_data(x_D, StateOut_V, iFound) bind(C)
 
   ! Get the interpolated values StateOut_V at the point XyzOut_V
