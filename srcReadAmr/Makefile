@@ -12,6 +12,7 @@ OBJECTS = ModReadAmr.o wrap_read_amr.o
 
 ${OBJECTS}: ${LIBBATL}
 
+wrap_read_amr.o: ModReadAmr.o
 read_amr.o: ${OBJECTS}
 
 MY_LIB = ${LIBDIR}/libREADAMR.a
