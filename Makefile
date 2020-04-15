@@ -66,6 +66,8 @@ run:
 		ln -s ${SCRIPTDIR}/pIDL .; \
 		ln -s ${DIR}/data .
 
+.NOTPARALLEL: BATL ADVECT GAME READAMRLIB WRAPAMRLIB READAMR READAMR_C
+
 BATL:	run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
@@ -114,6 +116,8 @@ PIDL:
 
 NOMPI:
 	cd util/NOMPI/src; make LIB
+
+.NOTPARALLEL: test test_unit test_readamr
 
 test:	
 	make test_unit
