@@ -147,7 +147,7 @@ program read_amr_test
        State_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK), &
        Xyz_DG(MaxDim,MinI:MaxI,MinJ:MaxJ,MinK:MaxK))
 
-  call readamr_block(Xyz_D, State_VG, iProcFound, iBlock, Xyz_DG)
+  call readamr_block(Xyz_D, iProcFound, iBlock, State_VG, Xyz_DG)
 
   if(iProc==iProcFound)then
      if(any(State_VGB(:,:,:,:,iBlock) /= State_VG)) &
@@ -167,4 +167,4 @@ program read_amr_test
 end program read_amr_test
 !=============================================================================
 
-include 'external_routines.f90'
+include '../src/external_routines.f90'
