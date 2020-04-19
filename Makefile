@@ -378,13 +378,13 @@ test_advect22_rz_check:
 test_advect22_cyl_check:
 	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect22_cyl.log output/advect22_cyl.log \
-							> advect22_cyl.diff)
+		> advect22_cyl.diff)
 	ls -l advect22_cyl.diff
 
 test_advect22_round_check:
 	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect22_round.log output/advect22_round.log \
-							> advect22_round.diff)
+		> advect22_round.diff)
 	ls -l advect22_round.diff
 
 test_advect31_check:
@@ -405,19 +405,19 @@ test_advect33_check:
 test_advect33_sph_check:
 	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect33_sph.log output/advect33_sph.log \
-							> advect33_sph.diff)
+		> advect33_sph.diff)
 	ls -l advect33_sph.diff
 
 test_advect33_rlonlat_check:
 	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect33_rlonlat.log output/advect33_rlonlat.log \
-						> advect33_rlonlat.diff)
+		> advect33_rlonlat.diff)
 	ls -l advect33_rlonlat.diff
 
 test_advect33_round_check:
 	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect33_round.log output/advect33_round.log \
-							> advect33_round.diff)
+		> advect33_round.diff)
 	ls -l advect33_round.diff
 
 test_readamr: 
