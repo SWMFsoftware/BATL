@@ -13,6 +13,16 @@ subroutine wrapamr_init_mpi() bind(C)
   call init_mpi
 
 end subroutine wrapamr_init_mpi
+!==============================================================================
+subroutine wrapamr_clean() bind(C)
+
+  ! Deallocate all memory used by READAMR
+
+  use ModReadAmr, ONLY: readamr_clean
+  
+  call readamr_clean
+  
+end subroutine wrapamr_clean
 !=============================================================================
 subroutine wrapamr_read_header(NameFile_I, l, lVerbose) bind(C)
 
@@ -168,8 +178,8 @@ subroutine wrapamr_get_domain(CoordMinOut_D, CoordMaxOut_D) bind(C)
 end subroutine wrapamr_get_domain
 
 !=============================================================================
-subroutine wrapamr_get_block(x_D, iProcFound, iBlock, State_VG, &
-     Xyz_DG, CoordMinBlock_D, CoordMaxBlock_D) bind(C)
+subroutine wrapamr_get_block(x_D, iProcFound, iBlock, iLevel, &
+     State_VG, Xyz_DG, CoordMinBlock_D, CoordMaxBlock_D) bind(C)
 
   ! Get data for a full grid block. iProcFound is the index of the
   ! processor that contains the point Xyz_D. It is -1 if the point 
@@ -178,39 +188,43 @@ subroutine wrapamr_get_block(x_D, iProcFound, iBlock, State_VG, &
   ! State_VG and Xyz_DG contain the data and the Cartesian coordinates 
   ! for all grid cell centers (including ghost cells) of the block.
   ! CoordMinBlock_D and CoordMaxBlock_D are the (generalized) coordinates
-  ! of the block edges. 
+  ! of the block edges. iLevel is the grid level (0 is the root level).
 
   use BATL_lib, ONLY: nDim, MaxDim, Xyz_DGB, CoordMin_DB, CoordMax_DB, iProc, &
-       MinI, MaxI, MinJ, MaxJ, MinK, MaxK, find_grid_block
+       MinI, MaxI, MinJ, MaxJ, MinK, MaxK, iTree_IA, Level_, find_grid_block
   use ModReadAmr, ONLY: State_VGB, nVar
   use iso_c_binding, ONLY: c_double, c_int
 
   implicit none
 
   real(c_double), intent(in) :: x_D(nDim)
-  integer(c_int), intent(out):: iProcFound, iBlock
+  integer(c_int), intent(out):: iProcFound, iBlock, iLevel
   real(c_double), intent(out):: State_VG(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK)
   real(c_double), intent(out):: Xyz_DG(nDim,MinI:MaxI,MinJ:MaxJ,MinK:MaxK)
   real(c_double), intent(out):: CoordMinBlock_D(nDim), CoordMaxBlock_D(nDim)
 
+  integer:: iNode
+  
   real:: Xyz_D(MaxDim)
   !----------------------------------------------------------------------------
   ! This copy converts real precision and pads extra dimensions with 0
   Xyz_D = 0.0
   Xyz_D(1:nDim) = x_D
 
-  call find_grid_block(Xyz_D, iProcFound, iBlock)
+  call find_grid_block(Xyz_D, iProcFound, iBlock, iNodeOut=iNode)
 
   if(iProc == iProcFound)then
      State_VG        = State_VGB(:,:,:,:,iBlock)
      Xyz_DG          = Xyz_DGB(1:nDim,:,:,:,iBlock)
      CoordMinBlock_D = CoordMin_DB(1:nDim,iBlock)
      CoordMaxBlock_D = CoordMax_DB(1:nDim,iBlock)
+     iLevel          = iTree_IA(Level_,iNode)
   else
      State_VG        = 0.0
      Xyz_DG          = 0.0
      CoordMinBlock_D = 0.0
      CoordMaxBlock_D = 0.0
+     iLevel          = -1
   end if
 
 end subroutine wrapamr_get_block
@@ -250,6 +264,44 @@ subroutine wrapamr_get_data(x_D, StateOut_V, iFound) bind(C)
   if(IsFound) iFound = 1
 
 end subroutine wrapamr_get_data
+!=============================================================================
+subroutine wrapamr_get_data_cell(x_D, StateOut_V, &
+     CellSizeOut_D, iFound) bind(C)
+
+  ! Get the interpolated values StateOut_V at the point XyzOut_V
+  ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
+  ! Set CellSizeOut_D to size of the cell containing the point.
+
+  use ModReadAmr, ONLY: nVar, readamr_get
+  use BATL_lib, ONLY: nDim, MaxDim
+  use iso_c_binding, ONLY: c_double, c_int
+
+  implicit none
+  real(c_double), intent(in) :: x_D(nDim)
+  real(c_double), intent(out):: StateOut_V(0:nVar)
+  real(c_double), intent(out):: CellSizeOut_D(nDim)
+  integer(c_int), intent(out):: iFound
+
+  real   :: State_V(0:nVar)
+  real   :: Xyz_D(MaxDim)
+  real   :: CellSize_D(3)
+  logical:: IsFound
+  !----------------------------------------------------------------------------
+
+  ! This copy converts real precision if needed
+  Xyz_D = 0.0
+  Xyz_D(1:nDim) = x_D
+  call readamr_get(Xyz_D, State_V, IsFound, CellSize_D)
+ 
+  ! These copies convert real precision if needed
+  StateOut_V = State_V
+  CellSizeOut_D = CellSize_D(1:nDim)
+
+  ! Set integer found flag
+  iFound = 0
+  if(IsFound) iFound = 1
+
+end subroutine wrapamr_get_data_cell
 !=============================================================================
 subroutine wrapamr_get_data_serial(x_D, StateOut_V, iFound) bind(C)
 
@@ -327,54 +379,5 @@ subroutine wrapamr_get_array_serial(nPoint, x_DI, State_VI) bind(C)
   end do
 
 end subroutine wrapamr_get_array_serial
-!=============================================================================
-subroutine wrapamr_get_data_cell(x_D, StateOut_V, &
-     CellSizeOut_D, iFound) bind(C)
-
-  ! Get the interpolated values StateOut_V at the point XyzOut_V
-  ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
-  ! Set CellSizeOut_D to size of the cell containing the point.
-
-  use ModReadAmr, ONLY: nVar, readamr_get
-  use BATL_lib, ONLY: nDim, MaxDim
-  use iso_c_binding, ONLY: c_double, c_int
-
-  implicit none
-  real(c_double), intent(in) :: x_D(nDim)
-  real(c_double), intent(out):: StateOut_V(0:nVar)
-  real(c_double), intent(out):: CellSizeOut_D(nDim)
-  integer(c_int), intent(out):: iFound
-
-  real   :: State_V(0:nVar)
-  real   :: Xyz_D(MaxDim)
-  real   :: CellSize_D(3)
-  logical:: IsFound
-  !----------------------------------------------------------------------------
-
-  ! This copy converts real precision if needed
-  Xyz_D = 0.0
-  Xyz_D(1:nDim) = x_D
-  call readamr_get(Xyz_D, State_V, IsFound, CellSize_D)
- 
-  ! These copies convert real precision if needed
-  StateOut_V = State_V
-  CellSizeOut_D = CellSize_D(1:nDim)
-
-  ! Set integer found flag
-  iFound = 0
-  if(IsFound) iFound = 1
-
-end subroutine wrapamr_get_data_cell
-
-!==============================================================================
-subroutine wrapamr_clean() bind(C)
-
-  ! Deallocate all memory used by READAMR
-
-  use ModReadAmr, ONLY: readamr_clean
-  
-  call readamr_clean
-  
-end subroutine wrapamr_clean
 !=============================================================================
 include '../src/external_routines.f90'
