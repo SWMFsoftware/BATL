@@ -66,6 +66,11 @@ run:
 		ln -s ${SCRIPTDIR}/pIDL .; \
 		ln -s ${DIR}/data .
 
+BATL_dynamic:	run
+	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
+	cd src; make LIBSO; make BATL
+
 BATL:	run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
