@@ -1,7 +1,7 @@
 #HEADFILE
 GM/IO2/3d__var_4_t00000000_n00000010.h                                          
        4             nProc
-       T       save_binary
+       T          IsBinary
        8         nByteReal
 
 #NDIM
@@ -40,12 +40,12 @@ spherical_lnr             TypeGeometry
   9.8174770425E-02      CellSizeMin3
 
 #PLOTRANGE
-  0.0000000000E+00         Coord1Min
-  3.1780538303E+00         Coord1Max
-  0.0000000000E+00         Coord2Min
-  6.2831853072E+00         Coord2Max
- -1.5707963268E+00         Coord3Min
-  1.5707963268E+00         Coord3Max
+  0.0000000000E+00         CoordMin1
+  3.1780538303E+00         CoordMax1
+  0.0000000000E+00         CoordMin2
+  6.2831853072E+00         CoordMax2
+ -1.5707963268E+00         CoordMin3
+  1.5707963268E+00         CoordMax3
 
 #PLOTRESOLUTION
  -1.0000000000E+00       DxSavePlot1

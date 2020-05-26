@@ -22,6 +22,7 @@ help:
 	@echo "test_advect           - run advection tests with ADVECT.exe"
 	@echo "test_readamr          - run READAMR tests with READAMR.exe"
 	@echo "test11                - run 1D unit test"
+	@echo "test11 BLESS=YES      - update test11 reference solution"
 	@echo "test12                - run 2D unit test with AMR in 2nd dimension"
 	@echo "test21                - run 2D unit test with AMR in 1st dimension"
 	@echo "test22                - run 2D unit test with AMR in all dimensions"
@@ -66,15 +67,18 @@ run:
 		ln -s ${SCRIPTDIR}/pIDL .; \
 		ln -s ${DIR}/data .
 
-BATL_dynamic:	run
-	cd ${SHAREDIR}; make LIB
-	cd ${TIMINGDIR}; make LIB
-	cd src; make LIBSO; make BATL
+.NOTPARALLEL: BATL ADVECT GAME READAMRLIB WRAPAMRLIB READAMR READAMR_C
+
 
 BATL:	run
 	cd ${SHAREDIR}; make LIB
 	cd ${TIMINGDIR}; make LIB
 	cd src; make BATL
+
+BATL_dynamic:	run
+	cd ${SHAREDIR}; make LIB
+	cd ${TIMINGDIR}; make LIB
+	cd src; make LIBSO; make BATL
 
 ADVECT: run
 	cd ${SHAREDIR}; make LIB
@@ -120,6 +124,13 @@ PIDL:
 NOMPI:
 	cd util/NOMPI/src; make LIB
 
+.NOTPARALLEL: test test_unit test_readamr
+
+# Setting BLESS=YES or Y will copy the solution into the reference solution
+BLESS=NO
+
+DIFFNUM = ${SCRIPTDIR}/DiffNum.pl -BLESS=${BLESS}
+
 test:	
 	make test_unit
 	make test_advect
@@ -138,61 +149,61 @@ test_unit:
 	ls -l test??.diff
 
 test11:
-	./Config.pl -double -g=10,1,1 -r=2,2,2 -ng=5
+	./Config.pl -mpi -double -g=10,1,1 -r=2,2,2 -ng=5
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test11.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/test11.ref output/test11.ref > test11.diff)
 	ls -l test11.diff
 
 test12:
-	./Config.pl -double -g=8,6,1 -r=1,2,1 -ng=3
+	./Config.pl -mpi -double -g=8,6,1 -r=1,2,1 -ng=3
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test12.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/test12.ref output/test12.ref > test12.diff)
 	ls -l test12.diff
 
 test21:
-	./Config.pl -double -g=8,4,1 -r=2,1,1 -ng=4
+	./Config.pl -mpi -double -g=8,4,1 -r=2,1,1 -ng=4
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test21.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/test21.ref output/test21.ref > test21.diff)
 	ls -l test21.diff
 
 test22:
-	./Config.pl -double -g=8,6,1 -r=2,2,2 -ng=3
+	./Config.pl -mpi -double -g=8,6,1 -r=2,2,2 -ng=3
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test22.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/test22.ref output/test22.ref > test22.diff)
 	ls -l test22.diff
 	sleep 1
 
 test31:
-	./Config.pl -double -g=8,4,2 -r=2,1,1 -ng=2
+	./Config.pl -mpi -double -g=8,4,2 -r=2,1,1 -ng=2
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test31.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/test31.ref output/test31.ref > test31.diff)
 	ls -l test31.diff
 	sleep 1
 
 test32:
-	./Config.pl -double -g=8,4,2 -r=2,2,1 -ng=2
+	./Config.pl -mpi -double -g=8,4,2 -r=2,2,1 -ng=2
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test32.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/test32.ref output/test32.ref > test32.diff)
 	ls -l test32.diff
 	sleep 1
 
 test33:
-	./Config.pl -double -g=10,8,6 -r=2,2,2 -ng=3
+	./Config.pl -mpi -double -g=10,8,6 -r=2,2,2 -ng=3
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test33.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/test33.ref output/test33.ref > test33.diff)
 	ls -l test33.diff
 	sleep 1
@@ -215,7 +226,7 @@ test_advect:
 	ls -l advect??*.diff
 
 test_advect11:
-	./Config.pl -double -g=4,1,1 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,1,1 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect11.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -224,7 +235,7 @@ test_advect11:
 	${MAKE} test_advect11_check
 
 test_advect12:
-	./Config.pl -double -g=4,4,1 -r=1,2,1 -ng=2
+	./Config.pl -mpi -double -g=4,4,1 -r=1,2,1 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect12.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -233,7 +244,7 @@ test_advect12:
 	${MAKE} test_advect12_check
 
 test_advect21:
-	./Config.pl -double -g=4,4,1 -r=2,1,1 -ng=2
+	./Config.pl -mpi -double -g=4,4,1 -r=2,1,1 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect21.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -242,7 +253,7 @@ test_advect21:
 	${MAKE} test_advect21_check
 
 test_advect22: 
-	./Config.pl -double -g=4,4,1 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,1 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -251,7 +262,7 @@ test_advect22:
 	${MAKE} test_advect22_check
 
 test_advect22_rot:
-	./Config.pl -double -g=4,4,1 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,1 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rotcart run/PARAM.in
@@ -260,7 +271,7 @@ test_advect22_rot:
 	${MAKE} test_advect22_rot_check
 
 test_advect22_rz: 
-	./Config.pl -double -g=4,4,1 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,1 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22_rz.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rz run/PARAM.in
@@ -269,7 +280,7 @@ test_advect22_rz:
 	${MAKE} test_advect22_rz_check
 
 test_advect22_cyl: 
-	./Config.pl -double -g=4,4,1 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,1 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22_cyl.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cyl run/PARAM.in
@@ -278,7 +289,7 @@ test_advect22_cyl:
 	${MAKE} test_advect22_cyl_check
 
 test_advect22_round: 
-	./Config.pl -double -g=4,4,1 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,1 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22_round.log
 	rm -f input/PARAM.in; cp input/PARAM.in.round run/PARAM.in
@@ -287,7 +298,7 @@ test_advect22_round:
 	${MAKE} test_advect22_round_check
 
 test_advect33_sph: 
-	./Config.pl -double -g=4,4,4 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,4 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33_sph.log
 	rm -f input/PARAM.in; cp input/PARAM.in.sph run/PARAM.in
@@ -296,7 +307,7 @@ test_advect33_sph:
 	${MAKE} test_advect33_sph_check
 
 test_advect33_rlonlat:
-	./Config.pl -double -g=4,4,4 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,4 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33_rlonlat.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rlonlat run/PARAM.in
@@ -305,7 +316,7 @@ test_advect33_rlonlat:
 	${MAKE} test_advect33_rlonlat_check
 
 test_advect33_round: 
-	./Config.pl -double -g=4,4,4 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,4 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33_round.log
 	rm -f input/PARAM.in; cp input/PARAM.in.round3d run/PARAM.in
@@ -314,7 +325,7 @@ test_advect33_round:
 	${MAKE} test_advect33_round_check
 
 test_advect31: 
-	./Config.pl -double -g=4,4,4 -r=2,1,1 -ng=2
+	./Config.pl -mpi -double -g=4,4,4 -r=2,1,1 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect31.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -323,7 +334,7 @@ test_advect31:
 	${MAKE} test_advect31_check
 
 test_advect32:
-	./Config.pl -double -g=4,4,4 -r=2,2,1 -ng=2
+	./Config.pl -mpi -double -g=4,4,4 -r=2,2,1 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect32.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -332,7 +343,7 @@ test_advect32:
 	${MAKE} test_advect32_check
 
 test_advect33: 
-	./Config.pl -double -g=4,4,4 -r=2,2,2 -ng=2
+	./Config.pl -mpi -double -g=4,4,4 -r=2,2,2 -ng=2
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
@@ -341,78 +352,78 @@ test_advect33:
 	${MAKE} test_advect33_check
 
 test_advect11_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect11.log output/advect11.log > advect11.diff)
 	ls -l advect11.diff
 
 test_advect12_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect12.log output/advect12.log > advect12.diff)
 	ls -l advect12.diff
 
 test_advect21_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect21.log output/advect21.log > advect21.diff)
 	ls -l advect21.diff
 
 test_advect22_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect22.log output/advect22.log > advect22.diff)
 	ls -l advect22.diff
 
 test_advect22_rot_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect22.log output/advect22.log > advect22_rot.diff)
 	ls -l advect22_rot.diff
 
 test_advect22_rz_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect22_rz.log output/advect22_rz.log > advect22_rz.diff)
 	ls -l advect22_rz.diff
 
 test_advect22_cyl_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect22_cyl.log output/advect22_cyl.log \
-							> advect22_cyl.diff)
+		> advect22_cyl.diff)
 	ls -l advect22_cyl.diff
 
 test_advect22_round_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect22_round.log output/advect22_round.log \
-							> advect22_round.diff)
+		> advect22_round.diff)
 	ls -l advect22_round.diff
 
 test_advect31_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect31.log output/advect31.log > advect31.diff)
 	ls -l advect31.diff
 
 test_advect32_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect32.log output/advect32.log > advect32.diff)
 	ls -l advect32.diff
 
 test_advect33_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
 		run/advect33.log output/advect33.log > advect33.diff)
 	ls -l advect33.diff
 
 test_advect33_sph_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect33_sph.log output/advect33_sph.log \
-							> advect33_sph.diff)
+		> advect33_sph.diff)
 	ls -l advect33_sph.diff
 
 test_advect33_rlonlat_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect33_rlonlat.log output/advect33_rlonlat.log \
-						> advect33_rlonlat.diff)
+		> advect33_rlonlat.diff)
 	ls -l advect33_rlonlat.diff
 
 test_advect33_round_check:
-	-@(${SCRIPTDIR}/DiffNum.pl -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
 		run/advect33_round.log output/advect33_round.log \
-							> advect33_round.diff)
+		> advect33_round.diff)
 	ls -l advect33_round.diff
 
 test_readamr: 
@@ -427,34 +438,34 @@ test_readamr:
 	ls -l readamr_*.diff
 
 test_readamr_1d:
-	./Config.pl -double -g=4,1,1 -r=2,1,1 -ng=0
+	./Config.pl -mpi -double -g=4,1,1 -r=2,1,1 -ng=0
 	-@(make READAMR)
 	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_1d.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/readamr_1d.ref output/readamr_1d.ref > readamr_1d.diff)
 	ls -l readamr_1d.diff
 
 test_readamr_2d:
-	./Config.pl -double -g=4,4,1 -r=2,2,1 -ng=0
+	./Config.pl -mpi -double -g=4,4,1 -r=2,2,1 -ng=0
 	-@(make READAMR)
 	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_2d.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/readamr_2d.ref output/readamr_2d.ref > readamr_2d.diff)
 	ls -l readamr_2d.diff
 
 test_readamr_3d:
-	./Config.pl -single -g=4,4,4 -r=2,2,2 -ng=0
+	./Config.pl -mpi -single -g=4,4,4 -r=2,2,2 -ng=0
 	-@(make READAMR)
 	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_3d.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
+	-@(${DIFFNUM} -t -r=2e-6 \
 		run/readamr_3d.ref output/readamr_3d.ref > readamr_3d.diff)
 	ls -l readamr_3d.diff
 
 test_readamr_sph:
-	./Config.pl -double -g=6,4,4 -r=2,2,2 -ng=0
+	./Config.pl -mpi -double -g=6,4,4 -r=2,2,2 -ng=0
 	-@(make READAMR)
 	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_sph.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t \
+	-@(${DIFFNUM} -t \
 		run/readamr_sph.ref output/readamr_sph.ref > readamr_sph.diff)
 	ls -l readamr_sph.diff
 
@@ -462,15 +473,15 @@ test_readamr_c:
 	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
 	-@(make READAMR_C)
 	-(cd run; ./READAMR_C.exe > readamr_c.ref)
-	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 -a=2e-5 \
+	-@(${DIFFNUM} -t -r=2e-6 -a=2e-5 \
 		run/readamr_c.ref output/readamr_c.ref > readamr_c.diff)
 	ls -l readamr_c.diff
 
 test_readamr_py:
-	./Config.pl -single -g=4,4,4 -r=2,2,2 -ng=0
+	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
 	-@(make WRAPAMRLIB)
 	-(cd srcReadAmr; python read_amr_py.py > readamr_py.ref;)
-	-@(${SCRIPTDIR}/DiffNum.pl -t -r=2e-6 \
+	-@(${DIFFNUM} -t -r=2e-6 \
 		srcReadAmr/readamr_py.ref output/readamr_py.ref > readamr_py.diff)
 	ls -l readamr_py.diff
 

@@ -102,42 +102,40 @@ contains
        select case(NameCommand)
        case('#HEADFILE')
           call read_var('HeadFileName', NameFileOrig)
-          call read_var('nProc',nProcData)
-          call read_var('SaveBinary', IsBinary)
-          if(IsBinary) then
-             call read_var('nByteReal', nByteReal)
-          endif
+          call read_var('nProc', nProcData)
+          call read_var('IsBinary', IsBinary)
+          if(IsBinary) call read_var('nByteReal', nByteReal)
        case('#NDIM')
-          call read_var('nDimSim',nDimSim)
+          call read_var('nDimSim', nDimSim)
 
        case('#GRIDBLOCKSIZE')
           nIjkIn_D = 1
           do i = 1, nDimSim
-             call read_var('BlockSize',nIjkIn_D(i))
+             call read_var('BlockSize', nIjkIn_D(i))
           enddo
 
        case('#ROOTBLOCK')
           nRoot_D = 1
           do i = 1, nDimSim
-             call read_var('ROOTBLOCK',nRoot_D(i))
+             call read_var('nRootBlock', nRoot_D(i))
           enddo
 
        case('#NSTEP')
-          call read_var('nStep',nStepData)
+          call read_var('nStep', nStepData)
 
        case('#TIMESIMULATION')
-          call read_var('TimeSimulation',TimeData)
+          call read_var('TimeSimulation', TimeData)
 
        case('#PLOTRANGE')
           do i = 1, nDimSim
-             call read_var('CoordMin',CoordMin_D(i))
-             call read_var('CoordMax',CoordMax_D(i))
+             call read_var('CoordMin', CoordMin_D(i))
+             call read_var('CoordMax', CoordMax_D(i))
           enddo
 
        case('#PLOTRESOLUTION')
           CellSizePlot_D = 0;
           do i = 1, nDimSim
-             call read_var('DxSavePlot',CellSizePlot_D(i))
+             call read_var('DxSavePlot', CellSizePlot_D(i))
           enddo
           if(CellSizePlot_D(1) >= 0.0) call CON_stop(NameSub// &
                ': the resolution should be set to -1 for file'//trim(NameFile))
@@ -145,7 +143,7 @@ contains
        case('#CELLSIZE')
           CellSizeMin_D = 0;
           do i = 1, nDimSim
-             call read_var('CellSizeMin',CellSizeMin_D(i))
+             call read_var('CellSizeMin', CellSizeMin_D(i))
           enddo
 
        case('#NCELL')
@@ -153,14 +151,14 @@ contains
 
        case('#PLOTVARIABLE')
           call read_var('nPlotVar', nVarData)
-          call read_var('VarNames',NameVarData)
-          call read_var('Unit',NameUnitData)
+          call read_var('NameVar', NameVarData)
+          call read_var('NameUnit', NameUnitData)
 
        case('#SCALARPARAM')
           call read_var('nParam', nParamData)
           allocate(ParamData_I(nParamData))
           do i = 1, nParamData
-             call read_var('Param',ParamData_I(i))
+             call read_var('Param', ParamData_I(i))
           enddo
 
        case('#GRIDGEOMETRYLIMIT')
@@ -177,11 +175,11 @@ contains
 
        case('#PERIODIC')
           do i = 1, nDimSim
-             call read_var('IsPeriodic',IsPeriodic_D(i))
+             call read_var('IsPeriodic', IsPeriodic_D(i))
           enddo
 
        case('#OUTPUTFORMAT')
-          call read_var('OutPutFormat',TypeDataFile)
+          call read_var('TypeFormat', TypeDataFile)
 
        case default
           ! write(*,*) 'WARNING: unknow command ', NameCommand
@@ -321,8 +319,8 @@ contains
        open(UnitTmp_, file=NameFile, status='old', iostat=iError)
        if(iError /= 0) call CON_stop(NameSub// &
             ' ERROR: could not open ascii file '//trim(NameFile))
-       ! Read and discard header lines
-       do i = 1, 5
+       ! Read and discard 4 (nParamData==0) or 5 header lines 
+       do i = 1, 4 + min(nParamData, 1)
           read(UnitTmp_,*) StringTmp
        end do
        if(IsVerbose)write(*,*) NameSub,' read header lines from ascii file'

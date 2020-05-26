@@ -3,7 +3,7 @@ program read_amr_test
   ! reconstruct AMR grid and populate data onto that grid
   use BATL_lib, ONLY: iProc, nProc, iComm, nI, nJ, nK, nDim, &
        init_mpi, clean_mpi, coord_to_xyz
-  use ModReadAmr, ONLY: nVar, CoordMin_D, CoordMax_D, &
+  use ModReadAmr, ONLY: nVar, CoordMin_D, CoordMax_D, State_VGB, &
        readamr_read, readamr_get, readamr_clean
   use ModConst, ONLY: cPi
   use ModUtilities, ONLY: CON_stop
@@ -19,7 +19,7 @@ program read_amr_test
   real :: Xyz_D(3), Coord_D(3), State_D(nDim), Cos2_D(nDim), Tolerance = 1e-6
   real, allocatable:: State_V(:), StateLocal_V(:)
   real, allocatable:: State_VIII(:,:,:,:), StateLocal_VIII(:,:,:,:)
-  integer:: i, j, k, iError
+  integer:: i, j, k, iError, iProcFound
   logical:: IsFound
   character(len=*), parameter:: NameCode='READAMRTEST'
   !----------------------------------------------------------------------------
@@ -29,16 +29,16 @@ program read_amr_test
   if(iProc==0)write(*,*) NameCode,' is starting with nI, nJ, nK=',nI, nJ, nK
 
   ! The tests are distinguished based on the configuration
-  if(nI==4.and.nJ==1.and.nK==1)then
+  if(nI==4 .and. nJ==1 .and. nK==1)then
      NameFIle = "data/1d__mhd_1_t00000010_n0000018.out"
      Tolerance=0.05
-  elseif(nI==4.and.nJ==4.and.nK==1)then
+  elseif(nI==4 .and. nJ==4 .and. nK==1)then
      NameFIle = "data/2d__mhd_1_t00000010_n0000042.out"
      Tolerance=0.05
-  elseif(nI==4.and.nJ==4.and.nK==4)then
+  elseif(nI==4 .and. nJ==4 .and. nK==4)then
      NameFIle = "data/3d__all_3_t00000010_n0000059.idl"
      Tolerance=0.05
-  elseif(nI==6.and.nJ==4.and.nK==4)then
+  elseif(nI==6 .and. nJ==4 .and. nK==4)then
      NameFIle = "data/3d__var_4_t00000000_n0000010.out"
      Tolerance=0.05
   else
@@ -149,4 +149,5 @@ program read_amr_test
 
 end program read_amr_test
 !=============================================================================
+
 include '../src/external_routines.f90'

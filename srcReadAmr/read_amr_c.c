@@ -22,6 +22,10 @@ int main()
   wrapamr_get_ndim(&nDim);
   printf("nDim= %i\n", nDim);
 
+  int nI, nJ, nK, nG;
+  wrapamr_get_block_size(&nI, &nJ, &nK, &nG);
+  printf("nI, nJ, nK, nG= %i, %i, %i, %i\n", nI, nJ, nK, nG);
+
   int nVar;
   wrapamr_get_nvar(&nVar);
   printf("nVar= %i\n", nVar);
@@ -44,7 +48,7 @@ int main()
   wrapamr_get_nameunit(NameUnit, &l);
   printf("length = %i NameUnit= %s\n", l, NameUnit);
 
-  // Get coordinate limits. Note that these have 3 elements
+  // Get coordinate limits. Note that these have nDim elements
   double CoordMin_D[nDim];
   double CoordMax_D[nDim];
   wrapamr_get_domain(CoordMin_D, CoordMax_D);
@@ -92,6 +96,11 @@ int main()
 
   wrapamr_get_data_cell(x_D, WeightState_V, CellSize_D, &iFound);
 
+  // Divide by the weight
+  for (i=1; i<nVar+1; i++){
+    WeightState_V[i] /= WeightState_V[0];
+  }
+  
   printf("WeightState_V=");
   for (i=0; i<nVar+1; i++){
     printf("%f ",WeightState_V[i]);
