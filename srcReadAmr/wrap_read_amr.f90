@@ -380,4 +380,4 @@ subroutine wrapamr_get_array_serial(nPoint, x_DI, State_VI) bind(C)
 
 end subroutine wrapamr_get_array_serial
 !=============================================================================
-include '../src/external_routines.f90'
+

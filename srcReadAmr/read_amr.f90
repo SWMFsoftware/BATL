@@ -150,4 +150,3 @@ program read_amr_test
 end program read_amr_test
 !=============================================================================
 
-include '../src/external_routines.f90'
