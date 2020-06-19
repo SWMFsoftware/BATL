@@ -424,7 +424,7 @@ contains
   subroutine readamr_get(Xyz_D, State_V, IsFound, CellSize_D)
 
     use BATL_lib, ONLY: nDim, nG, nIJK_D, iProc, Xyz_DGB, CellSize_DB, &
-         iTree_IA, Level_, MaxCoord_I, &
+         iTree_IA, Level_, MaxCoord_I, IsCartesianGrid, &
          interpolate_grid, interpolate_grid_amr, find_grid_block
 
     real,    intent(in)  :: Xyz_D(MaxDim)   ! location on grid
@@ -521,9 +521,13 @@ contains
 
     else
        ! Use interpolation algorithm that does not rely on ghost cells at all
-       call interpolate_grid_amr(Xyz_D, nCell, iCell_II, Weight_I)
-
-       !call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)
+       if(IsCartesianGrid)then
+          ! Failed test on spherical grid
+          call interpolate_grid_amr(Xyz_D, nCell, iCell_II, Weight_I)
+       else
+          ! Simple algorithm at resolution changes
+          call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)
+       end if
 
        if(DoDebug)write(*,*)NameSub,': interpolate iProc, nCell=',iProc, nCell
 
