@@ -425,7 +425,7 @@ contains
 
     use BATL_lib, ONLY: nDim, nG, nIJK_D, iProc, Xyz_DGB, CellSize_DB, &
          iTree_IA, Level_, MaxCoord_I, &
-         interpolate_grid, find_grid_block
+         interpolate_grid, interpolate_grid_amr, find_grid_block
 
     real,    intent(in)  :: Xyz_D(MaxDim)   ! location on grid
     real,    intent(out) :: State_V(0:nVar) ! weight and variables
@@ -521,7 +521,9 @@ contains
 
     else
        ! Use interpolation algorithm that does not rely on ghost cells at all
-       call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)
+       call interpolate_grid_amr(Xyz_D, nCell, iCell_II, Weight_I)
+
+       !call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)
 
        if(DoDebug)write(*,*)NameSub,': interpolate iProc, nCell=',iProc, nCell
 
@@ -541,7 +543,7 @@ contains
 
           if(DoDebug)write(*,*)NameSub, ': iProc,iBlock,i,j,k,Xyz,State=', &
                iProc, iBlock, i, j, k, &
-               Xyz_DGB(:,i,j,k,iBlock), State_VGB(0:nDim,i,j,k,iBlock)
+               Xyz_DGB(:,i,j,k,iBlock), State_VGB(:,i,j,k,iBlock)
        end do
     end if
 
