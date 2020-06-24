@@ -457,7 +457,7 @@ test_readamr_3d:
 	./Config.pl -mpi -single -g=4,4,4 -r=2,2,2 -ng=0
 	-@(make READAMR)
 	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_3d.ref)
-	-@(${DIFFNUM} -t -r=2e-6 \
+	-@(${DIFFNUM} -t -r=1e-5 \
 		run/readamr_3d.ref output/readamr_3d.ref > readamr_3d.diff)
 	ls -l readamr_3d.diff
 
