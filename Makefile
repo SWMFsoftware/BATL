@@ -433,7 +433,7 @@ test_readamr:
 	-@(make -j1 test_readamr_3d)
 	-@(make -j1 test_readamr_sph)
 	-@(make -j1 test_readamr_c)
-	-@(make -j1 test_readamr_py)
+	if [ ${COMPILER} == gfortran ]; then make -j1 test_readamr_py; fi
 	./Config.pl -mpi
 	ls -l readamr_*.diff
 
