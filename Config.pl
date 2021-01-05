@@ -43,10 +43,16 @@ foreach (@Arguments){
     warn "WARNING: Unknown flag $_\n" if $Remaining{$_};
 }
 
+# Figure out remote git server
+my $remote = `git config remote.origin.url`; $remote =~ s/\/BATL(\.git)?\n//;
+my $umichgitlab = ($remote =~ /gitlab\.umich\.edu/);
+
+#print "remote=$remote umichgitlab=$umichgitlab\n";
+
 # Get missing directories from git
 my $gitclone;
 $gitclone  = "sleep $Sleep; " if $Sleep;
-$gitclone .= "git clone git\@gitlab.umich.edu:swmf_software";
+$gitclone .= "git clone $remote";
 
 `$gitclone/share`       unless -d "share"; 
 `$gitclone/util`        unless -d "util";
