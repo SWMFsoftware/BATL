@@ -1,10 +1,11 @@
 from ctypes import byref, cdll, c_int, c_char_p, c_long
 from ctypes import POINTER, c_bool, c_double, create_string_buffer
 from numpy import array, float64, zeros
+import os
 
 class ReadBATL:
 
-    def __init__(self, libName="../lib/libWRAPAMR.so"):
+    def __init__(self, libName=os.getcwd()+"/../lib/libWRAPAMR.so"):
         self.lib = cdll.LoadLibrary(libName)
 
         ################################################################
