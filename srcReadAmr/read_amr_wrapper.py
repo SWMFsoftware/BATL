@@ -5,7 +5,10 @@ import os
 
 class ReadBATL:
 
-    def __init__(self, libName=os.getcwd()+"/../lib/libWRAPAMR.so"):
+    # The READAMR dynamic library libWRAPAMR.so is assumed to be
+    # in ../lib/ relative to the python script using read_amr_wrapper.p
+    def __init__(self, libName=os.path.dirname(os.path.realpath(__file__))
+                 + "/../lib/libWRAPAMR.so"):
         self.lib = cdll.LoadLibrary(libName)
 
         ################################################################
