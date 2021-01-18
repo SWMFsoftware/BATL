@@ -32,8 +32,7 @@ class ReadBATL:
 
         self.lib.wrapamr_get_array_serial.argtypes=[c_int,
                                                     POINTER(c_double),
-                                                    POINTER(c_double),
-                                                    POINTER(c_bool)]
+                                                    POINTER(c_double)]
 
         self.lib.wrapamr_init_mpi()
 
@@ -47,8 +46,9 @@ class ReadBATL:
     def domain_limits(self):
         minCoords = zeros(3,dtype=float64)
         maxCoords = zeros(3, dtype=float64)
-        self.lib.wrapamr_get_domain(minCoords.ctypes.data_as(POINTER(c_double)),
-                                    maxCoords.ctypes.data_as(POINTER(c_double)))
+        self.lib.wrapamr_get_domain(
+            minCoords.ctypes.data_as(POINTER(c_double)),
+            maxCoords.ctypes.data_as(POINTER(c_double)))
         return minCoords, maxCoords
 
     def get_nVar(self):
@@ -60,9 +60,10 @@ class ReadBATL:
         coords = array(coords, dtype=float64)
         isFound = c_bool(False)
         state_V = zeros(self.nVar, dtype=float64)
-        self.lib.wrapamr_get_data_serial(coords.ctypes.data_as(POINTER(c_double)),
-                                         state_V.ctypes.data_as(POINTER(c_double)),
-                                         byref(isFound))
+        self.lib.wrapamr_get_data_serial(
+            coords.ctypes.data_as(POINTER(c_double)),
+            state_V.ctypes.data_as(POINTER(c_double)),
+            byref(isFound))
         return state_V, isFound.value
 
     def get_data_array(self, X):
@@ -73,14 +74,14 @@ class ReadBATL:
         '''
         n = X.shape[0]
         X = array(X,dtype=float64)
-        isFound = c_bool(False)
         state_V = zeros((n, self.nVar), dtype=float64)
 
-        self.lib.wrapamr_get_array_serial(c_int(n),
-                                          X.ctypes.data_as(POINTER(c_double)),
-                                          state_V.ctypes.data_as(POINTER(c_double)),
-                                          byref(isFound))
-        return state_V, isFound
+        self.lib.wrapamr_get_array_serial(
+            c_int(n),
+            X.ctypes.data_as(POINTER(c_double)),
+            state_V.ctypes.data_as(POINTER(c_double)))
+
+        return state_V
 
     def clean(self):
         self.lib.wrapamr_clean()

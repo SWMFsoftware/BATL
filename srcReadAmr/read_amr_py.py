@@ -17,10 +17,6 @@ minDomain, maxDomain = batl.domain_limits()
 print("minDomain: ", minDomain)
 print("maxDomain: ", maxDomain)
 
-# limit coordinates to be well within the domain boundaries
-xMin = minDomain[0] * 0.95
-xMax = maxDomain[0] * 0.95
-
 # get number of variables, variable names and units from datafile.
 nVars = batl.get_nVar()
 print("nVars: ", nVars)
@@ -34,19 +30,25 @@ print("nVars: ", nVars)
 # get state variables at some location
 xyz = np.array([10.0, 10.0, 10.0])
 state, isFound = batl.get_data(xyz)
+#print(isFound)
 print(state)
 
-# Get multiple points
+# Get multiple points from the 3D domain
 nDim = 3
 nPoints = 10
+print("nPoints: ", nPoints)
 
-# Locations
-X = np.zeros((nPoints, nDim))
-xScan = np.linspace(xMin,xMax,nPoints)
-X[:,0] = xScan
+# Locations (end point is outside)
+xMin = minDomain[0] * 0.95
+xMax = maxDomain[0] * 1.05
+xyz = np.zeros((nPoints, nDim))
+xyz[:,0] = np.linspace(xMin,xMax,nPoints)
+print("xyz:")
+print(xyz)
 
-state, isFound = batl.get_data_array(X)
-#print(isFound)
-#print(state)
+# Get array of states. Points that are not found are set to zero state
+state = batl.get_data_array(xyz)
+print("state:")
+print(state)
 
 batl.clean()

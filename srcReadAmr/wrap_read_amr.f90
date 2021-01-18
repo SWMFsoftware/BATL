@@ -234,7 +234,7 @@ subroutine wrapamr_get_data(x_D, StateOut_V, iFound) bind(C)
   ! Get the interpolated values StateOut_V at the point XyzOut_V
   ! The first index of State_V is the interpolation weight, 
   ! so StateOut_V has nVar+1 elements.
-  ! For parallel execution, an MPI_SUM is needed and a division by total weight.
+  ! For parallel execution, MPI_SUM is needed and a division by total weight.
   ! iFound is set to 0 if point is not found (outside domain), 1 otherwise.
 
   use ModReadAmr, ONLY: nVar, readamr_get
