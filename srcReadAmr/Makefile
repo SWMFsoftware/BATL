@@ -34,15 +34,16 @@ EXE:    ${MY_EXE}
 
 ${MY_EXE}: LIB read_amr.o
 	${LINK.f90} -o ${MY_EXE} read_amr.o \
-		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${Lflag1}
+		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${LflagMpi}
 
 MY_EXE_C = ${BINDIR}/READAMR_C.exe
 
 EXE_C:  ${MY_EXE_C}
 
+# Link with the NOMPI library. 
 ${MY_EXE_C}: LIB read_amr_c.o
 	${LINK.f90} ${NOMAINFLAG} -o ${MY_EXE_C} read_amr_c.o \
-		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${Lflag1}
+		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${MPILIB}
 
 clean: cleanfiles
 
