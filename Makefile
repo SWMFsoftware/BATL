@@ -471,6 +471,7 @@ test_readamr_sph:
 
 test_readamr_c:
 	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
+	-@(make NOMPI)
 	-@(make READAMR_C)
 	-(cd run; ./READAMR_C.exe > readamr_c.ref)
 	-@(${DIFFNUM} -t -r=2e-6 -a=2e-5 \
