@@ -5,6 +5,7 @@ BATLRUN = ${PARALLEL} ${NPFLAG} 2
 
 help:
 	@echo "Available targets:"
+	@echo
 	@echo "help                  - this help message"
 	@echo "run                   - create run directory"
 	@echo "BATL                  - create bin/BATL.exe for unit tests"
