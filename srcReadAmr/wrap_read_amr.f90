@@ -53,7 +53,6 @@ subroutine wrapamr_read_header(NameFile_I, l, lVerbose) bind(C)
   call readamr_init(NameFile(1:i-1), IsVerbose=lVerbose==1_c_int)
 
 end subroutine wrapamr_read_header
-  
 !==============================================================================
 subroutine wrapamr_read_file(NameFile_I, l, lNewGrid, lVerbose) bind(C)
 
@@ -82,6 +81,37 @@ subroutine wrapamr_read_file(NameFile_I, l, lNewGrid, lVerbose) bind(C)
        IsNewGridIn = lNewGrid==1_c_int, IsVerboseIn=lVerbose==1_c_int)
 
 end subroutine wrapamr_read_file
+!==============================================================================
+subroutine wrapamr_read_file_partial( &
+     NameFile_I, l, lNewGrid, lVerbose, nVar, iVar_I) bind(C)
+
+  ! Read data from the file given by the C character array NameFile_I.
+  ! The maximum length of the file name is given by.
+  ! If lNewGrid == 1 then read all information, otherwise data only
+  ! If lVerbose == 1 then write out verbose information
+
+  use ModUtilities, ONLY: char_array_to_string
+  use ModReadAmr, ONLY:readamr_read
+
+  use iso_c_binding, ONLY: c_char, c_int
+
+  implicit none
+
+  character(c_char), intent(in):: NameFile_I(*)
+  integer(c_int), value, intent(in):: l
+  integer(c_int), value, intent(in):: lNewGrid
+  integer(c_int), value, intent(in):: lVerbose
+  integer(c_int), value, intent(in):: nVar
+  integer(c_int),        intent(in):: iVar_I(nVar)
+  
+  character(len=l):: NameFile
+  !----------------------------------------------------------------------------
+  call char_array_to_string(NameFile_I, NameFile)
+
+  call readamr_read(NameFile, iVarIn_I = iVar_I, &
+       IsNewGridIn = lNewGrid==1_c_int, IsVerboseIn=lVerbose==1_c_int)
+
+end subroutine wrapamr_read_file_partial
 !==============================================================================
 subroutine wrapamr_get_ndim(nDimOut) bind(C)
 
@@ -176,7 +206,6 @@ subroutine wrapamr_get_domain(CoordMinOut_D, CoordMaxOut_D) bind(C)
   CoordMaxOut_D = CoordMax_D(1:nDim)
 
 end subroutine wrapamr_get_domain
-
 !=============================================================================
 subroutine wrapamr_get_block(x_D, iProcFound, iBlock, iLevel, &
      State_VG, Xyz_DG, CoordMinBlock_D, CoordMaxBlock_D) bind(C)
@@ -323,9 +352,7 @@ subroutine wrapamr_get_data_serial(x_D, StateOut_V, iFound) bind(C)
   real   :: Xyz_D(MaxDim)
   logical:: IsFound
   !----------------------------------------------------------------------------
-
-  ! This copy converts real precision if needed
-  Xyz_D = 0.0
+  Xyz_D = 0.0  ! This copy converts real precision if needed
   Xyz_D(1:nDim) = x_D
   call readamr_get(Xyz_D, State_V, IsFound)
 
@@ -341,7 +368,6 @@ subroutine wrapamr_get_data_serial(x_D, StateOut_V, iFound) bind(C)
   end if
 
 end subroutine wrapamr_get_data_serial
-
 !=============================================================================
 subroutine wrapamr_get_array_serial(nPoint, x_DI, State_VI) bind(C)
 
@@ -365,9 +391,7 @@ subroutine wrapamr_get_array_serial(nPoint, x_DI, State_VI) bind(C)
   real   :: Xyz_D(MaxDim)
   logical:: IsFound
   !-------------------------------------------------------------------------
-
-  ! Initialize all coordinates
-  Xyz_D = 0.0
+  Xyz_D = 0.0  ! Initialize all coordinates
   do i = 1, nPoint
       Xyz_D(1:nDim) = x_DI(:,i)   
       call readamr_get(Xyz_D, State_V, IsFound)

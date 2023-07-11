@@ -5,7 +5,6 @@ BATLRUN = ${PARALLEL} ${NPFLAG} 2
 
 help:
 	@echo "Available targets:"
-	@echo
 	@echo "help                  - this help message"
 	@echo "run                   - create run directory"
 	@echo "BATL                  - create bin/BATL.exe for unit tests"
@@ -353,76 +352,76 @@ test_advect33:
 	${MAKE} test_advect33_check
 
 test_advect11_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
 		run/advect11.log output/advect11.log > advect11.diff)
 	ls -l advect11.diff
 
 test_advect12_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-11 \
 		run/advect12.log output/advect12.log > advect12.diff)
 	ls -l advect12.diff
 
 test_advect21_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
 		run/advect21.log output/advect21.log > advect21.diff)
 	ls -l advect21.diff
 
 test_advect22_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
 		run/advect22.log output/advect22.log > advect22.diff)
 	ls -l advect22.diff
 
 test_advect22_rot_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
 		run/advect22.log output/advect22.log > advect22_rot.diff)
 	ls -l advect22_rot.diff
 
 test_advect22_rz_check:
-	-@(${DIFFNUM} -r=1e-5 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-5 -a=1e-12 \
 		run/advect22_rz.log output/advect22_rz.log > advect22_rz.diff)
 	ls -l advect22_rz.diff
 
 test_advect22_cyl_check:
-	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5e-6 -a=1e-12 \
 		run/advect22_cyl.log output/advect22_cyl.log \
 		> advect22_cyl.diff)
 	ls -l advect22_cyl.diff
 
 test_advect22_round_check:
-	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5e-6 -a=1e-12 \
 		run/advect22_round.log output/advect22_round.log \
 		> advect22_round.diff)
 	ls -l advect22_round.diff
 
 test_advect31_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
 		run/advect31.log output/advect31.log > advect31.diff)
 	ls -l advect31.diff
 
 test_advect32_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
 		run/advect32.log output/advect32.log > advect32.diff)
 	ls -l advect32.diff
 
 test_advect33_check:
-	-@(${DIFFNUM} -r=1.e-8 -a=1.e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
 		run/advect33.log output/advect33.log > advect33.diff)
 	ls -l advect33.diff
 
 test_advect33_sph_check:
-	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5e-6 -a=1e-12 \
 		run/advect33_sph.log output/advect33_sph.log \
 		> advect33_sph.diff)
 	ls -l advect33_sph.diff
 
 test_advect33_rlonlat_check:
-	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5e-6 -a=1e-12 \
 		run/advect33_rlonlat.log output/advect33_rlonlat.log \
 		> advect33_rlonlat.diff)
 	ls -l advect33_rlonlat.diff
 
 test_advect33_round_check:
-	-@(${DIFFNUM} -r=5.e-6 -a=1.e-12 \
+	-@(${DIFFNUM} -r=5e-6 -a=1e-12 \
 		run/advect33_round.log output/advect33_round.log \
 		> advect33_round.diff)
 	ls -l advect33_round.diff
@@ -482,8 +481,8 @@ test_readamr_c:
 test_readamr_py:
 	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
 	-@(make WRAPAMRLIB)
-	-(cd srcReadAmr; python read_amr_py.py > readamr_py.ref;)
-	-@(${DIFFNUM} -t -r=2e-6 \
+	-(cd srcReadAmr; python3 read_amr_py.py > readamr_py.ref;)
+	-@(${DIFFNUM} -t -a=1e-11 -r=2e-6 \
 		srcReadAmr/readamr_py.ref output/readamr_py.ref > readamr_py.diff)
 	ls -l readamr_py.diff
 

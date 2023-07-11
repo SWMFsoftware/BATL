@@ -54,10 +54,12 @@ contains
   subroutine readamr_init(NameFile, IsVerbose)
 
     use ModIoUnit, ONLY: UnitTmp_
-    use BATL_lib,  ONLY: MaxDim, nDim, nIjk, nIjk_D, iProc, nProc, init_batl
+    use BATL_lib,  ONLY: MaxDim, nDim, nIjk, nIjk_D, iProc, nProc, iComm, &
+         init_batl
     use BATL_grid, ONLY: create_grid
     use BATL_tree, ONLY: read_tree_file, distribute_tree
-    use ModReadParam
+    use ModReadParam, ONLY: read_init, read_echo_set, read_file, &
+         read_line, read_command, read_var, lStringLine
 
     character(len=*), intent(in):: NameFile  ! base name
     logical,          intent(in):: IsVerbose ! provide verbose output
@@ -75,22 +77,34 @@ contains
     integer:: nIjkIn_D(MaxDim),  nRoot_D(nDim)
     logical:: IsPeriodic_D(MaxDim), IsExist
 
+    logical, parameter:: DoDebug = .false.
+    
     character (len=lStringLine) :: NameCommand, StringLine
 
     character(len=*), parameter:: NameSub = 'readamr_init'
     !-------------------------------------------------------------------------
+    if(DoDebug) &
+         write(*,*) NameSub,' starting on proc=', iProc, ' nProc=', nProc
+
     NameHeaderFile = trim(NameFile)//'.info'
     inquire(file=NameHeaderFile, exist=IsExist)
+
+    if(DoDebug) write(*,*) NameSub,' IsExist=', IsExist
     if(.not. IsExist) then
        NameHeaderFile = trim(NameFile)//'.h'
        inquire(file=NameHeaderFile, exist=IsExist)
     end if
+    if(DoDebug) write(*,*) NameSub,' IsExist=', IsExist
     if(.not. IsExist) call CON_stop(NameSub// &
          ' ERROR: could not open '//trim(NameFile)//'.h or .info')
 
-    call read_file(NameHeaderFile, IsVerbose=IsVerbose)
+    if(DoDebug) write(*,*) NameSub,' NameHeaderFile=', trim(NameHeaderFile)
+    call read_file(NameHeaderFile, iComm, IsVerbose=IsVerbose)
+    if(DoDebug) write(*,*) NameSub,' read file done'
     call read_echo_set(IsVerbose)
+    if(DoDebug) write(*,*) NameSub,' read_echo_set done'
     call read_init()
+    if(DoDebug) write(*,*) NameSub,' read_init done'
 
     READPARAM: do
        if(.not.read_line(StringLine) )then
@@ -378,7 +392,6 @@ contains
 
        i = iCell_D(1); j = iCell_D(2); k = iCell_D(3)
 
-       ! This check is just for safety
        if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > &
             1e-5*(abs(Xyz_DGB(:,i,j,k,iBlock)) + abs(Xyz_D))) )then
           write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
@@ -427,7 +440,8 @@ contains
 
     use BATL_lib, ONLY: nDim, nG, nIJK_D, iProc, Xyz_DGB, CellSize_DB, &
          iTree_IA, Level_, MaxCoord_I, IsCartesianGrid, &
-         interpolate_grid, interpolate_grid_amr, find_grid_block
+         interpolate_grid, interpolate_grid_amr, interpolate_grid_amr_gc, &
+         find_grid_block
 
     real,    intent(in)  :: Xyz_D(MaxDim)   ! location on grid
     real,    intent(out) :: State_V(0:nVar) ! weight and variables
@@ -525,7 +539,11 @@ contains
        ! Use interpolation algorithm that does not rely on ghost cells at all
        if(IsCartesianGrid)then
           ! Failed test on spherical grid
-          call interpolate_grid_amr(Xyz_D, nCell, iCell_II, Weight_I)
+          if(nG == 0)then
+             call interpolate_grid_amr(Xyz_D, nCell, iCell_II, Weight_I)
+          else
+             call interpolate_grid_amr_gc(Xyz_D, nCell, iCell_II, Weight_I)
+          end if
        else
           ! Simple algorithm at resolution changes
           call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)

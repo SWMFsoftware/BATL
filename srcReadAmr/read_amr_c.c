@@ -34,8 +34,14 @@ int main()
   // read data from file. 
   // the first integer should be larger than the length of the filename
   // the second integer is 1 to read in header and data, 0 for reading data only.
-  // the last integer is 1 for verbose, 0 otherwise
-  wrapamr_read_file("data/3d__all_3_t00000010_n0000059.idl",200,0,1);
+  // the third integer is 1 for verbose, 0 otherwise.
+  // the fourth integer is the number of variables to extract
+  // the last array are the indexes to extract starting from 1.
+  nVar = 3;
+  int iVar_I[nVar];
+  for (int i=0; i<nVar; i++){iVar_I[i] = i+4;}
+  wrapamr_read_file_partial("data/3d__all_3_t00000010_n0000059.idl",
+			    200, 0, 1, nVar, iVar_I);
 
   printf("read_amr_c read data file\n");
 
