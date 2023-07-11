@@ -378,13 +378,14 @@ contains
 
        i = iCell_D(1); j = iCell_D(2); k = iCell_D(3)
 
-       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-5*(CoordMax_D-CoordMin_D)))then
-          write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
-               iCell, i, j, k, iBlock, iProc
-          write(*,*)NameSub,' Xyz_D  =', Xyz_D
-          write(*,*)NameSub,' Xyz_DGB=', Xyz_DGB(:,i,j,k,iBlock)
-          call CON_stop(NameSub//': incorrect coordinates')
-       end if
+       ! This check  works for Cartesian grid only
+       !if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-5*(CoordMax_D-CoordMin_D)))then
+       !   write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
+       !        iCell, i, j, k, iBlock, iProc
+       !   write(*,*)NameSub,' Xyz_D  =', Xyz_D
+       !   write(*,*)NameSub,' Xyz_DGB=', Xyz_DGB(:,i,j,k,iBlock)
+       !   call CON_stop(NameSub//': incorrect coordinates')
+       !end if
 
        if(present(iVarIn_I))then
           State_VGB(:,i,j,k,iBlock) = State_V(iVarIn_I)
