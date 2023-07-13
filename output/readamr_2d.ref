@@ -1,7 +1,7 @@
  READAMRTEST is starting with nI, nJ, nK= 4 4 1
  READAMRTEST get variables 1,3 from data/2d__mhd_1_t00000010_n0000042.out
  readamr_read starting with IsNewGrid, UseCoordTest= T F
-ModReadParam::read_file: read and broadcast nLine=  57 lines of text
+read_file: read and broadcast nLine=  57 lines of text
 
 #HEADFILE
 GM/IO2/2d__mhd_1_t00000010_n00000042.h		HeadFileName
@@ -66,7 +66,7 @@ ascii		TypeFormat
  readamr_read read data
  readamr_read done
  READAMRTEST at Xyz_D= -38.3999999999999986 -12.0000000000000000  -0.3000000000000000
- READAMRTEST  State_V=   0.9999999999999991   0.9999998269244990  -1.1357004430969987E-07
+ READAMRTEST  State_V=   1.0000000000000000   0.9999998269245001  -1.1357004430970000E-07
  READAMRTEST reread data and do verification test
  readamr_read starting with IsNewGrid, UseCoordTest= F T
  readamr_read TypeDataFile=ascii

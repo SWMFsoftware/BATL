@@ -1,5 +1,5 @@
-!  Copyright (C) 2002 Regents of the University of Michigan, 
-!  portions used with permission 
+!  Copyright (C) 2002 Regents of the University of Michigan,
+!  portions used with permission
 !  For more information, see http://csem.engin.umich.edu/tools/swmf
 module ModReadAmr
 
@@ -12,9 +12,9 @@ module ModReadAmr
   implicit none
   save
 
-  private !except
+  private ! except
 
-  ! Public methods 
+  ! Public methods
   public:: readamr_init   ! read header information
   public:: readamr_read   ! read AMR data
   public:: readamr_get    ! get data at some point
@@ -31,7 +31,7 @@ module ModReadAmr
 
   real,    public:: TimeData = -1.0        ! simulation time of data
   integer, public:: nStepData = 0          ! time step of data
-  integer, public:: nVarData = 0           ! number of variables in data file 
+  integer, public:: nVarData = 0           ! number of variables in data file
   integer, public:: nBlockData = 0         ! number of blocks in data file
 
   integer, public:: nParamData = 0         ! number of parameters in data file
@@ -78,11 +78,11 @@ contains
     logical:: IsPeriodic_D(MaxDim), IsExist
 
     logical, parameter:: DoDebug = .false.
-    
+
     character (len=lStringLine) :: NameCommand, StringLine
 
     character(len=*), parameter:: NameSub = 'readamr_init'
-    !-------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     if(DoDebug) &
          write(*,*) NameSub,' starting on proc=', iProc, ' nProc=', nProc
 
@@ -317,7 +317,7 @@ contains
        if(allocated(State_VGB)) deallocate(State_VGB)
        allocate(&
             State_VGB(nVar,MinI:MaxI,MinJ:MaxJ,MinK:MaxK,MaxBlock))
-       !if(IsVerbose)write(*,*) NameSub,' allocated State_VGB(', &
+       ! if(IsVerbose)write(*,*) NameSub,' allocated State_VGB(', &
        !     nVar,',',MinI,':',MaxI,',',MinJ,':',MaxJ,',',MinK,':',MaxK, &
        !     ',',MaxBlock,')'
 
@@ -333,7 +333,7 @@ contains
        open(UnitTmp_, file=NameFile, status='old', iostat=iError)
        if(iError /= 0) call CON_stop(NameSub// &
             ' ERROR: could not open ascii file '//trim(NameFile))
-       ! Read and discard 4 (nParamData==0) or 5 header lines 
+       ! Read and discard 4 (nParamData==0) or 5 header lines
        do i = 1, 4 + min(nParamData, 1)
           read(UnitTmp_,*) StringTmp
        end do
@@ -387,13 +387,12 @@ contains
           call CON_stop(NameSub//': could not find cell on the grid')
        end if
 
-       !check if point belongs on this processor
+       ! check if point belongs on this processor
        if (iProcFound /= iProc) CYCLE
 
        i = iCell_D(1); j = iCell_D(2); k = iCell_D(3)
 
-       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > &
-            1e-5*(abs(Xyz_DGB(:,i,j,k,iBlock)) + abs(Xyz_D))) )then
+       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-5))then
           write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
                iCell, i, j, k, iBlock, iProc
           write(*,*)NameSub,' Xyz_D  =', Xyz_D
@@ -423,7 +422,7 @@ contains
 
     ! deallocate to save memory
     deallocate(State_V, State4_V, State8_V)
-    if(allocated(State_VI)) deallocate (State_VI, Xyz_DI) 
+    if(allocated(State_VI)) deallocate (State_VI, Xyz_DI)
 
     ! Set ghost cells if any. Note that OUTER ghost cells are not set!
     if(nG > 0) call message_pass_cell(nVar, State_VGB)
@@ -434,7 +433,6 @@ contains
     endif
 
   end subroutine readamr_read
-
   !============================================================================
   subroutine readamr_get(Xyz_D, State_V, IsFound, CellSize_D)
 
@@ -462,13 +460,15 @@ contains
 
     logical, parameter:: DoDebug = .false.
 
-    character(len=*), parameter:: NameSub='readamr_get'
-    !-------------------------------------------------------------------------
+    character(len=*), parameter:: NameSub = 'readamr_get'
+    !--------------------------------------------------------------------------
     if(DoDebug)write(*,*)NameSub,' starting with Xyz_D=', Xyz_D
 
     State_V = 0.0
 
-    call find_grid_block(Xyz_D, iProcOut, iBlock, iCell_D, Dist_D, iNode)
+    ! Pass UseGhostCell=.true. so that iCell_D is to the _left_ of Xyz_D
+    call find_grid_block(Xyz_D, iProcOut, iBlock, iCell_D, Dist_D, iNode, &
+         UseGhostCell=.true.)
     if(DoDebug)write(*,*)NameSub,&
          ' found iProcOut, iBlock, iNode, iCell_D, Dist_D=', &
          iProcOut, iBlock, iNode, iCell_D, Dist_D
@@ -536,7 +536,6 @@ contains
        end if
 
     else
-       ! Use interpolation algorithm that does not rely on ghost cells at all
        if(IsCartesianGrid)then
           ! Failed test on spherical grid
           if(nG == 0)then
@@ -549,7 +548,8 @@ contains
           call interpolate_grid(Xyz_D, nCell, iCell_II, Weight_I)
        end if
 
-       if(DoDebug)write(*,*)NameSub,': interpolate iProc, nCell=',iProc, nCell
+       if(DoDebug)write(*,*)NameSub,': interpolate iProc, nCell, Weight_I=', &
+            iProc, nCell, Weight_I(1:nCell)
 
        do iCell = 1, nCell
           iBlock  = iCell_II(0,iCell)
@@ -561,8 +561,8 @@ contains
           if(DoDebug)write(*,*)NameSub,': iProc,iBlock,i,j,k,=',&
                iProc, iBlock, i, j, k
 
-          State_V(0) = State_V(0)  + Weight_I(iCell)
-          State_V(1:nVar) = State_V(1:nVar) &
+          State_V(0) = State_V(0)  + Weight_I(iCell) ! Total weight
+          State_V(1:nVar) = State_V(1:nVar) &        ! Interpolation
                + Weight_I(iCell)*State_VGB(:,i,j,k,iBlock)
 
           if(DoDebug)write(*,*)NameSub, ': iProc,iBlock,i,j,k,Xyz,State=', &
@@ -578,6 +578,7 @@ contains
   subroutine readamr_clean
     use BATL_lib, ONLY: clean_batl
 
+    !--------------------------------------------------------------------------
     call clean_batl
     if(allocated(State_VGB)) deallocate(State_VGB)
     if(allocated(ParamData_I)) deallocate(ParamData_I)
@@ -586,6 +587,7 @@ contains
     nBlockData = 0
 
   end subroutine readamr_clean
-
+  !============================================================================
 end module ModReadAmr
+!==============================================================================
 

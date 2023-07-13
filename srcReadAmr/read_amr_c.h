@@ -2,6 +2,7 @@ void wrapamr_init_mpi();
 void wrapamr_clean();
 void wrapamr_read_header(char*, int, int);
 void wrapamr_read_file(char*, int, int, int);
+void wrapamr_read_file_partial(char*, int, int, int, int, int*);
 void wrapamr_get_ndim(int*);
 void wrapamr_get_block_size(int*, int*, int*, int*);
 void wrapamr_get_nvar(int*);

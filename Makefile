@@ -438,52 +438,65 @@ test_readamr:
 	ls -l readamr_*.diff
 
 test_readamr_1d:
+	echo "test_readamr_1d_compile" > readamr_1d.diff
 	./Config.pl -mpi -double -g=4,1,1 -r=2,1,1 -ng=0
-	-@(make READAMR)
-	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_1d.ref)
+	@(make READAMR)
+	echo "test_readamr_1d_run" >> readamr_1d.diff
+	(cd run; ${MPIRUN} ./READAMR.exe > readamr_1d.ref)
 	-@(${DIFFNUM} -t \
 		run/readamr_1d.ref output/readamr_1d.ref > readamr_1d.diff)
 	ls -l readamr_1d.diff
 
 test_readamr_2d:
+	echo "test_readamr_2d_compile" > readamr_2d.diff
 	./Config.pl -mpi -double -g=4,4,1 -r=2,2,1 -ng=0
-	-@(make READAMR)
-	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_2d.ref)
+	@(make READAMR)
+	echo "test_readamr_2d_run" >> readamr_2d.diff
+	(cd run; ${MPIRUN} ./READAMR.exe > readamr_2d.ref)
 	-@(${DIFFNUM} -t \
 		run/readamr_2d.ref output/readamr_2d.ref > readamr_2d.diff)
 	ls -l readamr_2d.diff
 
 test_readamr_3d:
+	echo "test_readamr_3d_compile" > readamr_3d.diff
 	./Config.pl -mpi -single -g=4,4,4 -r=2,2,2 -ng=0
-	-@(make READAMR)
-	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_3d.ref)
+	@(make READAMR)
+	echo "test_readamr_3d_run" >> readamr_3d.diff
+	(cd run; ${MPIRUN} ./READAMR.exe > readamr_3d.ref)
 	-@(${DIFFNUM} -t -r=1e-5 \
 		run/readamr_3d.ref output/readamr_3d.ref > readamr_3d.diff)
 	ls -l readamr_3d.diff
 
 test_readamr_sph:
+	echo "test_readamr_sph_compile" > readamr_sph.diff
 	./Config.pl -mpi -double -g=6,4,4 -r=2,2,2 -ng=0
-	-@(make READAMR)
-	-(cd run; ${MPIRUN} ./READAMR.exe > readamr_sph.ref)
+	@(make READAMR)
+	echo "test_readamr_sph_run" >> readamr_sph.diff
+	(cd run; ${MPIRUN} ./READAMR.exe > readamr_sph.ref)
 	-@(${DIFFNUM} -t \
 		run/readamr_sph.ref output/readamr_sph.ref > readamr_sph.diff)
 	ls -l readamr_sph.diff
 
 test_readamr_c:
+	echo "test_readamr_c_compile" > readamr_c.diff
 	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
-	-@(make NOMPI)
-	-@(make READAMR_C)
-	-(cd run; ./READAMR_C.exe > readamr_c.ref)
+	@(make NOMPI)
+	@(make READAMR_C)
+	echo "test_readamr_c_run" >> readamr_c.diff
+	(cd run; ./READAMR_C.exe > readamr_c.ref)
 	-@(${DIFFNUM} -t -r=2e-6 -a=2e-5 \
 		run/readamr_c.ref output/readamr_c.ref > readamr_c.diff)
 	ls -l readamr_c.diff
 
 test_readamr_py:
+	echo "test_readamr_py_compile" > readamr_py.diff
 	./Config.pl -nompi -single -g=4,4,4 -r=2,2,2 -ng=0
-	-@(make WRAPAMRLIB)
-	-(cd srcReadAmr; python3 read_amr_py.py > readamr_py.ref;)
+	@(make WRAPAMRLIB)
+	echo "test_readamr_py_run" >> readamr_py.diff
+	(cd srcReadAmr; python3 read_amr_py.py > readamr_py.ref;)
 	-@(${DIFFNUM} -t -a=1e-11 -r=2e-6 \
-		srcReadAmr/readamr_py.ref output/readamr_py.ref > readamr_py.diff)
+		srcReadAmr/readamr_py.ref output/readamr_py.ref \
+		> readamr_py.diff)
 	ls -l readamr_py.diff
 
 clean:

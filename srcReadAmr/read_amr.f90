@@ -10,7 +10,7 @@ program read_amr_test
   use ModMpi, ONLY: MPI_REAL, MPI_SUM, MPI_allreduce
 
   implicit none
-  
+
   ! File name
   character(len=100) :: NameFile
 
@@ -47,7 +47,7 @@ program read_amr_test
 
   if(iProc==0) write(*,*) NameCode, &
        ' get variables 1,3 from ', trim(NameFile)
-  call readamr_read(NameFile, iVarIn_I=(/1,3/), IsVerboseIn = iProc==0)
+  call readamr_read(NameFile, iVarIn_I=[1,3], IsVerboseIn = iProc==0)
 
   ! Select a point inside the domain
   Coord_D = CoordMin_D + 0.2*(CoordMax_D - CoordMin_D)
@@ -67,7 +67,7 @@ program read_amr_test
           MPI_REAL, MPI_SUM, iComm, iError)
      deallocate(StateLocal_V)
   end if
-  
+
   if(iProc==0)then
      write(*,*) NameCode,' at Xyz_D=', Xyz_D
      write(*,*) NameCode,'  State_V=', State_V
@@ -90,7 +90,7 @@ program read_amr_test
   do k = 0, n; do j=0, n; do i = 0, n
      ! Make a uniform grid in the generalized coordinate space
      Coord_D = CoordMin_D + (CoordMax_D - CoordMin_D) &
-          *(1e-6 + (/i,j,k/))/(2e-6 + n)
+          *(1e-6 + [i,j,k])/(2e-6 + n)
      call coord_to_xyz(Coord_D, Xyz_D)
 
      ! Get the point value
@@ -100,7 +100,7 @@ program read_amr_test
         write(*,*) NameCode,' ERROR: could not find point at i,j,k=',i,j,k
         write(*,*) NameCode,' CoordMin_D  = ', CoordMin_D
         write(*,*) NameCode,' CoordMax_D  = ', CoordMax_D
-        write(*,*) NameCode,' Coord_D     = ', Coord_D   
+        write(*,*) NameCode,' Coord_D     = ', Coord_D
         write(*,*) NameCode,' Xyz_D       = ', Xyz_D
      end if
   end do; end do; end do
@@ -115,7 +115,7 @@ program read_amr_test
   end if
 
   if(iProc==0)write(*,*) NameCode,' check state on (n+1)^3 grid. n=', n
-  
+
   do k = 0, n; do j=0, n; do i = 0, n
      ! Note the division by the total weight. Usually it is 1.0 but
      ! it can be different at the outer boundaries
@@ -123,7 +123,7 @@ program read_amr_test
      State_D = State_VIII(1:nDim,i,j,k)/State_VIII(0,i,j,k)
 
      ! The stored function is cos^2 of normalized coordinate
-     Coord_D = (1e-6 + (/i,j,k/))/(2e-6 + n)
+     Coord_D = (1e-6 + [i,j,k])/(2e-6 + n)
      Cos2_D = cos(cPi*Coord_D(1:nDim))**2
 
      if(any(abs(Cos2_D - State_D) > Tolerance))then
@@ -148,5 +148,4 @@ program read_amr_test
   call clean_mpi
 
 end program read_amr_test
-!=============================================================================
-
+!==============================================================================
