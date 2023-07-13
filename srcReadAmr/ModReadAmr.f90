@@ -392,7 +392,8 @@ contains
 
        i = iCell_D(1); j = iCell_D(2); k = iCell_D(3)
 
-       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > 1e-5))then
+       if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > &
+            1e-5*(abs(Xyz_DGB(:,i,j,k,iBlock)) + abs(Xyz_D))) )then
           write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
                iCell, i, j, k, iBlock, iProc
           write(*,*)NameSub,' Xyz_D  =', Xyz_D
