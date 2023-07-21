@@ -426,7 +426,7 @@ contains
     if(allocated(State_VI)) deallocate (State_VI, Xyz_DI)
 
     ! Set ghost cells if any. Note that OUTER ghost cells are not set!
-    if(nG > 0) call message_pass_cell(nVar, State_VGB)
+    if(nG > 0) call message_pass_cell(nVar, State_VGB, nProlongorderIn=1)
 
     if(IsVerbose)then
        write(*,*)NameSub,' done'
