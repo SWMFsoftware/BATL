@@ -393,7 +393,7 @@ contains
        i = iCell_D(1); j = iCell_D(2); k = iCell_D(3)
 
        if(any(abs(Xyz_DGB(:,i,j,k,iBlock) - Xyz_D) > &
-            1e-5*(abs(Xyz_DGB(:,i,j,k,iBlock)) + abs(Xyz_D))) )then
+            1e-5*(abs(Xyz_DGB(:,i,j,k,iBlock)) + abs(Xyz_D))))then
           write(*,*)NameSub,' ERROR at iCell,i,j,k,iBlock,iProc=', &
                iCell, i, j, k, iBlock, iProc
           write(*,*)NameSub,' Xyz_D  =', Xyz_D
@@ -426,7 +426,7 @@ contains
     if(allocated(State_VI)) deallocate (State_VI, Xyz_DI)
 
     ! Set ghost cells if any. Note that OUTER ghost cells are not set!
-    if(nG > 0) call message_pass_cell(nVar, State_VGB, nProlongorderIn=1)
+    if(nG > 0) call message_pass_cell(nVar, State_VGB)
 
     if(IsVerbose)then
        write(*,*)NameSub,' done'
