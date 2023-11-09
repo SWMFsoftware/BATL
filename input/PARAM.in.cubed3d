@@ -22,8 +22,8 @@ T		IsNodeBasedGrid
 
 #PERIODIC
 F		IsPeriod1
-T		IsPeriod2
-T		IsPeriod3
+F		IsPeriod2
+F		IsPeriod3
 
 #BLOB
 3.0		Radius
