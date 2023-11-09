@@ -1,0 +1,46 @@
+#GRIDGEOMETRY
+cubedsphere	TypeGeometry
+
+#GRIDTYPE
+T		IsNodeBasedGrid
+
+#VELOCITY
+0.2		Ux
+6.0		Uy
+0.4		Uz
+
+#GRID
+3		nRootX
+3		nRootY
+3		nRootZ
+1.0		rMin
+10.0		xMax
+-45.0		LonMin
+ 45.0		LonMax
+-45.0		LatMin
+ 45.0		LatMax
+
+#PERIODIC
+F		IsPeriod1
+T		IsPeriod2
+T		IsPeriod3
+
+#BLOB
+3.0		Radius
+5.0		xCenter
+0.0		yCenter
+0.0		zCenter
+
+#STOP
+1.0		TimeMax
+
+#SAVEPLOT
+0.1		DtPlot
+
+AMR
+1		MaxLevel
+
+#SCHEME
+2		nOrder
+1.5		BetaLimiter
+F		DoLimitVolumeState

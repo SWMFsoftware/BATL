@@ -43,6 +43,7 @@ help:
 	@echo "test_advect33_sph     - run 3D advection test with spherical geometry"
 	@echo "test_advect33_rlonlat - run 3D advection test with R-Lon-Lat geometry"
 	@echo "test_advect33_round   - run 3D advection test with round-cube geometry"
+	@echo "test_advect33_cubed   - run 3D advection test with cubed-sphere geometry"
 	@echo "test_readamr_1d       - run 1D READAMR test"
 	@echo "test_readamr_2d       - run 2D READAMR test"
 	@echo "test_readamr_3d       - run 3D READAMR test"
@@ -223,6 +224,7 @@ test_advect:
 	-@(${MAKE} test_advect33_sph)
 	-@(${MAKE} test_advect33_rlonlat)
 	-@(${MAKE} test_advect33_round)
+	-@(${MAKE} test_advect33_cubed)
 	ls -l advect??*.diff
 
 test_advect11:
@@ -323,6 +325,15 @@ test_advect33_round:
 	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
 		   mv advect.log advect33_round.log)
 	${MAKE} test_advect33_round_check
+
+test_advect33_cubed: 
+	./Config.pl -mpi -double -g=4,4,4 -r=2,2,2 -ng=2
+	-@(${MAKE} ADVECT PIDL)
+	rm -rf run/plots/* run/runlog run/cubed33_cubed.log
+	rm -f input/PARAM.in; cp input/PARAM.in.cubed3d run/PARAM.in
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
+		   mv advect.log advect33_cubed.log)
+	${MAKE} test_advect33_cubed_check
 
 test_advect31: 
 	./Config.pl -mpi -double -g=4,4,4 -r=2,1,1 -ng=2
@@ -425,6 +436,12 @@ test_advect33_round_check:
 		run/advect33_round.log output/advect33_round.log \
 		> advect33_round.diff)
 	ls -l advect33_round.diff
+
+test_advect33_cubed_check:
+	-@(${DIFFNUM} -r=5e-6 -a=1e-12 \
+		run/advect33_cubed.log output/advect33_cubed.log \
+		> advect33_cubed.diff)
+	ls -l advect33_cubed.diff
 
 test_readamr: 
 	rm -f readamr_*.diff
