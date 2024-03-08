@@ -23,33 +23,34 @@ help:
 	@echo "test_readamr          - run READAMR tests with READAMR.exe"
 	@echo "test11                - run 1D unit test"
 	@echo "test11 BLESS=YES      - update test11 reference solution"
-	@echo "test12                - run 2D unit test with AMR in 2nd dimension"
-	@echo "test21                - run 2D unit test with AMR in 1st dimension"
-	@echo "test22                - run 2D unit test with AMR in all dimensions"
-	@echo "test31                - run 3D unit test with AMR in 1st dimension"
-	@echo "test32                - run 3D unit test with AMR in 1&2 dimensions"
-	@echo "test33                - run 3D unit test with AMR in all dimensions"
-	@echo "test_advect11         - run 1D advection test"
-	@echo "test_advect12         - run 2D advection test with AMR in 2nd dimension"
-	@echo "test_advect21         - run 2D advection test with AMR in 1st dimension"
-	@echo "test_advect22         - run 2D advection test with AMR in all dimensions"
-	@echo "test_advect22_rot     - run 2D advection test with rotated Cartesian grid"
-	@echo "test_advect22_rz      - run 2D advection test with R-Z geometry"
-	@echo "test_advect22_cyl     - run 2D advection test with cylindrical geometry"
-	@echo "test_advect22_round   - run 2D advection test with round-cube geometry"
-	@echo "test_advect31         - run 3D advection test with AMR in 1st dimension"
-	@echo "test_advect32         - run 3D advection test with AMR in 1&2 dimension"
-	@echo "test_advect33         - run 3D advection test with AMR in all dimensions"
-	@echo "test_advect33_sph     - run 3D advection test with spherical geometry"
-	@echo "test_advect33_rlonlat - run 3D advection test with R-Lon-Lat geometry"
-	@echo "test_advect33_round   - run 3D advection test with round-cube geometry"
-	@echo "test_advect33_cubed   - run 3D advection test with cubed-sphere geometry"
-	@echo "test_readamr_1d       - run 1D READAMR test"
-	@echo "test_readamr_2d       - run 2D READAMR test"
-	@echo "test_readamr_3d       - run 3D READAMR test"
-	@echo "test_readamr_sph      - run 3D READAMR test with spherical grid"
-	@echo "test_readamr_c        - run READAMR test with C wrapper"
-	@echo "test_readamr_py       - run READAMR test with Python wrapper"
+	@echo "test12                - 2D unit test with AMR in 2nd dimension"
+	@echo "test21                - 2D unit test with AMR in 1st dimension"
+	@echo "test22                - 2D unit test with AMR in all dimensions"
+	@echo "test31                - 3D unit test with AMR in 1st dimension"
+	@echo "test32                - 3D unit test with AMR in 1&2 dimensions"
+	@echo "test33                - 3D unit test with AMR in all dimensions"
+	@echo "test_advect11         - 1D advection test"
+	@echo "test_advect12         - 2D advection test with AMR in 2nd dimension"
+	@echo "test_advect21         - 2D advection test with AMR in 1st dimension"
+	@echo "test_advect22         - 2D advection test with AMR in all dimensions"
+	@echo "test_advect22_rot     - 2D advection test with rotated Cartesian grid"
+	@echo "test_advect22_rz      - 2D advection test with R-Z geometry"
+	@echo "test_advect22_cyl     - 2D advection test with cylindrical geometry"
+	@echo "test_advect22_round   - 2D advection test with round-cube geometry"
+	@echo "test_advect31         - 3D advection test with AMR in 1st dimension"
+	@echo "test_advect32         - 3D advection test with AMR in 1&2 dimension"
+	@echo "test_advect33         - 3D advection test with AMR in all dimensions"
+	@echo "test_advect33_sph     - 3D advection test with spherical geometry"
+	@echo "test_advect33_rlonlat - 3D advection test with R-Lon-Lat geometry"
+	@echo "test_advect33_round   - 3D advection test with round-cube geometry"
+	@echo "test_advect33_cubed   - 3D advection test with cubed-sphere geometry"
+	@echo "test_readamr_1d       - 1D READAMR test"
+	@echo "test_readamr_2d       - 2D READAMR test"
+	@echo "test_readamr_3d       - 3D READAMR test"
+	@echo "test_readamr_sph      - 3D READAMR test with logarithmic spherical grid"
+	@echo "test_readamr_sphgenr  - 3D READAMR test with stretched spherical grid"
+	@echo "test_readamr_c        - READAMR test with C wrapper"
+	@echo "test_readamr_py       - READAMR test with Python wrapper"
 
 install:
 	mkdir -p lib bin
@@ -449,6 +450,7 @@ test_readamr:
 	-@(make -j1 test_readamr_2d)
 	-@(make -j1 test_readamr_3d)
 	-@(make -j1 test_readamr_sph)
+	-@(make -j1 test_readamr_sphgenr)
 	-@(make -j1 test_readamr_c)
 	if [ ${COMPILER} == gfortran ]; then make -j1 test_readamr_py; fi
 	./Config.pl -mpi
@@ -493,6 +495,17 @@ test_readamr_sph:
 	-@(${DIFFNUM} -t \
 		run/readamr_sph.ref output/readamr_sph.ref > readamr_sph.diff)
 	ls -l readamr_sph.diff
+
+test_readamr_sphgenr:
+	echo "test_readamr_sphgenr_compile" > readamr_sphgenr.diff
+	./Config.pl -mpi -double -g=6,4,4 -r=2,2,2 -ng=2
+	@(make READAMR)
+	echo "test_readamr_sphgrenr_run" >> readamr_sphgenr.diff
+	(cd run; ${MPIRUN} ./READAMR.exe > readamr_sphgenr.ref)
+	-@(${DIFFNUM} -t \
+		run/readamr_sphgenr.ref output/readamr_sphgenr.ref \
+		> readamr_sphgenr.diff)
+	ls -l readamr_sphgenr.diff
 
 test_readamr_c:
 	echo "test_readamr_c_compile" > readamr_c.diff
