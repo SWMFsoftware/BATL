@@ -1,9 +1,9 @@
 program read_amr_test
 
   ! reconstruct AMR grid and populate data onto that grid
-  use BATL_lib, ONLY: iProc, nProc, iComm, nI, nJ, nK, nDim, &
+  use BATL_lib, ONLY: iProc, nProc, iComm, nI, nJ, nK, nG, nDim, &
        init_mpi, clean_mpi, coord_to_xyz
-  use ModReadAmr, ONLY: nVar, CoordMin_D, CoordMax_D, State_VGB, &
+  use ModReadAmr, ONLY: nVar, CoordMin_D, CoordMax_D, &
        readamr_read, readamr_get, readamr_clean
   use ModConst, ONLY: cPi
   use ModUtilities, ONLY: CON_stop
@@ -38,8 +38,11 @@ program read_amr_test
   elseif(nI==4 .and. nJ==4 .and. nK==4)then
      NameFile = "data/3d__all_3_t00000010_n0000059.idl"
      Tolerance=0.05
-  elseif(nI==6 .and. nJ==4 .and. nK==4)then
+  elseif(nI==6 .and. nJ==4 .and. nK==4 .and. nG==0)then
      NameFile = "data/3d__var_4_t00000000_n0000010.out"
+     Tolerance=0.05
+  elseif(nI==6 .and. nJ==4 .and. nK==4 .and. nG==2)then
+     NameFile = "data/3d__var_1_n00000005.out"
      Tolerance=0.05
   else
      call CON_stop(' there is no test input for this block size')
@@ -51,6 +54,7 @@ program read_amr_test
 
   ! Select a point inside the domain
   Coord_D = CoordMin_D + 0.2*(CoordMax_D - CoordMin_D)
+  if(iProc==0) write(*,*) 'Coord_D = ', Coord_D
   call coord_to_xyz(Coord_D, Xyz_D)
 
   ! Allocate state array. Zero index is needed for interpolation weight!
