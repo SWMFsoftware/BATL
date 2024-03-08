@@ -53,7 +53,6 @@ contains
   !============================================================================
   subroutine readamr_init(NameFile, IsVerbose)
 
-    use ModIoUnit, ONLY: UnitTmp_
     use BATL_lib,  ONLY: MaxDim, nDim, nIjk, nIjk_D, iProc, nProc, iComm, &
          init_batl
     use BATL_grid, ONLY: create_grid
@@ -64,13 +63,13 @@ contains
     character(len=*), intent(in):: NameFile  ! base name
     logical,          intent(in):: IsVerbose ! provide verbose output
 
-    integer:: i, iDim, iError, nDimSim
+    integer:: i, nDimSim
 
     character(len=500):: NameFileOrig, NameHeaderFile
 
     integer:: MaxBlock
     integer:: nRgen=0
-    real, allocatable:: Rgen_I(:)
+    real, allocatable:: LogRgen_I(:)
 
     real:: CellSizePlot_D(MaxDim), CellSizeMin_D(MaxDim)
 
@@ -178,13 +177,14 @@ contains
        case('#GRIDGEOMETRYLIMIT')
           call read_var('TypeGeometry', TypeGeometry)
           if(index(TypeGeometry,'genr') > 0)then
-             read(*,*) nRgen
-             allocate(Rgen_I(nRgen))
+             call read_var('nRgen', nRgen)
+             allocate(LogRgen_I(nRgen))
              do i = 1, nRgen
-                read(*,*) Rgen_I(i)
+                call read_var('LogRgen', LogRgen_I(i))
              end do
           else
-             allocate(Rgen_I(1))
+             allocate(LogRgen_I(1))
+             LogRgen_I = 0.0
           end if
 
        case('#PERIODIC')
@@ -222,7 +222,7 @@ contains
     end if
 
     call init_batl(CoordMin_D, CoordMax_D, MaxBlock, &
-         TypeGeometryBatl, rGenIn_I=rGen_I, nRootIn_D=nRoot_D, &
+         TypeGeometryBatl, rGenIn_I=exp(LogRgen_I), nRootIn_D=nRoot_D, &
          IsPeriodicIn_D=IsPeriodic_D, &
          UseRadiusIn=.false., UseDegreeIn=.false.)
 
@@ -231,7 +231,7 @@ contains
     call distribute_tree(.true.)
     call create_grid
 
-    deallocate(Rgen_I)
+    deallocate(LogRgen_I)
 
   end subroutine readamr_init
   !============================================================================
@@ -241,7 +241,7 @@ contains
     use ModKind,  ONLY: Real4_, Real8_
     use BATL_lib, ONLY: nDim, &
          MinI, MaxI, MinJ, MaxJ, MinK, MaxK, MaxBlock, nG, iProc, Xyz_DGB, &
-         find_grid_block, message_pass_cell, xyz_to_coord
+         CoordMin_DB, CoordMax_DB, find_grid_block, message_pass_cell, xyz_to_coord
     use ModPlotFile, ONLY: read_plot_file
     use ModIoUnit,   ONLY: UnitTmp_
     use ModConst,    ONLY: cPi
@@ -398,6 +398,10 @@ contains
                iCell, i, j, k, iBlock, iProc
           write(*,*)NameSub,' Xyz_D  =', Xyz_D
           write(*,*)NameSub,' Xyz_DGB=', Xyz_DGB(:,i,j,k,iBlock)
+          call xyz_to_coord(Xyz_D, Coord_D)
+          write(*,*)NameSub,' Coord_D=', Coord_D
+          write(*,*)NameSub,' CoordMin_DB=', CoordMin_DB(:,iBlock)
+          write(*,*)NameSub,' CoordMax_DB=', CoordMax_DB(:,iBlock)
           call CON_stop(NameSub//': incorrect coordinates')
        end if
 
