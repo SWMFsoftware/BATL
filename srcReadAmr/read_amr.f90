@@ -54,7 +54,6 @@ program read_amr_test
 
   ! Select a point inside the domain
   Coord_D = CoordMin_D + 0.2*(CoordMax_D - CoordMin_D)
-  if(iProc==0) write(*,*) 'Coord_D = ', Coord_D
   call coord_to_xyz(Coord_D, Xyz_D)
 
   ! Allocate state array. Zero index is needed for interpolation weight!
