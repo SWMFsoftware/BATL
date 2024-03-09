@@ -468,7 +468,7 @@ test_readamr_1d:
 
 test_readamr_2d:
 	echo "test_readamr_2d_compile" > readamr_2d.diff
-	./Config.pl -mpi -double -g=4,4,1 -r=2,2,1 -ng=0
+	./Config.pl -mpi -double -g=4,4,1 -r=2,2,1 -ng=2
 	@(make READAMR)
 	echo "test_readamr_2d_run" >> readamr_2d.diff
 	(cd run; ${MPIRUN} ./READAMR.exe > readamr_2d.ref)
