@@ -109,6 +109,10 @@ program read_amr_test
   if(iProc==0)write(*,*) NameCode,' check state on (n+1)^3 grid. n=', n
 
   do k = 0, n; do j=0, n; do i = 0, n
+
+     ! Skip edges
+     if(nG > 0 .and. (i==0 .or. i==n)) CYCLE
+     
      ! Note the division by the total weight. Usually it is 1.0 but
      ! it can be different at the outer boundaries
      ! or at the edges and corners of resolution changes.
