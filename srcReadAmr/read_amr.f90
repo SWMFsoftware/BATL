@@ -7,7 +7,7 @@ program read_amr_test
        readamr_read, readamr_get, readamr_clean
   use ModConst, ONLY: cPi
   use ModUtilities, ONLY: CON_stop
-  use ModMpi, ONLY: MPI_REAL, MPI_SUM, MPI_allreduce
+  use ModMpi, ONLY: MPI_REAL, MPI_SUM, MPI_allreduce, MPI_IN_PLACE
 
   implicit none
 
@@ -17,8 +17,7 @@ program read_amr_test
   integer, parameter:: n = 10 ! number of test points in all directions
 
   real :: Xyz_D(3), Coord_D(3), State_D(nDim), Cos2_D(nDim), Tolerance = 1e-6
-  real, allocatable:: State_V(:), StateLocal_V(:)
-  real, allocatable:: State_VIII(:,:,:,:), StateLocal_VIII(:,:,:,:)
+  real, allocatable:: State_V(:), State_VIII(:,:,:,:)
   integer:: i, j, k, iError, iProcFound
   logical:: IsFound
   character(len=*), parameter:: NameCode='READAMRTEST'
@@ -62,14 +61,9 @@ program read_amr_test
   ! Get data at this point
   call readamr_get(Xyz_D, State_V, IsFound)
 
-  if(nProc > 1)then
-     ! When running in parallel the contributions need to be collected
-     allocate(StateLocal_V(0:nVar))
-     StateLocal_V = State_V
-     call MPI_allreduce(StateLocal_V, State_V, size(State_V), &
-          MPI_REAL, MPI_SUM, iComm, iError)
-     deallocate(StateLocal_V)
-  end if
+  ! When running in parallel the contributions need to be collected
+  if(nProc > 1)call MPI_allreduce(MPI_IN_PLACE, State_V, size(State_V), &
+       MPI_REAL, MPI_SUM, iComm, iError)
 
   if(iProc==0)then
      write(*,*) NameCode,' at Xyz_D=', Xyz_D
@@ -108,14 +102,9 @@ program read_amr_test
      end if
   end do; end do; end do
 
-  if(nProc > 0)then
-     ! When running in parallel the contributions need to be collected
-     allocate(StateLocal_VIII(0:nVar,0:n,0:n,0:n))
-     StateLocal_VIII = State_VIII
-     call MPI_allreduce(StateLocal_VIII, State_VIII, size(State_VIII), &
-          MPI_REAL, MPI_SUM, iComm, iError)
-     deallocate(StateLocal_VIII)
-  end if
+  ! When running in parallel the contributions need to be collected
+  if(nProc > 0)call MPI_allreduce(MPI_IN_PLACE, State_VIII, size(State_VIII), &
+       MPI_REAL, MPI_SUM, iComm, iError)
 
   if(iProc==0)write(*,*) NameCode,' check state on (n+1)^3 grid. n=', n
 
