@@ -43,7 +43,7 @@ EXE_C:  ${MY_EXE_C}
 # Link with the NOMPI library. 
 ${MY_EXE_C}: LIB read_amr_c.o
 	${LINK.f90} ${NOMAINFLAG} -o ${MY_EXE_C} read_amr_c.o \
-		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${MPILIB}
+		-L${LIBDIR} -lREADAMR -lTIMING -lSHARE ${MPILIB} ${Lflag}
 
 clean: cleanfiles
 
