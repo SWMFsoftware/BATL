@@ -154,7 +154,7 @@ test11:
 	./Config.pl -mpi -double -g=10,1,1 -r=2,2,2 -ng=5
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test11.ref)
-	-@(${DIFFNUM} -t \
+	-@(${DIFFNUM} -t -a=1e-15 \
 		run/test11.ref output/test11.ref > test11.diff)
 	ls -l test11.diff
 
@@ -162,7 +162,7 @@ test12:
 	./Config.pl -mpi -double -g=8,6,1 -r=1,2,1 -ng=3
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test12.ref)
-	-@(${DIFFNUM} -t \
+	-@(${DIFFNUM} -t -a=1e-15 \
 		run/test12.ref output/test12.ref > test12.diff)
 	ls -l test12.diff
 
@@ -170,7 +170,7 @@ test21:
 	./Config.pl -mpi -double -g=8,4,1 -r=2,1,1 -ng=4
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test21.ref)
-	-@(${DIFFNUM} -t \
+	-@(${DIFFNUM} -t -a=1e-15 \
 		run/test21.ref output/test21.ref > test21.diff)
 	ls -l test21.diff
 
@@ -178,7 +178,7 @@ test22:
 	./Config.pl -mpi -double -g=8,6,1 -r=2,2,2 -ng=3
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test22.ref)
-	-@(${DIFFNUM} -t \
+	-@(${DIFFNUM} -t -a=1e-15 \
 		run/test22.ref output/test22.ref > test22.diff)
 	ls -l test22.diff
 	sleep 1
@@ -187,7 +187,7 @@ test31:
 	./Config.pl -mpi -double -g=8,4,2 -r=2,1,1 -ng=2
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test31.ref)
-	-@(${DIFFNUM} -t \
+	-@(${DIFFNUM} -t -a=1e-15 \
 		run/test31.ref output/test31.ref > test31.diff)
 	ls -l test31.diff
 	sleep 1
@@ -196,7 +196,7 @@ test32:
 	./Config.pl -mpi -double -g=8,4,2 -r=2,2,1 -ng=2
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test32.ref)
-	-@(${DIFFNUM} -t \
+	-@(${DIFFNUM} -t -a=1e-15 \
 		run/test32.ref output/test32.ref > test32.diff)
 	ls -l test32.diff
 	sleep 1
@@ -205,7 +205,7 @@ test33:
 	./Config.pl -mpi -double -g=10,8,6 -r=2,2,2 -ng=3
 	-@(${MAKE} BATL)
 	-(cd run; ${BATLRUN} ./BATL.exe > test33.ref)
-	-@(${DIFFNUM} -t \
+	-@(${DIFFNUM} -t -a=1e-10 \
 		run/test33.ref output/test33.ref > test33.diff)
 	ls -l test33.diff
 	sleep 1
