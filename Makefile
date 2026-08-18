@@ -67,6 +67,7 @@ run:
 		ln -s ${BINDIR}/READAMR_C.exe .; \
 		ln -s ${BINDIR}/PostIDL.exe .; \
 		ln -s ${SCRIPTDIR}/pIDL .; \
+		ln -s ${SCRIPTDIR}/PostProc.pl .; \
 		ln -s ${DIR}/data .
 
 .NOTPARALLEL: BATL ADVECT GAME READAMRLIB WRAPAMRLIB READAMR READAMR_C
@@ -233,8 +234,9 @@ test_advect11:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect11.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect11.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect11; \
+		  mv advect.log advect11.log)
 	${MAKE} test_advect11_check
 
 test_advect12:
@@ -242,8 +244,9 @@ test_advect12:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect12.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect12.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect12; \
+		  mv advect.log advect12.log)
 	${MAKE} test_advect12_check
 
 test_advect21:
@@ -251,8 +254,9 @@ test_advect21:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect21.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect21.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect21; \
+		  mv advect.log advect21.log)
 	${MAKE} test_advect21_check
 
 test_advect22: 
@@ -260,8 +264,9 @@ test_advect22:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect22.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect22; \
+		  mv advect.log advect22.log)
 	${MAKE} test_advect22_check
 
 test_advect22_rot:
@@ -269,8 +274,9 @@ test_advect22_rot:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rotcart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect22.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect22_rot; \
+		  mv advect.log advect22.log)
 	${MAKE} test_advect22_rot_check
 
 test_advect22_rz: 
@@ -278,8 +284,9 @@ test_advect22_rz:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22_rz.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rz run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect22_rz.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect22_rz; \
+		  mv advect.log advect22_rz.log)
 	${MAKE} test_advect22_rz_check
 
 test_advect22_cyl: 
@@ -287,8 +294,9 @@ test_advect22_cyl:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22_cyl.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cyl run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect22_cyl.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect22_cyl; \
+		  mv advect.log advect22_cyl.log)
 	${MAKE} test_advect22_cyl_check
 
 test_advect22_round: 
@@ -296,8 +304,9 @@ test_advect22_round:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect22_round.log
 	rm -f input/PARAM.in; cp input/PARAM.in.round run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect22_round.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect22_round; \
+		  mv advect.log advect22_round.log)
 	${MAKE} test_advect22_round_check
 
 test_advect33_sph: 
@@ -305,8 +314,9 @@ test_advect33_sph:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33_sph.log
 	rm -f input/PARAM.in; cp input/PARAM.in.sph run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect33_sph.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect33_sph; \
+		  mv advect.log advect33_sph.log)
 	${MAKE} test_advect33_sph_check
 
 test_advect33_rlonlat:
@@ -314,8 +324,9 @@ test_advect33_rlonlat:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33_rlonlat.log
 	rm -f input/PARAM.in; cp input/PARAM.in.rlonlat run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect33_rlonlat.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect33_rlonlat; \
+		  mv advect.log advect33_rlonlat.log)
 	${MAKE} test_advect33_rlonlat_check
 
 test_advect33_round: 
@@ -323,8 +334,9 @@ test_advect33_round:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33_round.log
 	rm -f input/PARAM.in; cp input/PARAM.in.round3d run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect33_round.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect33_round; \
+		  mv advect.log advect33_round.log)
 	${MAKE} test_advect33_round_check
 
 test_advect33_cubed: 
@@ -332,8 +344,9 @@ test_advect33_cubed:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/cubed33_cubed.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cubed3d run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect33_cubed.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect33_cubed; \
+		  mv advect.log advect33_cubed.log)
 	${MAKE} test_advect33_cubed_check
 
 test_advect31: 
@@ -341,8 +354,9 @@ test_advect31:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect31.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect31.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect31; \
+		  mv advect.log advect31.log)
 	${MAKE} test_advect31_check
 
 test_advect32:
@@ -350,8 +364,9 @@ test_advect32:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect32.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect32.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect32; \
+		  mv advect.log advect32.log)
 	${MAKE} test_advect32_check
 
 test_advect33: 
@@ -359,8 +374,9 @@ test_advect33:
 	-@(${MAKE} ADVECT PIDL)
 	rm -rf run/plots/* run/runlog run/advect33.log
 	rm -f input/PARAM.in; cp input/PARAM.in.cart run/PARAM.in
-	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; ./pIDL -M; \
-		   mv advect.log advect33.log)
+	-(cd run; ${MPIRUN} ./ADVECT.exe > runlog; \
+		  ./PostProc.pl -replace -M advect33; \
+		  mv advect.log advect33.log)
 	${MAKE} test_advect33_check
 
 test_advect11_check:
