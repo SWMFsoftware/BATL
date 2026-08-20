@@ -4,10 +4,8 @@ cubedsphere	TypeGeometry
 #GRIDTYPE
 T		IsNodeBasedGrid
 
-#VELOCITY
-0.2		Ux
-6.0		Uy
-0.4		Uz
+#ROTATINGFLOW
+45.0		AngularVelocity
 
 #GRID
 3		nRootX
@@ -22,8 +20,8 @@ T		IsNodeBasedGrid
 
 #PERIODIC
 F		IsPeriod1
-F		IsPeriod2
-F		IsPeriod3
+T		IsPeriod2
+T		IsPeriod3
 
 #BLOB
 3.0		Radius
