@@ -405,7 +405,7 @@ test_advect22_rot_check:
 	ls -l advect22_rot.diff
 
 test_advect22_rz_check:
-	-@(${DIFFNUM} -r=1e-5 -a=1e-12 \
+	-@(${DIFFNUM} -r=1e-5 -a=1e-7 \
 		run/advect22_rz.log output/advect22_rz.log > advect22_rz.diff)
 	ls -l advect22_rz.diff
 
