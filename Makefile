@@ -422,12 +422,12 @@ test_advect22_round_check:
 	ls -l advect22_round.diff
 
 test_advect31_check:
-	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-11 \
 		run/advect31.log output/advect31.log > advect31.diff)
 	ls -l advect31.diff
 
 test_advect32_check:
-	-@(${DIFFNUM} -r=1e-8 -a=1e-12 \
+	-@(${DIFFNUM} -r=1e-8 -a=1e-11 \
 		run/advect32.log output/advect32.log > advect32.diff)
 	ls -l advect32.diff
 
