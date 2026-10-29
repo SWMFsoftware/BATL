@@ -543,7 +543,7 @@ contains
     else
        if(IsCartesianGrid)then
           ! Failed test on spherical grid
-          if(nG == 0)then
+          if(nG < 99)then
              call interpolate_grid_amr(Xyz_D, nCell, iCell_II, Weight_I)
           else
              call interpolate_grid_amr_gc(Xyz_D, nCell, iCell_II, Weight_I)
